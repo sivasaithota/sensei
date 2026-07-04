@@ -45,11 +45,20 @@ def evaluate_strategy(name: str, spec: dict, symbols: list[str]) -> dict:
         trades = [t for r in results for t in r.trades]
         if not trades:
             return {"trades": 0, "hit_rate": 0.0, "expectancy_pct": 0.0}
-        rets = [t.ret_pct for t in trades]
+        rets = np.array([t.ret_pct for t in trades])
+        wins, losses = rets[rets > 0], rets[rets <= 0]
+        reasons = [t.exit_reason for t in trades]
         return {
             "trades": len(trades),
-            "hit_rate": round(float(np.mean([r > 0 for r in rets])), 3),
-            "expectancy_pct": round(float(np.mean(rets)), 3),
+            "hit_rate": round(float(np.mean(rets > 0)), 3),
+            "expectancy_pct": round(float(rets.mean()), 3),
+            # loss-distribution context the Devil's Advocate needs:
+            "avg_win_pct": round(float(wins.mean()), 2) if len(wins) else 0.0,
+            "avg_loss_pct": round(float(losses.mean()), 2) if len(losses) else 0.0,
+            "worst_trade_pct": round(float(rets.min()), 2),
+            "pct_exit_target": round(reasons.count("target") / len(trades), 3),
+            "pct_exit_stop": round(reasons.count("stop") / len(trades), 3),
+            "pct_exit_time": round(reasons.count("time") / len(trades), 3),
         }
 
     is_stats, oos_stats = agg(ins), agg(oos)

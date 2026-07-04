@@ -50,16 +50,27 @@ def size_position(price: float, stop: float, cfg: RiskConfig) -> int:
 
 
 def _facts(df, symbol: str) -> dict:
-    """Objective, citable numbers the Analyst builds its narrative from."""
+    """Objective, citable numbers the Analyst builds its narrative from.
+
+    Includes exact levels (200-DMA, 55-day breakout, 52w high) so the
+    thesis can reconcile its stop with its invalidation conditions —
+    the gap the Devil's Advocate exposed on day one.
+    """
     close = df["close"]
     last = df.iloc[-1]
+    dma200 = float(close.rolling(200).mean().iloc[-1]) if len(df) >= 200 else None
+    high_52w = float(df["high"].tail(250).max())
+    high_55d = float(df["close"].rolling(55).max().shift(1).iloc[-1])
     return {
         "date": str(df.index[-1].date()),
         "close": round(float(last["close"]), 2),
-        "pct_from_52w_high": round(float(last["close"] / df["high"].tail(250).max() - 1) * 100, 1),
+        "high_52w": round(high_52w, 2),
+        "pct_from_52w_high": round(float(last["close"] / high_52w - 1) * 100, 1),
+        "breakout_level_55d": round(high_55d, 2),
+        "dma_200": round(dma200, 2) if dma200 else None,
+        "pct_above_200dma": round(float(last["close"] / dma200 - 1) * 100, 1) if dma200 else None,
         "ret_1m_pct": round(float(close.iloc[-1] / close.iloc[-21] - 1) * 100, 1) if len(df) > 21 else None,
         "ret_6m_pct": round(float(close.iloc[-1] / close.iloc[-126] - 1) * 100, 1) if len(df) > 126 else None,
-        "above_200dma": bool(last["close"] > close.rolling(200).mean().iloc[-1]) if len(df) >= 200 else None,
         "volume_vs_20d_avg": round(float(last["volume"] / df["volume"].tail(20).mean()), 2),
     }
 

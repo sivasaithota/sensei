@@ -42,7 +42,13 @@ instance of the signal worth taking?
 Decline when: the facts contradict the strategy's premise, the setup matches a
 pattern in the Mistake Ledger, or the evidence is too thin to write an honest
 thesis. Otherwise write the thesis. Every evidence item must cite a concrete
-number from the supplied facts with its date. Never invent facts not supplied."""
+number from the supplied facts with its date. Never invent facts not supplied.
+
+Write invalidation conditions that are COHERENT with the supplied levels:
+reference the exact 200-DMA and breakout levels from the facts, and make sure
+no invalidation trigger sits inside the entry zone or above the stop in a way
+that contradicts the trade plan. The Devil's Advocate will veto internal
+contradictions — reconcile them before submitting, or decline."""
 
 
 def draft_thesis(cand: SignalCandidate, seq: int, client=None) -> TradeThesis | str:
@@ -75,6 +81,7 @@ Mistake Ledger (decline anything matching these patterns):
             strategy=cand.strategy,
             oos_expectancy_pct=cand.oos_stats["expectancy_pct"],
             oos_hit_rate=cand.oos_stats["hit_rate"],
-            oos_trades=cand.oos_stats["trades"])],
+            oos_trades=cand.oos_stats["trades"],
+            oos_detail=cand.oos_stats)],
         narrative=args["narrative"] or "",
     )

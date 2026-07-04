@@ -22,6 +22,9 @@ class PlaybookCitation(BaseModel):
     oos_expectancy_pct: float
     oos_hit_rate: float
     oos_trades: int
+    oos_detail: dict = Field(
+        default_factory=dict,
+        description="Full out-of-sample stats: loss distribution, exit breakdown")
 
 
 class TradeThesis(BaseModel):
