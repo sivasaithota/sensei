@@ -14,6 +14,12 @@ from pathlib import Path
 CONFIG = Path(__file__).parent.parent / "config" / "risk.yaml"
 
 
+@pytest.fixture(autouse=True)
+def isolated_audit_log(tmp_path, monkeypatch):
+    import sensei.agents.chain as chain_mod
+    monkeypatch.setattr(chain_mod, "AUDIT_LOG", tmp_path / "audit.jsonl")
+
+
 def make_thesis(**over) -> TradeThesis:
     base = dict(
         id="TH-TEST-001", symbol="INFY", direction="BUY",

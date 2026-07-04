@@ -28,6 +28,8 @@ def main() -> None:
     sub.add_parser("resume")
     sub.add_parser("status")
     sub.add_parser("playbook")
+    ui_p = sub.add_parser("ui")
+    ui_p.add_argument("--port", type=int, default=8642)
     args = parser.parse_args()
 
     if args.cmd == "kill":
@@ -84,6 +86,11 @@ def main() -> None:
         for s in pb["strategies"]:
             mark = "ADOPTED " if s["adopted"] else "rejected"
             print(f"[{mark}] {s['name']:30s} oos={s['out_of_sample']}")
+        return
+
+    if args.cmd == "ui":
+        from sensei.ui.server import serve
+        serve(port=args.port)
         return
 
     if args.cmd == "run-day":
