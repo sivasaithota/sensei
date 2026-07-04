@@ -22,7 +22,7 @@ import shutil
 import subprocess
 
 MODEL = os.environ.get("SENSEI_MODEL", "claude-sonnet-4-6")
-_CLI_MODEL = os.environ.get("SENSEI_CLI_MODEL", "sonnet")
+_CLI_MODEL = os.environ.get("SENSEI_CLI_MODEL", "claude-sonnet-4-6")
 
 
 def backend() -> str:
