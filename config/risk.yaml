@@ -1,0 +1,13 @@
+# Hard risk rails (PRD §6). Tunable by the OWNER only — agents may never edit this file.
+capital: 50000            # ₹ total capital
+max_risk_per_trade_pct: 2.0     # max ₹ at risk (entry→stop) per trade, % of capital
+max_position_pct: 20.0          # max position size per stock, % of capital
+max_open_positions: 5
+daily_loss_halt_pct: 5.0        # kill-switch: halt for the day
+weekly_loss_halt_pct: 10.0      # circuit breaker: halt + Coach review + owner sign-off
+max_drawdown_pct: 40.0          # from peak equity: full stop, owner decision
+stop_loss_mandatory: true
+min_avg_daily_turnover_inr: 50000000   # ₹5 Cr liquidity floor
+leverage: false                  # cash only in v1
+banned_surveillance_stages: [2, 3, 4]  # GSM/ASM stage >= 2 excluded
+allowed_products: [CNC]          # delivery only in v1 (no MIS/intraday)

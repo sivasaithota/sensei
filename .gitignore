@@ -1,0 +1,7 @@
+data/prices/
+data/audit.jsonl
+data/paper/
+data/reports/
+__pycache__/
+.venv/
+*.egg-info/
