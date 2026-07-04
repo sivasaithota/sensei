@@ -104,18 +104,19 @@ def run_day(*, refresh: bool = True, client: anthropic.Anthropic | None = None,
         # strongest strategies first, then liquidity
         candidates.sort(key=lambda c: (-c.oos_stats["expectancy_pct"],
                                        -c.avg_daily_turnover_inr))
-        chain = ApprovalChain(
-            RiskRails(cfg), client=client,
-            portfolio_context="\n".join(
-                f"- {p.symbol} {p.direction} {p.quantity} @ {p.entry_price}"
-                for p in book.positions) or "flat",
-        )
+        chain = ApprovalChain(RiskRails(cfg), client=client)
         opened = 0
         for i, cand in enumerate(candidates):
             if opened >= MAX_NEW_POSITIONS_PER_DAY:
                 break
             if any(p.symbol == cand.symbol for p in book.positions):
                 continue  # already exposed
+            # refresh portfolio context per approval — L4 must see positions
+            # opened earlier in this same loop (sector concentration check)
+            chain.portfolio_context = "\n".join(
+                f"- {p.symbol} {p.direction} {p.quantity} @ {p.entry_price} "
+                f"(opened {p.opened})"
+                for p in book.positions) or "flat, no open positions"
             result = draft_thesis(cand, seq=i + 1, client=client)
             if isinstance(result, str):
                 summary["declined"].append({"symbol": cand.symbol, "reason": result})
