@@ -8,30 +8,23 @@ verdict. Every verdict is appended to the immutable audit log.
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-import anthropic
-
 from sensei.agents.thesis import ApprovalRecord, TradeThesis, Verdict
+from sensei.llm import structured_call
 from sensei.risk.rails import PortfolioState, RiskRails, TradeProposal
 
 AUDIT_LOG = Path(__file__).resolve().parents[3] / "data" / "audit.jsonl"
-MODEL = os.environ.get("SENSEI_MODEL", "claude-sonnet-4-6")
 
-VERDICT_TOOL = {
-    "name": "verdict",
-    "description": "Deliver your approval verdict on the trade thesis.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "approved": {"type": "boolean"},
-            "reasoning": {"type": "string",
-                          "description": "Concise reasoning for the verdict, citing thesis specifics."},
-        },
-        "required": ["approved", "reasoning"],
+VERDICT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "approved": {"type": "boolean"},
+        "reasoning": {"type": "string",
+                      "description": "Concise reasoning for the verdict, citing thesis specifics."},
     },
+    "required": ["approved", "reasoning"],
 }
 
 L2_SYSTEM = """You are the Devil's Advocate on a trading desk's approval committee.
@@ -65,26 +58,19 @@ def _audit(event: str, payload: dict) -> None:
                             "event": event, **payload}) + "\n")
 
 
-def _llm_verdict(client: anthropic.Anthropic, level: str, agent: str,
+def _llm_verdict(client, level: str, agent: str,
                  system: str, user_content: str) -> Verdict:
-    resp = client.messages.create(
-        model=MODEL,
-        max_tokens=1500,
-        system=system,
-        tools=[VERDICT_TOOL],
-        tool_choice={"type": "tool", "name": "verdict"},
-        messages=[{"role": "user", "content": user_content}],
-    )
-    args = next(b.input for b in resp.content if b.type == "tool_use")
+    args = structured_call(system=system, user=user_content,
+                           schema=VERDICT_SCHEMA, name="verdict", client=client)
     return Verdict(level=level, agent=agent, approved=args["approved"],
                    reasoning=args["reasoning"])
 
 
 class ApprovalChain:
-    def __init__(self, rails: RiskRails, client: anthropic.Anthropic | None = None,
+    def __init__(self, rails: RiskRails, client=None,
                  portfolio_context: str = "", regime_context: str = ""):
         self.rails = rails
-        self.client = client or anthropic.Anthropic()
+        self.client = client
         self.portfolio_context = portfolio_context
         self.regime_context = regime_context
 

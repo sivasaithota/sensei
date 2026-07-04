@@ -8,37 +8,29 @@ it must decline signals matching a known pattern.
 
 from __future__ import annotations
 
-import os
 from datetime import date
 
-import anthropic
-
 from sensei.agents.thesis import PlaybookCitation, TradeThesis
+from sensei.llm import structured_call
 from sensei.loop.scanner import SignalCandidate
 from sensei.paper.coach import ledger_summary
 
-MODEL = os.environ.get("SENSEI_MODEL", "claude-sonnet-4-6")
-
-DRAFT_TOOL = {
-    "name": "draft_thesis",
-    "description": "Draft the trade thesis, or decline the signal.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "proceed": {"type": "boolean",
-                        "description": "false = decline this signal entirely"},
-            "decline_reason": {"type": ["string", "null"]},
-            "narrative": {"type": ["string", "null"],
-                          "description": "Plain-language thesis the owner can read: "
-                                         "what we're buying, why now, what kills the idea."},
-            "invalidation": {"type": ["string", "null"],
-                             "description": "Conditions under which the thesis is dead "
-                                            "even before the stop is hit."},
-            "evidence": {"type": ["array", "null"], "items": {"type": "string"},
-                         "description": "Each item cites a specific fact WITH its source/date."},
-        },
-        "required": ["proceed", "decline_reason", "narrative", "invalidation", "evidence"],
+DRAFT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "proceed": {"type": "boolean",
+                    "description": "false = decline this signal entirely"},
+        "decline_reason": {"type": ["string", "null"]},
+        "narrative": {"type": ["string", "null"],
+                      "description": "Plain-language thesis the owner can read: "
+                                     "what we're buying, why now, what kills the idea."},
+        "invalidation": {"type": ["string", "null"],
+                         "description": "Conditions under which the thesis is dead "
+                                        "even before the stop is hit."},
+        "evidence": {"type": ["array", "null"], "items": {"type": "string"},
+                     "description": "Each item cites a specific fact WITH its source/date."},
     },
+    "required": ["proceed", "decline_reason", "narrative", "invalidation", "evidence"],
 }
 
 ANALYST_SYSTEM = """You are the Analyst on a systematic swing-trading desk for Indian
@@ -53,14 +45,9 @@ thesis. Otherwise write the thesis. Every evidence item must cite a concrete
 number from the supplied facts with its date. Never invent facts not supplied."""
 
 
-def draft_thesis(cand: SignalCandidate, seq: int,
-                 client: anthropic.Anthropic | None = None) -> TradeThesis | str:
+def draft_thesis(cand: SignalCandidate, seq: int, client=None) -> TradeThesis | str:
     """Returns a TradeThesis, or a decline-reason string."""
-    client = client or anthropic.Anthropic()
-    resp = client.messages.create(
-        model=MODEL, max_tokens=1500, system=ANALYST_SYSTEM,
-        tools=[DRAFT_TOOL], tool_choice={"type": "tool", "name": "draft_thesis"},
-        messages=[{"role": "user", "content": f"""Signal candidate:
+    user = f"""Signal candidate:
 - Symbol: {cand.symbol}
 - Strategy: {cand.strategy} (out-of-sample: {cand.oos_stats})
 - Last close: {cand.close}, stop: {cand.stop_loss} (-{cand.stop_pct}%), target: {cand.target} (+{cand.target_pct}%)
@@ -69,9 +56,9 @@ def draft_thesis(cand: SignalCandidate, seq: int,
 - Computed facts: {cand.facts}
 
 Mistake Ledger (decline anything matching these patterns):
-{ledger_summary()}"""}],
-    )
-    args = next(b.input for b in resp.content if b.type == "tool_use")
+{ledger_summary()}"""
+    args = structured_call(system=ANALYST_SYSTEM, user=user,
+                           schema=DRAFT_SCHEMA, name="draft_thesis", client=client)
     if not args["proceed"]:
         return args["decline_reason"] or "declined without reason"
 

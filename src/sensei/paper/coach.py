@@ -9,42 +9,35 @@ new proposal is checked against.
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-import anthropic
-
+from sensei.llm import structured_call
 from sensei.paper.engine import ClosedTrade
 
 LEDGER_FILE = Path(__file__).resolve().parents[3] / "data" / "mistake_ledger.jsonl"
-MODEL = os.environ.get("SENSEI_MODEL", "claude-sonnet-4-6")
 
-POST_MORTEM_TOOL = {
-    "name": "post_mortem",
-    "description": "Deliver the structured post-mortem for a closed trade.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "category": {
-                "type": "string",
-                "enum": ["right-thesis/right-outcome", "right-thesis/wrong-outcome",
-                         "wrong-thesis/right-outcome", "wrong-thesis/wrong-outcome"],
-                "description": "wrong-thesis/right-outcome is the DANGEROUS one — luck rewarded",
-            },
-            "thesis_assessment": {"type": "string"},
-            "execution_assessment": {"type": "string"},
-            "lesson": {"type": "string",
-                       "description": "One transferable lesson, phrased as a rule"},
-            "mistake_pattern": {
-                "type": ["string", "null"],
-                "description": "If a repeatable failure pattern is visible, name it "
-                               "for the Mistake Ledger; null if none.",
-            },
+POST_MORTEM_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "category": {
+            "type": "string",
+            "enum": ["right-thesis/right-outcome", "right-thesis/wrong-outcome",
+                     "wrong-thesis/right-outcome", "wrong-thesis/wrong-outcome"],
+            "description": "wrong-thesis/right-outcome is the DANGEROUS one — luck rewarded",
         },
-        "required": ["category", "thesis_assessment", "execution_assessment",
-                     "lesson", "mistake_pattern"],
+        "thesis_assessment": {"type": "string"},
+        "execution_assessment": {"type": "string"},
+        "lesson": {"type": "string",
+                   "description": "One transferable lesson, phrased as a rule"},
+        "mistake_pattern": {
+            "type": ["string", "null"],
+            "description": "If a repeatable failure pattern is visible, name it "
+                           "for the Mistake Ledger; null if none.",
+        },
     },
+    "required": ["category", "thesis_assessment", "execution_assessment",
+                 "lesson", "mistake_pattern"],
 }
 
 COACH_SYSTEM = """You are the Coach — the self-improvement engine of a trading system.
@@ -57,18 +50,12 @@ transferable lesson per trade. Only report a mistake_pattern when the same class
 of error could plausibly recur."""
 
 
-def run_post_mortem(trade: ClosedTrade,
-                    client: anthropic.Anthropic | None = None) -> dict:
-    client = client or anthropic.Anthropic()
-    resp = client.messages.create(
-        model=MODEL, max_tokens=1200, system=COACH_SYSTEM,
-        tools=[POST_MORTEM_TOOL],
-        tool_choice={"type": "tool", "name": "post_mortem"},
-        messages=[{"role": "user", "content":
-                   f"Post-mortem this closed trade:\n"
-                   f"{json.dumps({k: v for k, v in trade.__dict__.items() if k != 'post_mortem'}, indent=2)}"}],
-    )
-    pm = next(b.input for b in resp.content if b.type == "tool_use")
+def run_post_mortem(trade: ClosedTrade, client=None) -> dict:
+    pm = structured_call(
+        system=COACH_SYSTEM, name="post_mortem", schema=POST_MORTEM_SCHEMA,
+        user=(f"Post-mortem this closed trade:\n"
+              f"{json.dumps({k: v for k, v in trade.__dict__.items() if k != 'post_mortem'}, indent=2)}"),
+        client=client)
     if pm.get("mistake_pattern"):
         record_mistake(pm["mistake_pattern"], trade.thesis_id)
     return pm
