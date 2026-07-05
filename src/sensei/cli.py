@@ -21,6 +21,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="sensei")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("run-day")
+    sub.add_parser("execute-open")
     scan_p = sub.add_parser("scan")
     scan_p.add_argument("--no-refresh", action="store_true")
     sub.add_parser("report")
@@ -86,6 +87,11 @@ def main() -> None:
         for s in pb["strategies"]:
             mark = "ADOPTED " if s["adopted"] else "rejected"
             print(f"[{mark}] {s['name']:30s} oos={s['out_of_sample']}")
+        return
+
+    if args.cmd == "execute-open":
+        from sensei.loop.openexec import execute_pending
+        print(json.dumps(execute_pending(), indent=2))
         return
 
     if args.cmd == "ui":

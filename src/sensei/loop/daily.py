@@ -104,19 +104,22 @@ def run_day(*, refresh: bool = True, client: anthropic.Anthropic | None = None,
         # strongest strategies first, then liquidity
         candidates.sort(key=lambda c: (-c.oos_stats["expectancy_pct"],
                                        -c.avg_daily_turnover_inr))
+        from sensei.loop.openexec import load_pending
         chain = ApprovalChain(RiskRails(cfg), client=client)
         opened = 0
         for i, cand in enumerate(candidates):
             if opened >= MAX_NEW_POSITIONS_PER_DAY:
                 break
-            if any(p.symbol == cand.symbol for p in book.positions):
-                continue  # already exposed
+            pending_syms = {p["record"]["thesis"]["symbol"] for p in load_pending()}
+            if any(p.symbol == cand.symbol for p in book.positions) \
+                    or cand.symbol in pending_syms:
+                continue  # already exposed or already queued
             # refresh portfolio context per approval — L4 must see positions
-            # opened earlier in this same loop (sector concentration check)
-            chain.portfolio_context = "\n".join(
-                f"- {p.symbol} {p.direction} {p.quantity} @ {p.entry_price} "
-                f"(opened {p.opened})"
-                for p in book.positions) or "flat, no open positions"
+            # and queued orders from earlier in this same loop
+            held = [f"- {p.symbol} {p.direction} {p.quantity} @ {p.entry_price} "
+                    f"(opened {p.opened})" for p in book.positions]
+            queued = [f"- {s} (approved, queued for next open)" for s in pending_syms]
+            chain.portfolio_context = "\n".join(held + queued) or "flat, no open positions"
             result = draft_thesis(cand, seq=i + 1, client=client)
             if isinstance(result, str):
                 summary["declined"].append({"symbol": cand.symbol, "reason": result})
@@ -128,10 +131,17 @@ def run_day(*, refresh: bool = True, client: anthropic.Anthropic | None = None,
                                           "by": record.vetoed_by,
                                           "reason": record.verdicts[-1].reasoning})
                 continue
-            pos = book.open_from(record, fill_price=cand.close, today=today)
+            # decide now, execute at next open (matches backtest semantics:
+            # signal on close T, fill at open T+1 via `sensei execute-open`)
+            from sensei.loop.openexec import queue_order
+            queue_order(record)
             opened += 1
-            summary["opened"].append({"symbol": pos.symbol, "qty": pos.quantity,
-                                      "entry": pos.entry_price, "stop": pos.stop_loss})
+            summary["opened"].append({"symbol": record.thesis.symbol,
+                                      "qty": record.thesis.quantity,
+                                      "queued_for_open": True,
+                                      "entry_zone": [record.thesis.entry_zone_low,
+                                                     record.thesis.entry_zone_high],
+                                      "stop": record.thesis.stop_loss})
 
     # 3. EOD report
     summary["report"] = str(generate_eod_report(book, today=today))
