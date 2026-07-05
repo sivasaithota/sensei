@@ -15,6 +15,9 @@ def isolated_dirs(tmp_path, monkeypatch):
     monkeypatch.setattr(eng, "POSITIONS_FILE", tmp_path / "positions.json")
     monkeypatch.setattr(eng, "CLOSED_FILE", tmp_path / "closed.jsonl")
     monkeypatch.setattr(daily, "KILL_FILE", tmp_path / "KILL")
+    import sensei.data.events as events
+    monkeypatch.setattr(events, "CACHE_FILE", tmp_path / "earnings_cache.json")
+    monkeypatch.setattr(events, "next_earnings_date", lambda s: None)  # no network
     yield
 
 

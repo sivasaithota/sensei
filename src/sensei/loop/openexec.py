@@ -83,6 +83,13 @@ def execute_pending(today: date | None = None) -> dict:
             summary["skipped"].append({"id": t.id, "reason": "already holding symbol — dropped"})
             continue
 
+        # earnings window can open between approval and fill (calendar updates)
+        from sensei.data.events import in_no_trade_window
+        blocked, why = in_no_trade_window(t.symbol, on=today)
+        if blocked:
+            summary["skipped"].append({"id": t.id, "reason": f"events guard: {why} — dropped"})
+            continue
+
         price = live_price(t.symbol)
         if price is None:
             summary["skipped"].append({"id": t.id, "reason": "no live quote — retained"})

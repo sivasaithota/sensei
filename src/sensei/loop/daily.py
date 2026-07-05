@@ -101,11 +101,30 @@ def run_day(*, refresh: bool = True, client: anthropic.Anthropic | None = None,
     if not kill_switch_active():
         candidates = scan(cfg=cfg)
         summary["signals"] = len(candidates)
+
+        # earnings no-trade windows — code-level guard, not agent judgment
+        from sensei.data.events import in_no_trade_window
+        kept = []
+        for cand in candidates:
+            blocked, reason = in_no_trade_window(cand.symbol, on=today)
+            if blocked:
+                summary["declined"].append({"symbol": cand.symbol,
+                                            "reason": f"events guard: {reason}"})
+            else:
+                cand.facts["earnings"] = reason  # date or 'unknown' — for the agents
+                kept.append(cand)
+        candidates = kept
+
+        # regime context for the L4 Orchestrator
+        from sensei.data.regime import compute_regime
+        regime = compute_regime()
+        summary["regime"] = regime.summary()
         # strongest strategies first, then liquidity
         candidates.sort(key=lambda c: (-c.oos_stats["expectancy_pct"],
                                        -c.avg_daily_turnover_inr))
         from sensei.loop.openexec import load_pending
-        chain = ApprovalChain(RiskRails(cfg), client=client)
+        chain = ApprovalChain(RiskRails(cfg), client=client,
+                              regime_context=regime.summary())
         opened = 0
         for i, cand in enumerate(candidates):
             if opened >= MAX_NEW_POSITIONS_PER_DAY:
