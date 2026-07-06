@@ -63,7 +63,11 @@ extract principles as TESTABLE rules in a constrained indicator grammar.
 
 Available indicators (daily): close, open, high, low, volume, sma_N, vol_sma_N,
 highest_N (prior N-day high of close), lowest_N, rsi_N, ret_N (% return over N
-days), high_52w. Conditions compare left OP right*factor and are AND-ed.
+days), high_52w, range_ratio_N (today's range vs N-day avg range).
+Candlestick patterns as 1.0/0.0 series (require with `> 0.5`, exclude with
+`< 0.5`): bullish_engulfing, hammer (long lower shadow after a dip),
+strong_close (close in top quartile of range), inside_day_breakout.
+Conditions compare left OP right*factor and are AND-ed.
 
 Rules:
 - Express the SOURCE's idea faithfully. Do not invent numbers the source doesn't

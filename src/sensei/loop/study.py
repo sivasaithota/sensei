@@ -18,6 +18,17 @@ from sensei.backtest.playbook import PLAYBOOK_DIR, build_playbook
 from sensei.agents.scholar import extract_rules
 
 STUDIED_FILE = Path(__file__).resolve().parents[3] / "data" / "studied_rules.json"
+PRINCIPLES_FILE = Path(__file__).resolve().parents[3] / "data" / "principles.jsonl"
+
+
+def _persist_notes(notes: list[str], material_head: str) -> None:
+    """Untestable principles are still knowledge — keep them durably so
+    judgment agents (Analyst, Devil's Advocate, Coach) can draw on them."""
+    import datetime
+    with PRINCIPLES_FILE.open("a") as f:
+        for n in notes:
+            f.write(json.dumps({"ts": datetime.date.today().isoformat(),
+                                "material": material_head[:80], "note": n}) + "\n")
 
 
 def _load() -> list[dict]:
@@ -29,6 +40,8 @@ def _load() -> list[dict]:
 def study(material: str, client=None) -> dict:
     """Full loop: extract → persist specs → rebuild Playbook → report."""
     specs, notes = extract_rules(material, client=client)
+    if notes:
+        _persist_notes(notes, material.strip().splitlines()[0] if material.strip() else "")
 
     existing = _load()
     known = {r["name"] for r in existing}

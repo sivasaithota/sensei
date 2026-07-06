@@ -71,6 +71,40 @@ def test_param_bounds_enforced():
         spec([{"left": "close", "op": ">", "right": 1}], max_hold_days=365)
 
 
+def test_bullish_engulfing_detector():
+    s = spec([{"left": "bullish_engulfing", "op": ">", "right": 0.5}])
+    df = make_df(20)
+    # day 10: red candle; day 11: green body engulfing it
+    df.iloc[10, df.columns.get_loc("open")] = 102.0
+    df.iloc[10, df.columns.get_loc("close")] = 99.0
+    df.iloc[11, df.columns.get_loc("open")] = 98.5
+    df.iloc[11, df.columns.get_loc("close")] = 103.0
+    sig = compile_spec(s)(df)
+    assert bool(sig.iloc[11]) and not bool(sig.iloc[10])
+
+
+def test_strong_close_detector():
+    s = spec([{"left": "strong_close", "op": ">", "right": 0.5}])
+    df = make_df(10)
+    df.iloc[5, df.columns.get_loc("low")] = 95.0
+    df.iloc[5, df.columns.get_loc("high")] = 101.0
+    df.iloc[5, df.columns.get_loc("close")] = 100.5   # top quartile of 95-101
+    df.iloc[6, df.columns.get_loc("low")] = 95.0
+    df.iloc[6, df.columns.get_loc("high")] = 101.0
+    df.iloc[6, df.columns.get_loc("close")] = 96.0    # bottom of range
+    sig = compile_spec(s)(df)
+    assert bool(sig.iloc[5]) and not bool(sig.iloc[6])
+
+
+def test_range_ratio():
+    s = spec([{"left": "range_ratio_20", "op": ">", "right": 2.0}])
+    df = make_df(50)
+    df.iloc[40, df.columns.get_loc("high")] = 110.0   # huge range day vs 2% avg
+    df.iloc[40, df.columns.get_loc("low")] = 95.0
+    sig = compile_spec(s)(df)
+    assert bool(sig.iloc[40]) and not bool(sig.iloc[39])
+
+
 def test_no_lookahead_in_highest():
     """highest_N must be the PRIOR N days — today's own high can't confirm itself."""
     s = spec([{"left": "close", "op": ">", "right": "highest_10"}])

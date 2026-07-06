@@ -392,6 +392,237 @@
       "adopted": false,
       "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)",
       "principle": "Gaps in trend direction that hold above the prior day's range tend to run; fading gaps against the bigger trend is low-probability."
+    },
+    {
+      "name": "sadekar_bullish_engulfing_support",
+      "params": {
+        "stop_pct": 4.0,
+        "target_pct": 10.0,
+        "max_hold_days": 20
+      },
+      "in_sample": {
+        "trades": 347,
+        "hit_rate": 0.392,
+        "expectancy_pct": 0.657,
+        "avg_win_pct": 8.12,
+        "avg_loss_pct": -4.15,
+        "worst_trade_pct": -4.25,
+        "pct_exit_target": 0.28,
+        "pct_exit_stop": 0.585,
+        "pct_exit_time": 0.135
+      },
+      "out_of_sample": {
+        "trades": 121,
+        "hit_rate": 0.347,
+        "expectancy_pct": -0.226,
+        "avg_win_pct": 6.62,
+        "avg_loss_pct": -3.87,
+        "worst_trade_pct": -4.25,
+        "pct_exit_target": 0.165,
+        "pct_exit_stop": 0.579,
+        "pct_exit_time": 0.256
+      },
+      "adopted": false,
+      "source": "Sadekar \u2014 How to Make Money Trading with Candlestick Charts",
+      "principle": "Bullish engulfing after a decline, at or near a moving-average support zone, confirmed by above-average volume, in a larger uptrend."
+    },
+    {
+      "name": "sadekar_hammer_confirmation",
+      "params": {
+        "stop_pct": 5.0,
+        "target_pct": 10.0,
+        "max_hold_days": 15
+      },
+      "in_sample": {
+        "trades": 1935,
+        "hit_rate": 0.427,
+        "expectancy_pct": 0.317,
+        "avg_win_pct": 7.03,
+        "avg_loss_pct": -4.69,
+        "worst_trade_pct": -5.25,
+        "pct_exit_target": 0.239,
+        "pct_exit_stop": 0.485,
+        "pct_exit_time": 0.275
+      },
+      "out_of_sample": {
+        "trades": 965,
+        "hit_rate": 0.46,
+        "expectancy_pct": 0.585,
+        "avg_win_pct": 6.22,
+        "avg_loss_pct": -4.22,
+        "worst_trade_pct": -5.25,
+        "pct_exit_target": 0.202,
+        "pct_exit_stop": 0.377,
+        "pct_exit_time": 0.421
+      },
+      "adopted": true,
+      "source": "Sadekar \u2014 How to Make Money Trading with Candlestick Charts",
+      "principle": "Hammer after a decline; buy on the follow-through candle closing above the hammer's high, not on the hammer itself."
+    },
+    {
+      "name": "sadekar_strong_close_volume",
+      "params": {
+        "stop_pct": 4.0,
+        "target_pct": 10.0,
+        "max_hold_days": 20
+      },
+      "in_sample": {
+        "trades": 9955,
+        "hit_rate": 0.357,
+        "expectancy_pct": 0.308,
+        "avg_win_pct": 8.34,
+        "avg_loss_pct": -4.15,
+        "worst_trade_pct": -4.25,
+        "pct_exit_target": 0.274,
+        "pct_exit_stop": 0.619,
+        "pct_exit_time": 0.107
+      },
+      "out_of_sample": {
+        "trades": 3807,
+        "hit_rate": 0.402,
+        "expectancy_pct": 0.487,
+        "avg_win_pct": 7.21,
+        "avg_loss_pct": -4.03,
+        "worst_trade_pct": -4.25,
+        "pct_exit_target": 0.229,
+        "pct_exit_stop": 0.551,
+        "pct_exit_time": 0.22
+      },
+      "adopted": true,
+      "source": "Sadekar \u2014 How to Make Money Trading with Candlestick Charts",
+      "principle": "Strong close in the top of the day's range on expanding volume marks institutional demand; acts as a continuation entry in an uptrend."
+    },
+    {
+      "name": "sadekar_inside_day_breakout_uptrend",
+      "params": {
+        "stop_pct": 3.0,
+        "target_pct": 8.0,
+        "max_hold_days": 15
+      },
+      "in_sample": {
+        "trades": 4950,
+        "hit_rate": 0.331,
+        "expectancy_pct": 0.119,
+        "avg_win_pct": 6.81,
+        "avg_loss_pct": -3.19,
+        "worst_trade_pct": -3.25,
+        "pct_exit_target": 0.268,
+        "pct_exit_stop": 0.652,
+        "pct_exit_time": 0.079
+      },
+      "out_of_sample": {
+        "trades": 1716,
+        "hit_rate": 0.364,
+        "expectancy_pct": 0.117,
+        "avg_win_pct": 5.8,
+        "avg_loss_pct": -3.14,
+        "worst_trade_pct": -3.25,
+        "pct_exit_target": 0.217,
+        "pct_exit_stop": 0.603,
+        "pct_exit_time": 0.18
+      },
+      "adopted": false,
+      "source": "Sadekar \u2014 How to Make Money Trading with Candlestick Charts",
+      "principle": "Inside-day (harami) resolution: a quiet inside candle after a big move, resolved by a close beyond the inside candle's range in the trend direction."
+    },
+    {
+      "name": "turner_trend_breakout_volume",
+      "params": {
+        "stop_pct": 5.0,
+        "target_pct": 10.0,
+        "max_hold_days": 15
+      },
+      "in_sample": {
+        "trades": 11077,
+        "hit_rate": 0.42,
+        "expectancy_pct": 0.326,
+        "avg_win_pct": 7.52,
+        "avg_loss_pct": -4.88,
+        "worst_trade_pct": -5.25,
+        "pct_exit_target": 0.27,
+        "pct_exit_stop": 0.517,
+        "pct_exit_time": 0.213
+      },
+      "out_of_sample": {
+        "trades": 4195,
+        "hit_rate": 0.452,
+        "expectancy_pct": 0.242,
+        "avg_win_pct": 5.98,
+        "avg_loss_pct": -4.5,
+        "worst_trade_pct": -5.25,
+        "pct_exit_target": 0.186,
+        "pct_exit_stop": 0.429,
+        "pct_exit_time": 0.385
+      },
+      "adopted": false,
+      "source": "Turner, A Beginner's Guide to Day Trading Online, 2nd ed. 2007",
+      "principle": "Breakouts count only when volume expands versus recent average; buy strength that clears a recent consolidation high."
+    },
+    {
+      "name": "turner_trend_filter_sma",
+      "params": {
+        "stop_pct": 5.0,
+        "target_pct": 10.0,
+        "max_hold_days": 15
+      },
+      "in_sample": {
+        "trades": 19976,
+        "hit_rate": 0.415,
+        "expectancy_pct": 0.271,
+        "avg_win_pct": 7.52,
+        "avg_loss_pct": -4.87,
+        "worst_trade_pct": -5.25,
+        "pct_exit_target": 0.269,
+        "pct_exit_stop": 0.521,
+        "pct_exit_time": 0.21
+      },
+      "out_of_sample": {
+        "trades": 6987,
+        "hit_rate": 0.452,
+        "expectancy_pct": 0.324,
+        "avg_win_pct": 6.12,
+        "avg_loss_pct": -4.46,
+        "worst_trade_pct": -5.25,
+        "pct_exit_target": 0.193,
+        "pct_exit_stop": 0.422,
+        "pct_exit_time": 0.385
+      },
+      "adopted": true,
+      "source": "Turner, A Beginner's Guide to Day Trading Online, 2nd ed. 2007",
+      "principle": "Avoid the chop: stand aside when moving averages are flat and ranges are narrow. Trade only when price is above a rising average and range is not compressed."
+    },
+    {
+      "name": "schwager_trend_with_pullback_strength",
+      "params": {
+        "stop_pct": 6.0,
+        "target_pct": 20.0,
+        "max_hold_days": 45
+      },
+      "in_sample": {
+        "trades": 2034,
+        "hit_rate": 0.374,
+        "expectancy_pct": 1.939,
+        "avg_win_pct": 15.36,
+        "avg_loss_pct": -6.07,
+        "worst_trade_pct": -6.25,
+        "pct_exit_target": 0.236,
+        "pct_exit_stop": 0.601,
+        "pct_exit_time": 0.163
+      },
+      "out_of_sample": {
+        "trades": 778,
+        "hit_rate": 0.41,
+        "expectancy_pct": 1.754,
+        "avg_win_pct": 12.82,
+        "avg_loss_pct": -5.93,
+        "worst_trade_pct": -6.25,
+        "pct_exit_target": 0.174,
+        "pct_exit_stop": 0.548,
+        "pct_exit_time": 0.279
+      },
+      "adopted": true,
+      "source": "Stock Market Wizards \u2014 Schwager synthesis, Ryan/Minervini",
+      "principle": "Wait for the exact setup: a trending stock that pauses briefly and resumes strength before entering \u2014 patience over action."
     }
   ]
 }
