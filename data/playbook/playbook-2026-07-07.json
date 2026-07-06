@@ -260,6 +260,138 @@
       "adopted": false,
       "source": "Larry Connors, Short Term Trading Strategies That Work, 2008",
       "principle": "Buy short-term pullbacks within uptrends when RSI(2) drops below 5 while price remains above its 200-day MA; exit when price closes above the 5-day MA."
+    },
+    {
+      "name": "gujral_20ema_pullback_resume",
+      "params": {
+        "stop_pct": 4.0,
+        "target_pct": 12.0,
+        "max_hold_days": 20
+      },
+      "in_sample": {
+        "trades": 11804,
+        "hit_rate": 0.364,
+        "expectancy_pct": 0.677,
+        "avg_win_pct": 9.05,
+        "avg_loss_pct": -4.11,
+        "worst_trade_pct": -4.25,
+        "pct_exit_target": 0.231,
+        "pct_exit_stop": 0.606,
+        "pct_exit_time": 0.163
+      },
+      "out_of_sample": {
+        "trades": 4490,
+        "hit_rate": 0.396,
+        "expectancy_pct": 0.523,
+        "avg_win_pct": 7.4,
+        "avg_loss_pct": -3.98,
+        "worst_trade_pct": -4.25,
+        "pct_exit_target": 0.159,
+        "pct_exit_stop": 0.546,
+        "pct_exit_time": 0.295
+      },
+      "adopted": false,
+      "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)",
+      "principle": "In an established uptrend, buy the pullback that touches or approaches the 20 EMA and then resumes upward \u2014 'buy the dip to the moving average in a trending market, never counter-trend.'"
+    },
+    {
+      "name": "gujral_trend_alignment_dual_ma",
+      "params": {
+        "stop_pct": 5.0,
+        "target_pct": 15.0,
+        "max_hold_days": 30
+      },
+      "in_sample": {
+        "trades": 10248,
+        "hit_rate": 0.354,
+        "expectancy_pct": 0.913,
+        "avg_win_pct": 11.92,
+        "avg_loss_pct": -5.13,
+        "worst_trade_pct": -5.25,
+        "pct_exit_target": 0.244,
+        "pct_exit_stop": 0.624,
+        "pct_exit_time": 0.132
+      },
+      "out_of_sample": {
+        "trades": 3054,
+        "hit_rate": 0.411,
+        "expectancy_pct": 1.065,
+        "avg_win_pct": 9.57,
+        "avg_loss_pct": -4.86,
+        "worst_trade_pct": -5.25,
+        "pct_exit_target": 0.185,
+        "pct_exit_stop": 0.526,
+        "pct_exit_time": 0.289
+      },
+      "adopted": true,
+      "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)",
+      "principle": "Trade only with the trend of the higher timeframe. Shorter MA above longer MA confirms trend alignment; a daily-timeframe long is stronger when the weekly trend agrees."
+    },
+    {
+      "name": "gujral_exceptional_candle_volume",
+      "params": {
+        "stop_pct": 5.0,
+        "target_pct": 15.0,
+        "max_hold_days": 20
+      },
+      "in_sample": {
+        "trades": 6377,
+        "hit_rate": 0.363,
+        "expectancy_pct": 0.554,
+        "avg_win_pct": 10.31,
+        "avg_loss_pct": -5.01,
+        "worst_trade_pct": -5.25,
+        "pct_exit_target": 0.191,
+        "pct_exit_stop": 0.596,
+        "pct_exit_time": 0.213
+      },
+      "out_of_sample": {
+        "trades": 2124,
+        "hit_rate": 0.422,
+        "expectancy_pct": 0.661,
+        "avg_win_pct": 8.07,
+        "avg_loss_pct": -4.75,
+        "worst_trade_pct": -5.25,
+        "pct_exit_target": 0.13,
+        "pct_exit_stop": 0.496,
+        "pct_exit_time": 0.374
+      },
+      "adopted": true,
+      "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)",
+      "principle": "Unusually large range candles with strong volume in the trend direction signal institutional participation; entries on/after such candles in trend direction have follow-through."
+    },
+    {
+      "name": "gujral_gap_and_hold_uptrend",
+      "params": {
+        "stop_pct": 4.0,
+        "target_pct": 10.0,
+        "max_hold_days": 10
+      },
+      "in_sample": {
+        "trades": 5724,
+        "hit_rate": 0.362,
+        "expectancy_pct": -0.03,
+        "avg_win_pct": 6.93,
+        "avg_loss_pct": -3.97,
+        "worst_trade_pct": -4.25,
+        "pct_exit_target": 0.202,
+        "pct_exit_stop": 0.579,
+        "pct_exit_time": 0.22
+      },
+      "out_of_sample": {
+        "trades": 2018,
+        "hit_rate": 0.43,
+        "expectancy_pct": 0.252,
+        "avg_win_pct": 5.45,
+        "avg_loss_pct": -3.67,
+        "worst_trade_pct": -4.25,
+        "pct_exit_target": 0.146,
+        "pct_exit_stop": 0.453,
+        "pct_exit_time": 0.401
+      },
+      "adopted": false,
+      "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)",
+      "principle": "Gaps in trend direction that hold above the prior day's range tend to run; fading gaps against the bigger trend is low-probability."
     }
   ]
 }

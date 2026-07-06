@@ -112,5 +112,141 @@
     "stop_pct": 4.0,
     "target_pct": 4.0,
     "max_hold_days": 7
+  },
+  {
+    "name": "gujral_20ema_pullback_resume",
+    "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)",
+    "principle": "In an established uptrend, buy the pullback that touches or approaches the 20 EMA and then resumes upward \u2014 'buy the dip to the moving average in a trending market, never counter-trend.'",
+    "conditions": [
+      {
+        "left": "sma_20",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_20",
+        "factor": 1.0
+      },
+      {
+        "left": "low",
+        "op": "<=",
+        "right": "sma_20",
+        "factor": 1.02
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "open",
+        "factor": 1.0
+      }
+    ],
+    "stop_pct": 4.0,
+    "target_pct": 12.0,
+    "max_hold_days": 20
+  },
+  {
+    "name": "gujral_trend_alignment_dual_ma",
+    "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)",
+    "principle": "Trade only with the trend of the higher timeframe. Shorter MA above longer MA confirms trend alignment; a daily-timeframe long is stronger when the weekly trend agrees.",
+    "conditions": [
+      {
+        "left": "sma_20",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 1.0
+      },
+      {
+        "left": "sma_50",
+        "op": ">",
+        "right": "sma_200",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_20",
+        "factor": 1.0
+      },
+      {
+        "left": "ret_20",
+        "op": ">",
+        "right": 0.0,
+        "factor": 1.0
+      }
+    ],
+    "stop_pct": 5.0,
+    "target_pct": 15.0,
+    "max_hold_days": 30
+  },
+  {
+    "name": "gujral_exceptional_candle_volume",
+    "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)",
+    "principle": "Unusually large range candles with strong volume in the trend direction signal institutional participation; entries on/after such candles in trend direction have follow-through.",
+    "conditions": [
+      {
+        "left": "sma_20",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_20",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "open",
+        "factor": 1.02
+      },
+      {
+        "left": "volume",
+        "op": ">",
+        "right": "vol_sma_20",
+        "factor": 1.5
+      }
+    ],
+    "stop_pct": 5.0,
+    "target_pct": 15.0,
+    "max_hold_days": 20
+  },
+  {
+    "name": "gujral_gap_and_hold_uptrend",
+    "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)",
+    "principle": "Gaps in trend direction that hold above the prior day's range tend to run; fading gaps against the bigger trend is low-probability.",
+    "conditions": [
+      {
+        "left": "sma_20",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 1.0
+      },
+      {
+        "left": "open",
+        "op": ">",
+        "right": "highest_5",
+        "factor": 1.005
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "open",
+        "factor": 1.0
+      },
+      {
+        "left": "volume",
+        "op": ">",
+        "right": "vol_sma_20",
+        "factor": 1.0
+      }
+    ],
+    "stop_pct": 4.0,
+    "target_pct": 10.0,
+    "max_hold_days": 10
   }
 ]
