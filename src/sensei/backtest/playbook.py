@@ -76,11 +76,37 @@ def evaluate_strategy(name: str, spec: dict, symbols: list[str]) -> dict:
     }
 
 
+def studied_strategies() -> dict:
+    """Rule specs extracted by the Scholar (data/studied_rules.json),
+    compiled into the same {fn, stop_pct, ...} shape as seed strategies."""
+    from sensei.backtest.rulespec import RuleSpec, compile_spec
+    f = PLAYBOOK_DIR.parent / "studied_rules.json"
+    if not f.exists():
+        return {}
+    out = {}
+    for raw in json.loads(f.read_text()):
+        spec = RuleSpec.model_validate(raw)
+        out[spec.name] = dict(fn=compile_spec(spec), stop_pct=spec.stop_pct,
+                              target_pct=spec.target_pct,
+                              max_hold_days=spec.max_hold_days,
+                              source=spec.source, principle=spec.principle)
+    return out
+
+
+def all_strategies() -> dict:
+    return {**SEED_STRATEGIES, **studied_strategies()}
+
+
 def build_playbook(symbols: list[str] | None = None) -> dict:
-    """Evaluate all seed strategies and write a versioned Playbook file."""
+    """Evaluate all strategies (seed + studied) and write a versioned Playbook."""
     symbols = symbols or available_symbols()
-    entries = [evaluate_strategy(name, spec, symbols)
-               for name, spec in SEED_STRATEGIES.items()]
+    entries = []
+    for name, spec in all_strategies().items():
+        e = evaluate_strategy(name, spec, symbols)
+        if "source" in spec:
+            e["source"] = spec["source"]
+            e["principle"] = spec["principle"]
+        entries.append(e)
     playbook = {
         "version": date.today().isoformat(),
         "universe_size": len(symbols),

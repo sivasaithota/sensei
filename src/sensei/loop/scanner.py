@@ -11,8 +11,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from sensei.backtest.playbook import adopted_strategies
-from sensei.backtest.strategies import SEED_STRATEGIES
+from sensei.backtest.playbook import adopted_strategies, all_strategies
 from sensei.data.store import available_symbols, avg_daily_turnover, load_prices
 from sensei.risk.rails import RiskConfig
 
@@ -81,11 +80,14 @@ def scan(symbols: list[str] | None = None,
     cfg = cfg or RiskConfig.load("config/risk.yaml")
     symbols = symbols or available_symbols()
     adopted = adopted_strategies()
+    registry = all_strategies()
     candidates: list[SignalCandidate] = []
 
     for entry in adopted:
         name = entry["name"]
-        spec = SEED_STRATEGIES[name]
+        spec = registry.get(name)
+        if spec is None:
+            continue  # adopted in playbook but source rule since removed
         p = entry["params"]
         for sym in symbols:
             try:

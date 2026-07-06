@@ -22,6 +22,8 @@ def main() -> None:
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("run-day")
     sub.add_parser("execute-open")
+    study_p = sub.add_parser("study")
+    study_p.add_argument("file", nargs="?", help="path to material; omit to read stdin")
     scan_p = sub.add_parser("scan")
     scan_p.add_argument("--no-refresh", action="store_true")
     sub.add_parser("report")
@@ -87,6 +89,13 @@ def main() -> None:
         for s in pb["strategies"]:
             mark = "ADOPTED " if s["adopted"] else "rejected"
             print(f"[{mark}] {s['name']:30s} oos={s['out_of_sample']}")
+        return
+
+    if args.cmd == "study":
+        from pathlib import Path
+        from sensei.loop.study import study
+        material = Path(args.file).read_text() if args.file else sys.stdin.read()
+        print(json.dumps(study(material), indent=2))
         return
 
     if args.cmd == "execute-open":
