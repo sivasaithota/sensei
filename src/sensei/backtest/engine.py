@@ -36,10 +36,11 @@ class Trade:
     exit_date: pd.Timestamp
     exit: float
     exit_reason: str  # "stop" | "target" | "time"
+    cost_pct: float = ROUND_TRIP_COST_PCT
 
     @property
     def ret_pct(self) -> float:
-        return (self.exit / self.entry - 1) * 100 - ROUND_TRIP_COST_PCT
+        return (self.exit / self.entry - 1) * 100 - self.cost_pct
 
 
 @dataclass
@@ -97,6 +98,7 @@ def run_backtest(
     stop_pct: float,
     target_pct: float,
     max_hold_days: int,
+    cost_pct: float = ROUND_TRIP_COST_PCT,
 ) -> BacktestResult:
     """Simulate long-only swing trades on daily bars. One position at a time."""
     signals = signal_fn(df).fillna(False)
@@ -134,7 +136,8 @@ def run_backtest(
             exit_price, reason = c[exit_idx], "time"
 
         trades.append(Trade(symbol, dates[e_idx], float(entry),
-                            dates[exit_idx], float(exit_price), reason))
+                            dates[exit_idx], float(exit_price), reason,
+                            cost_pct=cost_pct))
         i = exit_idx + 1  # no overlapping positions per symbol
 
     return BacktestResult(strategy=strategy, symbol=symbol, trades=trades)

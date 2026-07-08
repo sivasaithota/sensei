@@ -160,5 +160,85 @@
         }
       ]
     }
+  },
+  {
+    "queued": "2026-07-08",
+    "record": {
+      "thesis": {
+        "id": "TH-20260708-030",
+        "created_at": "2026-07-08T13:10:04.788798Z",
+        "symbol": "ADANIENT",
+        "direction": "BUY",
+        "entry_zone_low": 3031.67,
+        "entry_zone_high": 3062.13,
+        "quantity": 3,
+        "stop_loss": 2894.55,
+        "targets": [
+          3351.59
+        ],
+        "time_horizon_days": 15,
+        "invalidation": "Thesis is dead if: (1) price closes below the 200-DMA at 2399.97 on any day (structural trend break, well below stop at 2894.55 \u2014 note this is a secondary structural signal, the hard stop at 2894.55 exits first); (2) price fails to sustain above the 55-day breakout level 3212.1 after first touching it, reversing back below 3046.9 entry on a closing basis, signaling failed breakout; (3) the stock is still open 7 days before earnings (2026-07-22) \u2014 exit regardless of P&L to avoid binary earnings risk given the 15-day max hold overlaps the 2026-07-29 earnings date.",
+        "evidence": [
+          "Close 3046.9 on 2026-07-08 is 27.0% above 200-DMA of 2399.97, confirming the stock is in a structurally defined uptrend.",
+          "52-week high is 3245.0 (as of 2026-07-08); current price is only 6.1% below that high, indicating price is near the upper range with limited overhead supply.",
+          "6-month return of +34.9% (as of 2026-07-08) demonstrates sustained institutional accumulation consistent with the turner_trend_filter_sma strategy premise.",
+          "1-month return of +4.0% (as of 2026-07-08) shows near-term momentum has not stalled, reducing mean-reversion risk at entry.",
+          "Volume at 1.14x 20-day average on 2026-07-08 provides mild confirmation without signaling a climactic/exhaustion spike.",
+          "55-day breakout level at 3212.1 (as of 2026-07-08) is the key overhead level; entry at 3046.9 is 5.4% below it, giving the trade room to build before confronting resistance.",
+          "OOS strategy stats (6,987 trades): hit rate 45.2%, expectancy +0.324%, avg win +6.12% vs avg loss -4.46%, worst trade -5.25% \u2014 stop at -5.0% is calibrated tightly to the worst historical loss.",
+          "Earnings on 2026-07-29 are 21 days away, overlapping the 15-day max hold; position must be monitored for early exit before the binary event."
+        ],
+        "playbook_citations": [
+          {
+            "strategy": "turner_trend_filter_sma",
+            "oos_expectancy_pct": 0.324,
+            "oos_hit_rate": 0.452,
+            "oos_trades": 6987,
+            "oos_detail": {
+              "trades": 6987,
+              "hit_rate": 0.452,
+              "expectancy_pct": 0.324,
+              "avg_win_pct": 6.12,
+              "avg_loss_pct": -4.46,
+              "worst_trade_pct": -5.25,
+              "pct_exit_target": 0.193,
+              "pct_exit_stop": 0.422,
+              "pct_exit_time": 0.385
+            }
+          }
+        ],
+        "narrative": "ADANIENT is in a sustained uptrend, trading 27% above its 200-DMA (2399.97) with strong 6-month momentum (+34.9%). The stock sits only 6.1% below its 52-week high of 3245.0, indicating it has largely absorbed prior distribution. The 55-day breakout level at 3212.1 represents the near-term resistance to clear; a sustained move through that level confirms trend continuation. Entry at current close (3046.9) offers a 10% target (3351.59) with a 5% stop (2894.55), yielding a 2:1 reward-to-risk ratio consistent with the strategy's historical profile (avg win 6.12%, avg loss -4.46%). Volume is marginally elevated at 1.14x 20-day average, providing modest confirmation without signaling exhaustion. The strategy's OOS expectancy of +0.324% per trade across 6,987 trades gives statistical credibility. Primary risk: earnings on 2026-07-29 fall within the 15-day max hold window (21 days away), creating binary event risk if the position is still open near expiry."
+      },
+      "verdicts": [
+        {
+          "level": "L1",
+          "agent": "risk-officer",
+          "approved": true,
+          "reasoning": "all rails pass",
+          "checked_at": "2026-07-08T13:10:04.796199Z"
+        },
+        {
+          "level": "L2",
+          "agent": "devils-advocate",
+          "approved": true,
+          "reasoning": "Attacks mounted and survived: (1) STOP INCONSISTENCY \u2014 stop at 2894.55 is 5.0% below entry at 3046.9, consistent with worst historical loss of -5.25%; no contradiction. (2) INVALIDATION INSIDE ENTRY ZONE \u2014 200-DMA invalidation at 2399.97 is correctly flagged as secondary (hard stop exits first at 2894.55); failed-breakout invalidation trigger at 3046.9 closing basis is below the entry zone low of 3031.67, which creates a narrow but real ambiguity: price could enter at 3031.67 and the failed-breakout reversal clause triggers almost immediately. However, the clause requires price to first touch 3212.1 then reverse below 3046.9, so it cannot fire before the breakout level is reached \u2014 contradiction does not hold. (3) EARNINGS OVERLAP \u2014 21 days to earnings vs 15-day max hold is a real risk, but explicitly addressed with a mandatory exit rule 7 days before (exit by 2026-07-15). The 15-day horizon ends 2026-07-23; the forced exit at day 8 (2026-07-16) is before the 2026-07-22 trigger date, so the position clears before binary risk. Rule is internally coherent. (4) LOW HIT RATE (45.2%) \u2014 not a flaw; expectancy is positive at +0.324% with avg win/loss ratio of 1.37:1 across 6,987 OOS trades. (5) NEAR 52-WEEK HIGH / LIMITED UPSIDE \u2014 52-week high is 3245.0 but target is 3351.59, which is 3.3% above the prior high. This is a legitimate overhead resistance concern: the target requires a breakout to new 52-week highs, and only 19.3% of OOS trades exit via target. However, the strategy is a breakout system by design; clearing the 55-day level at 3212.1 (itself below the 52-week high) is the intermediate confirmation trigger, and the exit breakdown (38.5% time exits) means most profitable trades don't require hitting full target. Risk is real but within strategy design. (6) VOLUME \u2014 1.14x is mild, not exhaustion. No fatal contradictions found; risk rails hold; earnings exit rule is coherent.",
+          "checked_at": "2026-07-08T13:10:20.918051Z"
+        },
+        {
+          "level": "L3",
+          "agent": "compliance",
+          "approved": true,
+          "reasoning": "ADANIENT passes all compliance checks. (1) Instrument status: GSM/ASM stage 0 \u2014 no surveillance restriction. (2) No manipulation patterns: single directional BUY of 3 shares of own capital; no layering, spoofing, or circular trading indicators. (3) No MNPI concern: all evidence is price/volume/technical data derivable from public market feeds (NSE closing prices, 200-DMA, 52-week high, volume ratios) \u2014 no non-public corporate information cited. (4) Earnings no-trade window: thesis explicitly identifies earnings on 2026-07-29 and mandates exit if position is still open 7 days before (\u22482026-07-22), which is within the 15-day hold window \u2014 the no-trade window protocol is embedded in the invalidation rules. (5) Risk parameters are internally consistent: hard stop at -5.0% (2894.55) is above the 200-DMA structural stop (2399.97); 2:1 R:R is aligned with OOS historical profile. No regulatory or compliance red flags identified.",
+          "checked_at": "2026-07-08T13:10:30.614985Z"
+        },
+        {
+          "level": "L4",
+          "agent": "orchestrator",
+          "approved": true,
+          "reasoning": "Coherence check passes. ADANIENT does not duplicate existing exposure \u2014 current book holds real estate (LODHA), NBFC (CHOLAFIN, SHRIRAMFIN), pharma (ZYDUSLIFE), consumer (TITAN), and auto-ancillary (MOTHERSON); adding a conglomerate/infrastructure name is additive, not concentrating. Regime is mixed (49% above 200-DMA, VIX 14.7), which warrants caution on marginal breakout theses, but ADANIENT is already 27% above its 200-DMA and only 6.1% below its 52-week high \u2014 this is a trend continuation entry, not a speculative breakout into weak breadth, which partially mitigates the regime headwind. The 2:1 R/R (5% stop, 10% target) and calibrated stop against OOS worst-loss (-5.25%) are internally consistent. The earnings overhang (Jul 29) is correctly identified and the invalidation rule (exit 7 days before = exit by ~Jul 22) is explicit and enforceable within the 15-day hold window. Learning agenda is served: this is the sixth live test of turner_trend_filter_sma, adding a large-cap conglomerate data point. One flag: with 6 positions open or queued, portfolio is near capacity in a mixed regime \u2014 position sizing at qty=3 (~\u20b99,141 notional) is modest and acceptable. Reasoning is sound; I would stake reputation on the process.",
+          "checked_at": "2026-07-08T13:10:42.700407Z"
+        }
+      ]
+    }
   }
 ]

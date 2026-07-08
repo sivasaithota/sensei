@@ -1,0 +1,610 @@
+{
+  "version": "2026-07-09",
+  "asset_class": "crypto",
+  "universe_size": 15,
+  "cost_pct": 0.5,
+  "thresholds": {
+    "min_trades_oos": 30,
+    "min_expectancy_pct": 0.3,
+    "min_hit_rate": 0.4
+  },
+  "strategies": [
+    {
+      "name": "momentum_breakout_55",
+      "params": {
+        "stop_pct": 5.0,
+        "target_pct": 12.0,
+        "max_hold_days": 30
+      },
+      "in_sample": {
+        "trades": 582,
+        "hit_rate": 0.366,
+        "expectancy_pct": 0.71,
+        "avg_win_pct": 11.47,
+        "avg_loss_pct": -5.5,
+        "worst_trade_pct": -5.5,
+        "pct_exit_target": 0.364,
+        "pct_exit_stop": 0.634,
+        "pct_exit_time": 0.002
+      },
+      "out_of_sample": {
+        "trades": 179,
+        "hit_rate": 0.385,
+        "expectancy_pct": 1.068,
+        "avg_win_pct": 11.33,
+        "avg_loss_pct": -5.37,
+        "worst_trade_pct": -5.5,
+        "pct_exit_target": 0.374,
+        "pct_exit_stop": 0.598,
+        "pct_exit_time": 0.028
+      },
+      "adopted": false
+    },
+    {
+      "name": "pullback_to_50dma",
+      "params": {
+        "stop_pct": 4.0,
+        "target_pct": 10.0,
+        "max_hold_days": 25
+      },
+      "in_sample": {
+        "trades": 1407,
+        "hit_rate": 0.271,
+        "expectancy_pct": -0.76,
+        "avg_win_pct": 9.24,
+        "avg_loss_pct": -4.49,
+        "worst_trade_pct": -4.5,
+        "pct_exit_target": 0.262,
+        "pct_exit_stop": 0.726,
+        "pct_exit_time": 0.012
+      },
+      "out_of_sample": {
+        "trades": 393,
+        "hit_rate": 0.275,
+        "expectancy_pct": -0.692,
+        "avg_win_pct": 9.33,
+        "avg_loss_pct": -4.49,
+        "worst_trade_pct": -4.5,
+        "pct_exit_target": 0.27,
+        "pct_exit_stop": 0.723,
+        "pct_exit_time": 0.008
+      },
+      "adopted": false
+    },
+    {
+      "name": "mean_reversion_rsi",
+      "params": {
+        "stop_pct": 4.0,
+        "target_pct": 6.0,
+        "max_hold_days": 10
+      },
+      "in_sample": {
+        "trades": 1700,
+        "hit_rate": 0.371,
+        "expectancy_pct": -0.806,
+        "avg_win_pct": 5.34,
+        "avg_loss_pct": -4.43,
+        "worst_trade_pct": -4.5,
+        "pct_exit_target": 0.355,
+        "pct_exit_stop": 0.614,
+        "pct_exit_time": 0.031
+      },
+      "out_of_sample": {
+        "trades": 458,
+        "hit_rate": 0.352,
+        "expectancy_pct": -0.993,
+        "avg_win_pct": 5.31,
+        "avg_loss_pct": -4.41,
+        "worst_trade_pct": -4.5,
+        "pct_exit_target": 0.334,
+        "pct_exit_stop": 0.629,
+        "pct_exit_time": 0.037
+      },
+      "adopted": false
+    },
+    {
+      "name": "gap_down_reversal",
+      "params": {
+        "stop_pct": 3.5,
+        "target_pct": 8.0,
+        "max_hold_days": 15
+      },
+      "in_sample": {
+        "trades": 9,
+        "hit_rate": 0.222,
+        "expectancy_pct": -1.444,
+        "avg_win_pct": 7.5,
+        "avg_loss_pct": -4.0,
+        "worst_trade_pct": -4.0,
+        "pct_exit_target": 0.222,
+        "pct_exit_stop": 0.778,
+        "pct_exit_time": 0.0
+      },
+      "out_of_sample": {
+        "trades": 0,
+        "hit_rate": 0.0,
+        "expectancy_pct": 0.0
+      },
+      "adopted": false
+    },
+    {
+      "name": "high_tight_consolidation",
+      "params": {
+        "stop_pct": 6.0,
+        "target_pct": 15.0,
+        "max_hold_days": 40
+      },
+      "in_sample": {
+        "trades": 25,
+        "hit_rate": 0.32,
+        "expectancy_pct": 0.22,
+        "avg_win_pct": 14.5,
+        "avg_loss_pct": -6.5,
+        "worst_trade_pct": -6.5,
+        "pct_exit_target": 0.32,
+        "pct_exit_stop": 0.68,
+        "pct_exit_time": 0.0
+      },
+      "out_of_sample": {
+        "trades": 2,
+        "hit_rate": 1.0,
+        "expectancy_pct": 14.5,
+        "avg_win_pct": 14.5,
+        "avg_loss_pct": 0.0,
+        "worst_trade_pct": 14.5,
+        "pct_exit_target": 1.0,
+        "pct_exit_stop": 0.0,
+        "pct_exit_time": 0.0
+      },
+      "adopted": false
+    },
+    {
+      "name": "minervini_trend_template",
+      "params": {
+        "stop_pct": 7.5,
+        "target_pct": 20.0,
+        "max_hold_days": 60
+      },
+      "in_sample": {
+        "trades": 772,
+        "hit_rate": 0.328,
+        "expectancy_pct": 0.925,
+        "avg_win_pct": 19.18,
+        "avg_loss_pct": -7.97,
+        "worst_trade_pct": -8.0,
+        "pct_exit_target": 0.321,
+        "pct_exit_stop": 0.67,
+        "pct_exit_time": 0.009
+      },
+      "out_of_sample": {
+        "trades": 123,
+        "hit_rate": 0.187,
+        "expectancy_pct": -3.005,
+        "avg_win_pct": 18.71,
+        "avg_loss_pct": -8.0,
+        "worst_trade_pct": -8.0,
+        "pct_exit_target": 0.171,
+        "pct_exit_stop": 0.813,
+        "pct_exit_time": 0.016
+      },
+      "adopted": false,
+      "source": "Mark Minervini, Trade Like a Stock Market Wizard, 2013"
+    },
+    {
+      "name": "minervini_breakout_volume",
+      "params": {
+        "stop_pct": 7.5,
+        "target_pct": 20.0,
+        "max_hold_days": 60
+      },
+      "in_sample": {
+        "trades": 350,
+        "hit_rate": 0.351,
+        "expectancy_pct": 1.664,
+        "avg_win_pct": 19.5,
+        "avg_loss_pct": -8.0,
+        "worst_trade_pct": -8.0,
+        "pct_exit_target": 0.351,
+        "pct_exit_stop": 0.649,
+        "pct_exit_time": 0.0
+      },
+      "out_of_sample": {
+        "trades": 76,
+        "hit_rate": 0.395,
+        "expectancy_pct": 2.421,
+        "avg_win_pct": 18.4,
+        "avg_loss_pct": -8.0,
+        "worst_trade_pct": -8.0,
+        "pct_exit_target": 0.368,
+        "pct_exit_stop": 0.605,
+        "pct_exit_time": 0.026
+      },
+      "adopted": false,
+      "source": "Mark Minervini, Trade Like a Stock Market Wizard, 2013"
+    },
+    {
+      "name": "connors_rsi2_pullback",
+      "params": {
+        "stop_pct": 4.0,
+        "target_pct": 4.0,
+        "max_hold_days": 7
+      },
+      "in_sample": {
+        "trades": 1671,
+        "hit_rate": 0.43,
+        "expectancy_pct": -1.011,
+        "avg_win_pct": 3.46,
+        "avg_loss_pct": -4.39,
+        "worst_trade_pct": -4.5,
+        "pct_exit_target": 0.423,
+        "pct_exit_stop": 0.549,
+        "pct_exit_time": 0.028
+      },
+      "out_of_sample": {
+        "trades": 456,
+        "hit_rate": 0.43,
+        "expectancy_pct": -0.99,
+        "avg_win_pct": 3.43,
+        "avg_loss_pct": -4.32,
+        "worst_trade_pct": -4.5,
+        "pct_exit_target": 0.419,
+        "pct_exit_stop": 0.533,
+        "pct_exit_time": 0.048
+      },
+      "adopted": false,
+      "source": "Larry Connors, Short Term Trading Strategies That Work, 2008"
+    },
+    {
+      "name": "gujral_20ema_pullback_resume",
+      "params": {
+        "stop_pct": 4.0,
+        "target_pct": 12.0,
+        "max_hold_days": 20
+      },
+      "in_sample": {
+        "trades": 904,
+        "hit_rate": 0.329,
+        "expectancy_pct": 0.637,
+        "avg_win_pct": 11.09,
+        "avg_loss_pct": -4.48,
+        "worst_trade_pct": -4.5,
+        "pct_exit_target": 0.311,
+        "pct_exit_stop": 0.666,
+        "pct_exit_time": 0.023
+      },
+      "out_of_sample": {
+        "trades": 314,
+        "hit_rate": 0.264,
+        "expectancy_pct": -0.391,
+        "avg_win_pct": 10.94,
+        "avg_loss_pct": -4.46,
+        "worst_trade_pct": -4.5,
+        "pct_exit_target": 0.245,
+        "pct_exit_stop": 0.726,
+        "pct_exit_time": 0.029
+      },
+      "adopted": false,
+      "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)"
+    },
+    {
+      "name": "gujral_trend_alignment_dual_ma",
+      "params": {
+        "stop_pct": 5.0,
+        "target_pct": 15.0,
+        "max_hold_days": 30
+      },
+      "in_sample": {
+        "trades": 1224,
+        "hit_rate": 0.289,
+        "expectancy_pct": 0.211,
+        "avg_win_pct": 14.24,
+        "avg_loss_pct": -5.5,
+        "worst_trade_pct": -5.5,
+        "pct_exit_target": 0.281,
+        "pct_exit_stop": 0.71,
+        "pct_exit_time": 0.009
+      },
+      "out_of_sample": {
+        "trades": 190,
+        "hit_rate": 0.247,
+        "expectancy_pct": -0.597,
+        "avg_win_pct": 14.21,
+        "avg_loss_pct": -5.46,
+        "worst_trade_pct": -5.5,
+        "pct_exit_target": 0.232,
+        "pct_exit_stop": 0.747,
+        "pct_exit_time": 0.021
+      },
+      "adopted": false,
+      "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)"
+    },
+    {
+      "name": "gujral_exceptional_candle_volume",
+      "params": {
+        "stop_pct": 5.0,
+        "target_pct": 15.0,
+        "max_hold_days": 20
+      },
+      "in_sample": {
+        "trades": 664,
+        "hit_rate": 0.3,
+        "expectancy_pct": 0.391,
+        "avg_win_pct": 14.11,
+        "avg_loss_pct": -5.48,
+        "worst_trade_pct": -5.5,
+        "pct_exit_target": 0.286,
+        "pct_exit_stop": 0.697,
+        "pct_exit_time": 0.017
+      },
+      "out_of_sample": {
+        "trades": 202,
+        "hit_rate": 0.351,
+        "expectancy_pct": 0.991,
+        "avg_win_pct": 12.8,
+        "avg_loss_pct": -5.41,
+        "worst_trade_pct": -5.5,
+        "pct_exit_target": 0.297,
+        "pct_exit_stop": 0.629,
+        "pct_exit_time": 0.074
+      },
+      "adopted": false,
+      "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)"
+    },
+    {
+      "name": "gujral_gap_and_hold_uptrend",
+      "params": {
+        "stop_pct": 4.0,
+        "target_pct": 10.0,
+        "max_hold_days": 10
+      },
+      "in_sample": {
+        "trades": 40,
+        "hit_rate": 0.3,
+        "expectancy_pct": -0.331,
+        "avg_win_pct": 9.4,
+        "avg_loss_pct": -4.5,
+        "worst_trade_pct": -4.5,
+        "pct_exit_target": 0.275,
+        "pct_exit_stop": 0.7,
+        "pct_exit_time": 0.025
+      },
+      "out_of_sample": {
+        "trades": 2,
+        "hit_rate": 0.5,
+        "expectancy_pct": 0.53,
+        "avg_win_pct": 5.56,
+        "avg_loss_pct": -4.5,
+        "worst_trade_pct": -4.5,
+        "pct_exit_target": 0.0,
+        "pct_exit_stop": 0.5,
+        "pct_exit_time": 0.5
+      },
+      "adopted": false,
+      "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)"
+    },
+    {
+      "name": "sadekar_bullish_engulfing_support",
+      "params": {
+        "stop_pct": 4.0,
+        "target_pct": 10.0,
+        "max_hold_days": 20
+      },
+      "in_sample": {
+        "trades": 19,
+        "hit_rate": 0.474,
+        "expectancy_pct": 2.132,
+        "avg_win_pct": 9.5,
+        "avg_loss_pct": -4.5,
+        "worst_trade_pct": -4.5,
+        "pct_exit_target": 0.474,
+        "pct_exit_stop": 0.526,
+        "pct_exit_time": 0.0
+      },
+      "out_of_sample": {
+        "trades": 5,
+        "hit_rate": 0.4,
+        "expectancy_pct": 1.1,
+        "avg_win_pct": 9.5,
+        "avg_loss_pct": -4.5,
+        "worst_trade_pct": -4.5,
+        "pct_exit_target": 0.4,
+        "pct_exit_stop": 0.6,
+        "pct_exit_time": 0.0
+      },
+      "adopted": false,
+      "source": "Sadekar \u2014 How to Make Money Trading with Candlestick Charts"
+    },
+    {
+      "name": "sadekar_hammer_confirmation",
+      "params": {
+        "stop_pct": 5.0,
+        "target_pct": 10.0,
+        "max_hold_days": 15
+      },
+      "in_sample": {
+        "trades": 88,
+        "hit_rate": 0.33,
+        "expectancy_pct": -0.711,
+        "avg_win_pct": 8.86,
+        "avg_loss_pct": -5.41,
+        "worst_trade_pct": -5.5,
+        "pct_exit_target": 0.295,
+        "pct_exit_stop": 0.659,
+        "pct_exit_time": 0.045
+      },
+      "out_of_sample": {
+        "trades": 57,
+        "hit_rate": 0.298,
+        "expectancy_pct": -1.239,
+        "avg_win_pct": 8.58,
+        "avg_loss_pct": -5.41,
+        "worst_trade_pct": -5.5,
+        "pct_exit_target": 0.263,
+        "pct_exit_stop": 0.684,
+        "pct_exit_time": 0.053
+      },
+      "adopted": false,
+      "source": "Sadekar \u2014 How to Make Money Trading with Candlestick Charts"
+    },
+    {
+      "name": "sadekar_strong_close_volume",
+      "params": {
+        "stop_pct": 4.0,
+        "target_pct": 10.0,
+        "max_hold_days": 20
+      },
+      "in_sample": {
+        "trades": 1100,
+        "hit_rate": 0.324,
+        "expectancy_pct": 0.016,
+        "avg_win_pct": 9.4,
+        "avg_loss_pct": -4.47,
+        "worst_trade_pct": -4.5,
+        "pct_exit_target": 0.318,
+        "pct_exit_stop": 0.671,
+        "pct_exit_time": 0.011
+      },
+      "out_of_sample": {
+        "trades": 368,
+        "hit_rate": 0.348,
+        "expectancy_pct": 0.235,
+        "avg_win_pct": 9.08,
+        "avg_loss_pct": -4.48,
+        "worst_trade_pct": -4.5,
+        "pct_exit_target": 0.329,
+        "pct_exit_stop": 0.649,
+        "pct_exit_time": 0.022
+      },
+      "adopted": false,
+      "source": "Sadekar \u2014 How to Make Money Trading with Candlestick Charts"
+    },
+    {
+      "name": "sadekar_inside_day_breakout_uptrend",
+      "params": {
+        "stop_pct": 3.0,
+        "target_pct": 8.0,
+        "max_hold_days": 15
+      },
+      "in_sample": {
+        "trades": 486,
+        "hit_rate": 0.29,
+        "expectancy_pct": -0.351,
+        "avg_win_pct": 7.34,
+        "avg_loss_pct": -3.49,
+        "worst_trade_pct": -3.5,
+        "pct_exit_target": 0.28,
+        "pct_exit_stop": 0.708,
+        "pct_exit_time": 0.012
+      },
+      "out_of_sample": {
+        "trades": 145,
+        "hit_rate": 0.372,
+        "expectancy_pct": 0.499,
+        "avg_win_pct": 7.18,
+        "avg_loss_pct": -3.47,
+        "worst_trade_pct": -3.5,
+        "pct_exit_target": 0.345,
+        "pct_exit_stop": 0.621,
+        "pct_exit_time": 0.034
+      },
+      "adopted": false,
+      "source": "Sadekar \u2014 How to Make Money Trading with Candlestick Charts"
+    },
+    {
+      "name": "turner_trend_breakout_volume",
+      "params": {
+        "stop_pct": 5.0,
+        "target_pct": 10.0,
+        "max_hold_days": 15
+      },
+      "in_sample": {
+        "trades": 1170,
+        "hit_rate": 0.38,
+        "expectancy_pct": 0.103,
+        "avg_win_pct": 9.2,
+        "avg_loss_pct": -5.48,
+        "worst_trade_pct": -5.5,
+        "pct_exit_target": 0.363,
+        "pct_exit_stop": 0.617,
+        "pct_exit_time": 0.02
+      },
+      "out_of_sample": {
+        "trades": 370,
+        "hit_rate": 0.411,
+        "expectancy_pct": 0.382,
+        "avg_win_pct": 8.73,
+        "avg_loss_pct": -5.44,
+        "worst_trade_pct": -5.5,
+        "pct_exit_target": 0.359,
+        "pct_exit_stop": 0.573,
+        "pct_exit_time": 0.068
+      },
+      "adopted": true,
+      "source": "Turner, A Beginner's Guide to Day Trading Online, 2nd ed. 2007"
+    },
+    {
+      "name": "turner_trend_filter_sma",
+      "params": {
+        "stop_pct": 5.0,
+        "target_pct": 10.0,
+        "max_hold_days": 15
+      },
+      "in_sample": {
+        "trades": 2227,
+        "hit_rate": 0.365,
+        "expectancy_pct": -0.1,
+        "avg_win_pct": 9.21,
+        "avg_loss_pct": -5.45,
+        "worst_trade_pct": -5.5,
+        "pct_exit_target": 0.348,
+        "pct_exit_stop": 0.627,
+        "pct_exit_time": 0.025
+      },
+      "out_of_sample": {
+        "trades": 640,
+        "hit_rate": 0.341,
+        "expectancy_pct": -0.571,
+        "avg_win_pct": 8.87,
+        "avg_loss_pct": -5.45,
+        "worst_trade_pct": -5.5,
+        "pct_exit_target": 0.305,
+        "pct_exit_stop": 0.647,
+        "pct_exit_time": 0.048
+      },
+      "adopted": false,
+      "source": "Turner, A Beginner's Guide to Day Trading Online, 2nd ed. 2007"
+    },
+    {
+      "name": "schwager_trend_with_pullback_strength",
+      "params": {
+        "stop_pct": 6.0,
+        "target_pct": 20.0,
+        "max_hold_days": 45
+      },
+      "in_sample": {
+        "trades": 251,
+        "hit_rate": 0.287,
+        "expectancy_pct": 0.907,
+        "avg_win_pct": 19.18,
+        "avg_loss_pct": -6.44,
+        "worst_trade_pct": -6.5,
+        "pct_exit_target": 0.275,
+        "pct_exit_stop": 0.705,
+        "pct_exit_time": 0.02
+      },
+      "out_of_sample": {
+        "trades": 52,
+        "hit_rate": 0.269,
+        "expectancy_pct": 0.585,
+        "avg_win_pct": 19.5,
+        "avg_loss_pct": -6.38,
+        "worst_trade_pct": -6.5,
+        "pct_exit_target": 0.269,
+        "pct_exit_stop": 0.712,
+        "pct_exit_time": 0.019
+      },
+      "adopted": false,
+      "source": "Stock Market Wizards \u2014 Schwager synthesis, Ryan/Minervini"
+    }
+  ]
+}

@@ -25,19 +25,25 @@ MIN_EXPECTANCY_PCT = 0.30   # per-trade edge after costs
 MIN_HIT_RATE = 0.40
 
 
-def evaluate_strategy(name: str, spec: dict, symbols: list[str]) -> dict:
-    """Aggregate in-sample / out-of-sample stats across the universe."""
+def evaluate_strategy(name: str, spec: dict, symbols: list[str],
+                      load_fn=load_prices, cost_pct: float | None = None,
+                      min_history: int = 500) -> dict:
+    """Aggregate in-sample / out-of-sample stats across a universe.
+    `load_fn` and `cost_pct` let other asset classes (crypto) reuse the
+    same examiner with their own data and friction model."""
     ins, oos = [], []
     for sym in symbols:
         try:
-            df = load_prices(sym)
+            df = load_fn(sym)
         except FileNotFoundError:
             continue
-        if len(df) < 500:
+        if len(df) < min_history:
             continue
         train, test = walk_forward_split(df)
         kwargs = dict(strategy=name, symbol=sym, stop_pct=spec["stop_pct"],
                       target_pct=spec["target_pct"], max_hold_days=spec["max_hold_days"])
+        if cost_pct is not None:
+            kwargs["cost_pct"] = cost_pct
         ins.append(run_backtest(train, spec["fn"], **kwargs))
         oos.append(run_backtest(test, spec["fn"], **kwargs))
 
@@ -119,6 +125,41 @@ def build_playbook(symbols: list[str] | None = None) -> dict:
     path = PLAYBOOK_DIR / f"playbook-{playbook['version']}.json"
     path.write_text(json.dumps(playbook, indent=2))
     (PLAYBOOK_DIR / "current.json").write_text(json.dumps(playbook, indent=2))
+    return playbook
+
+
+CRYPTO_COST_PCT = 0.50  # exchange taker fees both sides + slippage; the
+                        # 30% flat tax and 1% TDS are NOT modelled here —
+                        # they are owner-level tax, reported separately.
+
+
+def build_crypto_playbook() -> dict:
+    """Run every strategy (seed + studied) against crypto daily candles.
+    Same adoption thresholds; separate playbook file — crypto rules must
+    earn adoption on crypto evidence."""
+    from sensei.data.crypto import available_crypto, load_crypto
+    symbols = available_crypto()
+    entries = []
+    for name, spec in all_strategies().items():
+        e = evaluate_strategy(name, spec, symbols, load_fn=load_crypto,
+                              cost_pct=CRYPTO_COST_PCT)
+        if "source" in spec:
+            e["source"] = spec["source"]
+        entries.append(e)
+    playbook = {
+        "version": date.today().isoformat(),
+        "asset_class": "crypto",
+        "universe_size": len(symbols),
+        "cost_pct": CRYPTO_COST_PCT,
+        "thresholds": {"min_trades_oos": MIN_TRADES_OOS,
+                       "min_expectancy_pct": MIN_EXPECTANCY_PCT,
+                       "min_hit_rate": MIN_HIT_RATE},
+        "strategies": entries,
+    }
+    PLAYBOOK_DIR.mkdir(parents=True, exist_ok=True)
+    (PLAYBOOK_DIR / f"crypto-{playbook['version']}.json").write_text(
+        json.dumps(playbook, indent=2))
+    (PLAYBOOK_DIR / "crypto-current.json").write_text(json.dumps(playbook, indent=2))
     return playbook
 
 
