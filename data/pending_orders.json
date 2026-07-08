@@ -79,5 +79,86 @@
         }
       ]
     }
+  },
+  {
+    "queued": "2026-07-08",
+    "record": {
+      "thesis": {
+        "id": "TH-20260708-012",
+        "created_at": "2026-07-08T13:05:10.749859Z",
+        "symbol": "SHRIRAMFIN",
+        "direction": "BUY",
+        "entry_zone_low": 1009.33,
+        "entry_zone_high": 1019.47,
+        "quantity": 9,
+        "stop_loss": 963.68,
+        "targets": [
+          1166.56
+        ],
+        "time_horizon_days": 30,
+        "invalidation": "1) Price closes back below the 200-DMA at 910.62 on any day \u2014 structural bull thesis collapses. 2) Price fails to break and hold above the 55-day breakout level (1066.8) within the hold window and begins rolling over below 1014.4 \u2014 momentum thesis exhausted without follow-through. 3) Earnings on 2026-07-31 produce a gap-down open below the stop level (963.68) \u2014 accept the gap loss and exit; do not average down. 4) Volume expansion dries up (volume_vs_20d_avg drops materially below 1.0) before price reaches 1066.8 \u2014 distribution signal, exit at market.",
+        "evidence": [
+          "Close 1014.4 (2026-07-08) is 11.4% above 200-DMA of 910.62, confirming active uptrend structure.",
+          "ret_1m_pct: +13.7% (2026-07-08) shows strong near-term momentum consistent with dual-MA alignment signal.",
+          "ret_6m_pct: +1.7% (2026-07-08) indicates base-building consolidation over 6 months, not a runaway extended move.",
+          "pct_from_52w_high: -7.9% (2026-07-08) \u2014 price is 7.9% below the 52-week high of 1101.77, leaving room to run before hitting prior resistance.",
+          "55-day breakout level at 1066.8 (2026-07-08) lies 5.2% above current close, acting as next meaningful resistance and the trigger for momentum continuation.",
+          "volume_vs_20d_avg: 1.14 (2026-07-08) \u2014 modest above-average volume confirms mild accumulation without speculative excess.",
+          "Stop at 963.68 is -5.0% from entry and sits 53.06 points above 200-DMA (910.62), preserving structural validity if stop is hit.",
+          "Earnings date 2026-07-31 falls 23 days from signal date, inside the 30-day max hold \u2014 gap risk is present and must be monitored.",
+          "OOS hit rate 41.1% on 3,054 trades with avg win +9.57% vs avg loss -4.86% yields positive expectancy of +1.065%, validating the strategy edge at scale."
+        ],
+        "playbook_citations": [
+          {
+            "strategy": "gujral_trend_alignment_dual_ma",
+            "oos_expectancy_pct": 1.065,
+            "oos_hit_rate": 0.411,
+            "oos_trades": 3054,
+            "oos_detail": {
+              "trades": 3054,
+              "hit_rate": 0.411,
+              "expectancy_pct": 1.065,
+              "avg_win_pct": 9.57,
+              "avg_loss_pct": -4.86,
+              "worst_trade_pct": -5.25,
+              "pct_exit_target": 0.185,
+              "pct_exit_stop": 0.526,
+              "pct_exit_time": 0.289
+            }
+          }
+        ],
+        "narrative": "SHRIRAMFIN is a financial services name sitting 11.4% above its 200-DMA (910.62) and recovering off a 6-month base (ret_6m_pct: +1.7%) with a strong recent momentum burst (+13.7% last month). The dual-MA trend-alignment strategy seeks entries where short-term momentum aligns with a longer-term uptrend \u2014 both conditions are met. The 55-day breakout level at 1066.8 lies above current price (1014.4), meaning the trade is positioned as a pre-breakout accumulation ahead of that resistance, with the 200-DMA providing structural floor support. Stop at 963.68 (-5.0%) sits comfortably above the 200-DMA (910.62), preserving the bullish structure throughout the hold period. The primary risk is the earnings event on 2026-07-31 (23 days away), which falls inside the 30-day max hold window and could introduce gap risk that the stop cannot protect against. Position size of 9 units (pre-risk-sized) limits damage if earnings disappoint. The strategy's OOS expectancy of +1.065% across 3,054 trades with a 41.1% hit rate indicates the edge is real but driven by large wins (avg win: +9.57%) absorbing frequent losses (avg loss: -4.86%), which is consistent with a trend-following payoff profile \u2014 this trade targets the +15.0% level that characterises the winning tail."
+      },
+      "verdicts": [
+        {
+          "level": "L1",
+          "agent": "risk-officer",
+          "approved": true,
+          "reasoning": "all rails pass",
+          "checked_at": "2026-07-08T13:05:10.753925Z"
+        },
+        {
+          "level": "L2",
+          "agent": "devils-advocate",
+          "approved": true,
+          "reasoning": "Attacks mounted and survived: (1) STOP vs. INVALIDATION COHERENCE \u2014 stop at 963.68 is -5.0% from entry midpoint (~1014.4) and sits 53 points ABOVE the 200-DMA invalidation level (910.62). No contradiction; stop triggers before structural break. (2) INVALIDATION TRIGGER INSIDE ENTRY ZONE \u2014 Invalidation #2 references 'rolling over below 1014.4,' which is inside the entry zone (1009.33\u20131019.47). This is a mild soft-stop that could exit a trade seconds after entry. However, it is framed as a momentum exhaustion signal requiring failure to break 1066.8 AND rolling over below 1014.4 \u2014 a conjunctive condition, not a hair-trigger. The harder stop at 963.68 is the exchange-submitted order; 1014.4 is a discretionary watch level. Tension exists but not a fatal contradiction. (3) PRE-BREAKOUT vs. DUAL-MA PREMISE \u2014 the narrative explicitly calls this 'pre-breakout accumulation' ahead of 1066.8 resistance. The strategy is gujral_trend_alignment_dual_ma, which requires momentum aligned with trend \u2014 not a confirmed breakout. Price at 1014.4 is below the 1066.8 trigger, so the thesis is entering on trend-alignment momentum before the breakout clears. This is consistent with the strategy's design (pre-breakout entries are expected; that's where the OOS 41% hit rate comes from). (4) EARNINGS GAP RISK \u2014 acknowledged, quantified, and partially mitigated by pre-sizing to 9 units. Invalidation rule #3 explicitly accepts the gap loss without averaging down. The OOS worst trade is only -5.25%, suggesting the backtest does not include large earnings gap disasters in its tail \u2014 this is a real residual risk. However, the position is pre-sized and the desk accepts the known gap risk; this is a monitoring note, not a veto condition. (5) OOS STOP EXIT RATE 52.6% \u2014 over half of trades exit at stop, consistent with a 41.1% hit rate. Expectancy math checks: (0.411 \u00d7 9.57) + (0.589 \u00d7 -4.86) = 3.93 - 2.86 = +1.07%. Confirms the supplied +1.065% figure. No fabrication. (6) TARGET COHERENCE \u2014 single target at 1166.56 is +14.9% from entry midpoint, consistent with the narrative's '+15.0% winning tail' characterization and avg win of +9.57% (target exits represent 18.5% of winners; most wins are partial/time exits, not full target hits \u2014 no contradiction). (7) 6M vs. 1M DIVERGENCE \u2014 ret_6m only +1.7% while ret_1m is +13.7% confirms base-building then breakout burst. This is the ideal setup structure for this strategy, not a contradiction. No internal contradictions survive scrutiny, risk rails are intact, and the OOS sample (3,054 trades) is large enough to trust the expectancy. APPROVE.",
+          "checked_at": "2026-07-08T13:05:34.552777Z"
+        },
+        {
+          "level": "L3",
+          "agent": "compliance",
+          "approved": true,
+          "reasoning": "SHRIRAMFIN (Shriram Finance Ltd) is a large-cap, well-regulated NBFC listed on NSE/BSE with no GSM/ASM flags (surveillance stage: 0). No banned instrument concerns. Direction is a simple directional BUY on own capital \u2014 no circular trading, layering, or spoofing patterns present; single entry zone, single stop, single target. Evidence is entirely technical/quantitative (price, MAs, volume ratios, OOS backtest stats) with no reference to material non-public information \u2014 all cited data points are observable market data. Earnings on 2026-07-31 fall inside the 30-day hold window and the thesis explicitly acknowledges and addresses this gap risk with a defined response rule ('accept the gap loss and exit; do not average down'), satisfying the no-trade-window concern \u2014 the strategy does not target earnings but has a documented plan for the event. Position size of 9 units is modest. Stop at -5.0% from entry is well-defined. No manipulation-adjacent behavior detected. All four compliance vectors (instrument eligibility, manipulation patterns, MNPI, earnings window) clear.",
+          "checked_at": "2026-07-08T13:05:45.016356Z"
+        },
+        {
+          "level": "L4",
+          "agent": "orchestrator",
+          "approved": true,
+          "reasoning": "SHRIRAMFIN passes coherence check. Portfolio concentration: 5 open positions (LODHA, CHOLAFIN, ZYDUSLIFE, TITAN, MOTHERSON queued) \u2014 SHRIRAMFIN would be 6th. Correlated exposure concern: CHOLAFIN is already a financial services name (NBFC/lending), and SHRIRAMFIN is also an NBFC. This is the primary flag \u2014 two NBFC-adjacent names in a 6-slot portfolio creates sector concentration risk. However, SHRIRAMFIN's thesis is independently grounded in price structure (200-DMA, dual-MA alignment, 6-month base), not a sector call, and the position size (9 units, pre-risk-sized) is small. Regime view is 'mixed/selective' with 49% breadth \u2014 the thesis explicitly requires the 55-day breakout at 1066.8 as confirmation, meaning this is a pre-breakout accumulation, not a blind breakout chase, which is appropriate for weak-breadth regimes where only the strongest setups deserve capital. The earnings on 2026-07-31 (inside the hold window) is a known, acknowledged risk with a clear rule (accept gap, no averaging). The reasoning is sound: entry below resistance with structural floor well below stop, OOS expectancy validated at scale (3,054 trades), and the invalidation conditions are specific and mechanical. The NBFC overlap is a manageable concentration flag, not a veto condition given position sizing. Approving with the note that if CHOLAFIN or SHRIRAMFIN triggers an exit, the sector slot should not be refilled immediately.",
+          "checked_at": "2026-07-08T13:06:00.325377Z"
+        }
+      ]
+    }
   }
 ]

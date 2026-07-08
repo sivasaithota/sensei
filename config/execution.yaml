@@ -1,0 +1,13 @@
+# Execution layer (P2+). Modes:
+#   off     — P1 paper trading only; the OpenAlgo adapter is never called
+#   sandbox — orders go to OpenAlgo's API Analyzer (simulated fills, real quotes)
+#   live    — real orders through the connected broker (Zerodha via OpenAlgo)
+#
+# Before switching to sandbox/live:
+#   1. Install OpenAlgo locally, connect Zerodha (Kite Connect subscription)
+#   2. Put the OpenAlgo app API key here
+#   3. Verify GTT OCO brackets work in sandbox before any live order
+mode: off
+host: http://127.0.0.1:5000
+api_key: ""
+strategy_tag: sensei
