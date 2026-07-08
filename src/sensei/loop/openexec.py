@@ -104,15 +104,31 @@ def execute_pending(today: date | None = None) -> dict:
                                        f"not in [{lo:.2f}, {hi:.2f}] — dropped"})
             continue
 
-        # re-check hard rails with live state (breakers may have tripped overnight)
+        # re-check hard rails with live state (breakers may have tripped overnight,
+        # and earlier fills in THIS run consume cash and position slots)
         state = _portfolio_state(book, cfg)
         breakers = rails.breaker_status(state)
         if breakers:
             summary["skipped"].append({"id": t.id, "reason": "; ".join(breakers)})
             remaining.append(item)
             continue
+        if len(book.positions) >= cfg.max_open_positions:
+            summary["skipped"].append({"id": t.id, "reason": "max positions reached — retained"})
+            remaining.append(item)
+            continue
+        if price * t.quantity > book.cash:
+            summary["skipped"].append(
+                {"id": t.id, "reason": f"insufficient cash ({book.cash:.0f} < "
+                                       f"{price * t.quantity:.0f}) — retained"})
+            remaining.append(item)
+            continue
 
-        pos = book.open_from(rec, fill_price=price, today=today)
+        try:
+            pos = book.open_from(rec, fill_price=price, today=today)
+        except ValueError as e:
+            summary["skipped"].append({"id": t.id, "reason": f"fill refused: {e} — retained"})
+            remaining.append(item)
+            continue
         summary["filled"].append({"symbol": pos.symbol, "qty": pos.quantity,
                                   "fill": round(price, 2), "stop": pos.stop_loss})
 
