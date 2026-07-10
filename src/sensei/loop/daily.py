@@ -92,6 +92,8 @@ def run_day(*, refresh: bool = True, client: anthropic.Anthropic | None = None,
             if client is not False:  # allow tests to skip LLM
                 try:
                     pm = run_post_mortem(t, client=client)
+                    from sensei.paper.engine import attach_post_mortem
+                    attach_post_mortem(t.thesis_id, pm)
                 except Exception as e:
                     pm = {"error": f"post-mortem failed: {e}"}
             summary["closed"].append({"symbol": t.symbol, "pnl": t.pnl,

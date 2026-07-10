@@ -148,6 +148,21 @@ class PaperBook:
         return sum(p.notional for p in self.positions)
 
 
+def attach_post_mortem(thesis_id: str, pm: dict) -> bool:
+    """Write the Coach's post-mortem back onto the closed-trade record."""
+    trades = load_closed_trades()
+    hit = False
+    for t in trades:
+        if t.thesis_id == thesis_id and t.post_mortem is None:
+            t.post_mortem = pm
+            hit = True
+    if hit:
+        with CLOSED_FILE.open("w") as f:
+            for t in trades:
+                f.write(json.dumps(asdict(t)) + "\n")
+    return hit
+
+
 def load_closed_trades() -> list[ClosedTrade]:
     if not CLOSED_FILE.exists():
         return []

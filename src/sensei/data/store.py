@@ -18,7 +18,9 @@ import httpx
 import pandas as pd
 import yfinance as yf
 
-NIFTY100_URL = "https://archives.nseindia.com/content/indices/ind_nifty100list.csv"
+# Universe: Nifty 500 (owner decision 2026-07-10). The ₹5 Cr/day liquidity
+# rail keeps the illiquid tail untradeable regardless of index membership.
+UNIVERSE_URL = "https://archives.nseindia.com/content/indices/ind_nifty500list.csv"
 UA = {"User-Agent": "Mozilla/5.0"}
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
@@ -28,7 +30,7 @@ UNIVERSE_FILE = DATA_DIR / "universe.csv"
 
 def fetch_universe() -> pd.DataFrame:
     """Nifty 100 constituents: symbol, company, industry, ISIN."""
-    resp = httpx.get(NIFTY100_URL, headers=UA, timeout=30)
+    resp = httpx.get(UNIVERSE_URL, headers=UA, timeout=30)
     resp.raise_for_status()
     from io import StringIO
 

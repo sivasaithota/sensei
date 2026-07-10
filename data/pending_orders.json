@@ -1,112 +1,30 @@
 [
   {
-    "queued": "2026-07-07",
+    "queued": "2026-07-10",
     "record": {
       "thesis": {
-        "id": "TH-20260707-006",
-        "created_at": "2026-07-07T13:36:50.916894Z",
-        "symbol": "MOTHERSON",
+        "id": "TH-20260710-013",
+        "created_at": "2026-07-10T13:03:57.062068Z",
+        "symbol": "SBIN",
         "direction": "BUY",
-        "entry_zone_low": 142.65,
-        "entry_zone_high": 144.09,
-        "quantity": 69,
-        "stop_loss": 132.62,
-        "targets": [
-          172.04
-        ],
-        "time_horizon_days": 60,
-        "invalidation": "1) Price closes below the 200-DMA at \u20b9121.07 on any day \u2014 this would negate the entire trend-template premise regardless of the stop level. 2) Price fails to reclaim the 55-day breakout level of \u20b9151.71 within 30 days and instead rolls back below \u20b9143 on elevated volume, suggesting the consolidation is deteriorating rather than coiling. 3) Broad market (Nifty 50) enters a confirmed distribution phase (3+ days of higher-volume selling in a rolling 5-session window) before MOTHERSON clears \u20b9151.71, removing the tailwind the strategy depends on. 4) Earnings on 2026-08-13 are held with an open position \u2014 exposure must be evaluated and potentially reduced before that date to avoid gap-risk that exceeds the strategy's avg-loss assumption of -7.28%.",
-        "evidence": [
-          "Close \u20b9143.37 vs 200-DMA \u20b9121.07 = +18.4% above long-term trend line (2026-07-07)",
-          "52-week high \u20b9155.25; current price is only -7.7% below that high, confirming primary uptrend intact (2026-07-07)",
-          "55-day breakout level \u20b9151.71 is 5.8% above current close \u2014 a clear, nearby resistance/confirmation level (2026-07-07)",
-          "Volume 1.85x 20-day average on signal date, indicating above-average institutional participation (2026-07-07)",
-          "6-month return +18.1% confirms sustained trending behavior consistent with Minervini template criteria (2026-07-07)",
-          "1-month return -0.5% indicates shallow consolidation/pullback entry rather than a late-stage chase (2026-07-07)",
-          "Stop \u20b9132.62 is 11.5 points above 200-DMA \u20b9121.07 \u2014 stop placement is coherent and does not contradict trend definition (2026-07-07)",
-          "Next earnings 2026-08-13 = 37 days away, inside the 60-day max hold; binary event risk must be managed before that date (2026-07-07)",
-          "Strategy OOS expectancy +2.632% over 1,738 trades with avg win +14.39% vs avg loss -7.28%, confirming positive edge (OOS backtest)"
-        ],
-        "playbook_citations": [
-          {
-            "strategy": "minervini_trend_template",
-            "oos_expectancy_pct": 2.632,
-            "oos_hit_rate": 0.457,
-            "oos_trades": 1738,
-            "oos_detail": {
-              "trades": 1738,
-              "hit_rate": 0.457,
-              "expectancy_pct": 2.632,
-              "avg_win_pct": 14.39,
-              "avg_loss_pct": -7.28,
-              "worst_trade_pct": -7.75,
-              "pct_exit_target": 0.261,
-              "pct_exit_stop": 0.494,
-              "pct_exit_time": 0.246
-            }
-          }
-        ],
-        "narrative": "MOTHERSON is a Minervini trend-template candidate trading at \u20b9143.37 on 2026-07-07, sitting 18.4% above its 200-DMA (\u20b9121.07) \u2014 well inside the strategy's healthy-trend zone. The stock is only 7.7% below its 52-week high of \u20b9155.25, indicating the primary uptrend is intact with no major distribution. The 55-day breakout level sits at \u20b9151.71; a sustained move through that level would confirm the next leg of the trend and is the natural target confirmation point before the system's \u20b9172.04 objective. Today's volume is 1.85x the 20-day average, providing conviction that institutional participation is present in the current price action. The 6-month return of +18.1% confirms the stock has been in a sustained uptrend consistent with the Minervini template. The 1-month return of -0.5% reflects a minor consolidation/pullback, which is the textbook setup: buying near-highs of a trending name after a brief pause rather than chasing a breakout. Risk is defined at \u20b9132.62 (7.5% below entry), which sits comfortably below the 200-DMA of \u20b9121.07 \u2014 the stop does not threaten the trend definition. The primary risk is the earnings date of 2026-08-13, which falls within the 60-day hold window; the position must be managed actively as that date approaches."
-      },
-      "verdicts": [
-        {
-          "level": "L1",
-          "agent": "risk-officer",
-          "approved": true,
-          "reasoning": "all rails pass",
-          "checked_at": "2026-07-07T13:36:50.919680Z"
-        },
-        {
-          "level": "L2",
-          "agent": "devils-advocate",
-          "approved": true,
-          "reasoning": "Thesis survives attack on all material fronts. (1) STOP COHERENCE: Stop at \u20b9132.62 is 7.5% below entry midpoint (~\u20b9143.37) and sits 11.55 points ABOVE the 200-DMA (\u20b9121.07) \u2014 this is intentional and internally consistent; the stop is a mechanical risk rail, not a trend-definition marker. No contradiction. (2) INVALIDATION vs ENTRY ZONE: The 200-DMA invalidation at \u20b9121.07 is well below both stop and entry \u2014 no overlap that would make invalidation trigger inside the trade zone. The rolling-back-below-\u20b9143 condition partially overlaps the entry zone low (\u20b9142.65), but this is a *time-conditional* invalidation (30 days + elevated volume), not a same-day stop trigger \u2014 structural distinction is valid. (3) R/R AND EXPECTANCY: Risk per share ~\u20b910.75; reward to target ~\u20b928.67; R/R ~2.67:1. With OOS avg win +14.39% vs avg loss -7.28% over 1,738 trades and positive expectancy of +2.63%, the math holds even at a 45.7% hit rate. This is how breakout/trend-following systems work \u2014 not a flaw. (4) EARNINGS GAP RISK: Earnings on 2026-08-13 fall inside the 60-day window and the avg-loss floor is -7.28% while worst OOS trade was -7.75% \u2014 a gap blow-through is a real tail risk. HOWEVER, the thesis explicitly acknowledges this and mandates pre-earnings position evaluation. The invalidation clause addresses it directly. Risk is flagged, not hidden. (5) EVIDENCE INTEGRITY: All evidence items cite supplied data (price, MAs, volume ratio, OOS backtest) \u2014 no unsupported claims. (6) VOLUME SIGNAL: 1.85x 20-day average on signal date is cited as institutional participation, but this could equally be distribution. This is a genuine weakness \u2014 volume alone is ambiguous. However, the thesis does not rest solely on volume; it is corroborating evidence within a multi-factor template. Not sufficient to veto. ONLY RESIDUAL CONCERN: The worst OOS trade at -7.75% is very close to the avg-loss of -7.28%, suggesting the stop is consistently hit near max \u2014 this implies limited slippage tolerance if the stock gaps through the stop. Manageable given the earnings-management clause. VERDICT: No internal contradictions, no disqualifying disconfirming evidence, earnings risk disclosed and managed. Approve.",
-          "checked_at": "2026-07-07T13:37:08.420527Z"
-        },
-        {
-          "level": "L3",
-          "agent": "compliance",
-          "approved": true,
-          "reasoning": "MOTHERSON (Samvardhana Motherson International Ltd) is a large-cap NSE-listed auto ancillary stock; GSM/ASM stage reported as 0 \u2014 no surveillance restriction. No indicators of banned instrument status. Direction is BUY (long only), single entry, no wash-trade or circular-trading pattern possible with a single directional position. Evidence cites only public technical data (price, volume, DMA levels, 52-week high, returns) and a disclosed OOS backtest \u2014 no material non-public information cited or inferred. Volume elevation (1.85x) reflects observed market activity, not a spoofing or layering pattern. Earnings date 2026-08-13 is 37 days out and falls within the 60-day hold; critically, the thesis explicitly flags this in both the invalidation rules and evidence, mandating pre-earnings position review \u2014 this satisfies the no-trade-window-around-results requirement via active risk management rather than avoidance. Stop (\u20b9132.62) and target (\u20b9172.04) are coherent with stated strategy OOS parameters. No regulatory red flags identified.",
-          "checked_at": "2026-07-07T13:37:17.985375Z"
-        },
-        {
-          "level": "L4",
-          "agent": "orchestrator",
-          "approved": true,
-          "reasoning": "Coherence check passes. MOTHERSON is auto parts / global supply chain \u2014 sector distinct from current portfolio (real estate: LODHA, DLF; NBFC: CHOLAFIN; pharma: ZYDUSLIFE; consumer discretionary: TITAN). No meaningful correlation cluster concern. Thesis is internally consistent: entry in shallow pullback (-0.5% 1M) within a primary uptrend (+18.1% 6M, +18.4% above 200-DMA), volume confirmation (1.85x avg), defined risk at 132.62, and a clear invalidation framework. The earnings gate (2026-08-13, 37 days) is explicitly flagged in both invalidation criteria and narrative \u2014 the thesis is not ignoring the binary event, it is pre-committing to active management before it. Regime caveat (56% above 200-DMA, mixed breadth) is a headwind worth respecting, but MOTHERSON's own trend metrics are strong enough to clear the 'marginal thesis' bar \u2014 this is not a marginal setup. The reasoning is sound and stake-worthy. One condition: position must be reviewed no later than 2026-08-06 (one week before earnings) with explicit decision to reduce, hedge, or exit before 2026-08-13 open.",
-          "checked_at": "2026-07-07T13:37:29.603553Z"
-        }
-      ]
-    }
-  },
-  {
-    "queued": "2026-07-08",
-    "record": {
-      "thesis": {
-        "id": "TH-20260708-012",
-        "created_at": "2026-07-08T13:05:10.749859Z",
-        "symbol": "SHRIRAMFIN",
-        "direction": "BUY",
-        "entry_zone_low": 1009.33,
-        "entry_zone_high": 1019.47,
+        "entry_zone_low": 1030.82,
+        "entry_zone_high": 1041.18,
         "quantity": 9,
-        "stop_loss": 963.68,
+        "stop_loss": 984.2,
         "targets": [
-          1166.56
+          1191.4
         ],
         "time_horizon_days": 30,
-        "invalidation": "1) Price closes back below the 200-DMA at 910.62 on any day \u2014 structural bull thesis collapses. 2) Price fails to break and hold above the 55-day breakout level (1066.8) within the hold window and begins rolling over below 1014.4 \u2014 momentum thesis exhausted without follow-through. 3) Earnings on 2026-07-31 produce a gap-down open below the stop level (963.68) \u2014 accept the gap loss and exit; do not average down. 4) Volume expansion dries up (volume_vs_20d_avg drops materially below 1.0) before price reaches 1066.8 \u2014 distribution signal, exit at market.",
+        "invalidation": "1. Price closes below the 200-DMA at 999.32 on a daily bar \u2014 structural trend support is broken and the thesis premise (trend alignment) collapses before the hard stop at 984.2 is reached. 2. Price fails to clear the 55-day breakout level at 1092.16 within 15 trading days and begins to roll over \u2014 momentum is stalling and time-exit risk rises. 3. Earnings are not exited before 2026-08-06 \u2014 holding through the event exposes the position to gap risk inconsistent with a swing-trade plan sized at 9 shares. 4. Volume remains below the 20-day average (currently 0.86x) on any attempted rally through 1092.16 \u2014 breakout would lack institutional participation and is likely to fail.",
         "evidence": [
-          "Close 1014.4 (2026-07-08) is 11.4% above 200-DMA of 910.62, confirming active uptrend structure.",
-          "ret_1m_pct: +13.7% (2026-07-08) shows strong near-term momentum consistent with dual-MA alignment signal.",
-          "ret_6m_pct: +1.7% (2026-07-08) indicates base-building consolidation over 6 months, not a runaway extended move.",
-          "pct_from_52w_high: -7.9% (2026-07-08) \u2014 price is 7.9% below the 52-week high of 1101.77, leaving room to run before hitting prior resistance.",
-          "55-day breakout level at 1066.8 (2026-07-08) lies 5.2% above current close, acting as next meaningful resistance and the trigger for momentum continuation.",
-          "volume_vs_20d_avg: 1.14 (2026-07-08) \u2014 modest above-average volume confirms mild accumulation without speculative excess.",
-          "Stop at 963.68 is -5.0% from entry and sits 53.06 points above 200-DMA (910.62), preserving structural validity if stop is hit.",
-          "Earnings date 2026-07-31 falls 23 days from signal date, inside the 30-day max hold \u2014 gap risk is present and must be monitored.",
-          "OOS hit rate 41.1% on 3,054 trades with avg win +9.57% vs avg loss -4.86% yields positive expectancy of +1.065%, validating the strategy edge at scale."
+          "Close 1036.0 vs 200-DMA 999.32 \u2192 +3.7% above, confirming bullish trend alignment (date: 2026-07-10).",
+          "52-week high 1212.84; current price 14.6% below that high \u2014 outside ATH-proximity whipsaw zone (date: 2026-07-10).",
+          "55-day breakout level 1092.16 is the next resistance; target 1191.4 lies beyond it (date: 2026-07-10).",
+          "Stop 984.2 is 15.12 points below the 200-DMA 999.32, placing hard risk below structural support (date: 2026-07-10).",
+          "1-month return +1.9% and 6-month return +5.7% confirm positive near-term and medium-term momentum (date: 2026-07-10).",
+          "Volume vs 20-day average: 0.86x \u2014 below average, requiring confirmation on any breakout attempt (date: 2026-07-10).",
+          "Earnings 2026-08-06, 27 days away \u2014 inside the 30-day max hold window; binary event risk must be managed (date: 2026-07-10).",
+          "Strategy out-of-sample worst trade: -5.25%; computed stop width -5.0% \u2014 within historically observed loss bounds (source: strategy stats)."
         ],
         "playbook_citations": [
           {
@@ -127,7 +45,7 @@
             }
           }
         ],
-        "narrative": "SHRIRAMFIN is a financial services name sitting 11.4% above its 200-DMA (910.62) and recovering off a 6-month base (ret_6m_pct: +1.7%) with a strong recent momentum burst (+13.7% last month). The dual-MA trend-alignment strategy seeks entries where short-term momentum aligns with a longer-term uptrend \u2014 both conditions are met. The 55-day breakout level at 1066.8 lies above current price (1014.4), meaning the trade is positioned as a pre-breakout accumulation ahead of that resistance, with the 200-DMA providing structural floor support. Stop at 963.68 (-5.0%) sits comfortably above the 200-DMA (910.62), preserving the bullish structure throughout the hold period. The primary risk is the earnings event on 2026-07-31 (23 days away), which falls inside the 30-day max hold window and could introduce gap risk that the stop cannot protect against. Position size of 9 units (pre-risk-sized) limits damage if earnings disappoint. The strategy's OOS expectancy of +1.065% across 3,054 trades with a 41.1% hit rate indicates the edge is real but driven by large wins (avg win: +9.57%) absorbing frequent losses (avg loss: -4.86%), which is consistent with a trend-following payoff profile \u2014 this trade targets the +15.0% level that characterises the winning tail."
+        "narrative": "SBIN is a long setup within the gujral_trend_alignment_dual_ma strategy. Price at 1036.0 (2026-07-10) sits 3.7% above its 200-DMA of 999.32, confirming the primary trend is bullish. The stock is 14.6% below its 52-week high of 1212.84, meaningfully off the top and therefore outside the ATH-proximity whipsaw zone flagged in the Mistake Ledger. Near-term momentum is positive: +1.9% over 1 month and +5.7% over 6 months. The next structural hurdle is the 55-day breakout level at 1092.16; a sustained move through that level would validate the trend and open the path toward the 1191.4 target (+15.0%). The stop at 984.2 (-5.0%) is placed below the 200-DMA (999.32), which acts as a natural support floor. Risk is bounded: the worst historical trade in this strategy is -5.25%, consistent with the computed stop width. The main threat is the earnings event on 2026-08-06 (27 days away), which falls inside the 30-day max hold window \u2014 the position must be actively managed or closed before that date to avoid binary gap risk."
       },
       "verdicts": [
         {
@@ -135,79 +53,79 @@
           "agent": "risk-officer",
           "approved": true,
           "reasoning": "all rails pass",
-          "checked_at": "2026-07-08T13:05:10.753925Z"
+          "checked_at": "2026-07-10T13:03:57.068405Z"
         },
         {
           "level": "L2",
           "agent": "devils-advocate",
           "approved": true,
-          "reasoning": "Attacks mounted and survived: (1) STOP vs. INVALIDATION COHERENCE \u2014 stop at 963.68 is -5.0% from entry midpoint (~1014.4) and sits 53 points ABOVE the 200-DMA invalidation level (910.62). No contradiction; stop triggers before structural break. (2) INVALIDATION TRIGGER INSIDE ENTRY ZONE \u2014 Invalidation #2 references 'rolling over below 1014.4,' which is inside the entry zone (1009.33\u20131019.47). This is a mild soft-stop that could exit a trade seconds after entry. However, it is framed as a momentum exhaustion signal requiring failure to break 1066.8 AND rolling over below 1014.4 \u2014 a conjunctive condition, not a hair-trigger. The harder stop at 963.68 is the exchange-submitted order; 1014.4 is a discretionary watch level. Tension exists but not a fatal contradiction. (3) PRE-BREAKOUT vs. DUAL-MA PREMISE \u2014 the narrative explicitly calls this 'pre-breakout accumulation' ahead of 1066.8 resistance. The strategy is gujral_trend_alignment_dual_ma, which requires momentum aligned with trend \u2014 not a confirmed breakout. Price at 1014.4 is below the 1066.8 trigger, so the thesis is entering on trend-alignment momentum before the breakout clears. This is consistent with the strategy's design (pre-breakout entries are expected; that's where the OOS 41% hit rate comes from). (4) EARNINGS GAP RISK \u2014 acknowledged, quantified, and partially mitigated by pre-sizing to 9 units. Invalidation rule #3 explicitly accepts the gap loss without averaging down. The OOS worst trade is only -5.25%, suggesting the backtest does not include large earnings gap disasters in its tail \u2014 this is a real residual risk. However, the position is pre-sized and the desk accepts the known gap risk; this is a monitoring note, not a veto condition. (5) OOS STOP EXIT RATE 52.6% \u2014 over half of trades exit at stop, consistent with a 41.1% hit rate. Expectancy math checks: (0.411 \u00d7 9.57) + (0.589 \u00d7 -4.86) = 3.93 - 2.86 = +1.07%. Confirms the supplied +1.065% figure. No fabrication. (6) TARGET COHERENCE \u2014 single target at 1166.56 is +14.9% from entry midpoint, consistent with the narrative's '+15.0% winning tail' characterization and avg win of +9.57% (target exits represent 18.5% of winners; most wins are partial/time exits, not full target hits \u2014 no contradiction). (7) 6M vs. 1M DIVERGENCE \u2014 ret_6m only +1.7% while ret_1m is +13.7% confirms base-building then breakout burst. This is the ideal setup structure for this strategy, not a contradiction. No internal contradictions survive scrutiny, risk rails are intact, and the OOS sample (3,054 trades) is large enough to trust the expectancy. APPROVE.",
-          "checked_at": "2026-07-08T13:05:34.552777Z"
+          "reasoning": "Attacks mounted and survived: (1) STOP PLACEMENT \u2014 Stop at 984.2 is 15.12 pts below the 200-DMA (999.32), so the hard stop is correctly below structural support, not inside it. No contradiction. (2) INVALIDATION VS ENTRY ZONE \u2014 Invalidation #1 triggers on a close below 200-DMA at 999.32; entry zone high is 1041.18. The invalidation level is well outside (below) the entry zone, so no internal contradiction of the 'invalidation inside entry zone' veto pattern. (3) WEAK MOMENTUM ARGUMENT \u2014 1M +1.9%, 6M +5.7% are tepid for a breakout thesis. However, the strategy is gujral_trend_alignment_dual_ma, which requires trend alignment (price above 200-DMA), not explosive momentum. Price is 3.7% above 200-DMA. The strategy's OOS hit rate of 41.1% with expectancy +1.065% over 3,054 trades confirms the edge holds with exactly this kind of modest drift environment. Low hit rate is not a flaw here. (4) VOLUME DEFICIENCY \u2014 Volume at 0.86x 20-day average is a real risk. However, this is candidly disclosed, invalidation #4 explicitly addresses it (no volume confirmation = no valid breakout), and the entry is within the zone before the breakout attempt \u2014 the strategy is entering on trend alignment, not on breakout confirmation. Volume is a conditional exit trigger, not a blocking condition at entry. (5) EARNINGS COMPRESSION \u2014 Earnings 2026-08-06 falls at day 27 of a 30-day max hold. This is genuinely tight: if the trade lags for 2+ weeks, the manager has minimal time between momentum confirmation and forced exit. However, invalidation #3 explicitly mandates exit before 2026-08-06, and the 15-trading-day momentum check (invalidation #2) would force an earlier exit if momentum stalls. The risk is disclosed and risk-managed, not hidden. (6) STOP WIDTH VS OOS WORST TRADE \u2014 Stop width -5.0% vs worst OOS trade -5.25%. Margin is thin but the stop is a hard exchange order (stated in system design); the 0.25% gap is within normal slippage tolerance for a liquid large-cap like SBIN. (7) RISK SIZING \u2014 9 shares \u00d7 ~1036 = ~9,324 notional; stop risk = ~9 \u00d7 51.8 = ~466 INR at risk. No capital base is supplied, but the system enforces max 2% capital at risk \u2014 this is a system-level rail, not a thesis responsibility. No veto grounds found. All attacks deflected by supplied evidence and explicit invalidation conditions.",
+          "checked_at": "2026-07-10T13:04:17.023895Z"
         },
         {
           "level": "L3",
           "agent": "compliance",
           "approved": true,
-          "reasoning": "SHRIRAMFIN (Shriram Finance Ltd) is a large-cap, well-regulated NBFC listed on NSE/BSE with no GSM/ASM flags (surveillance stage: 0). No banned instrument concerns. Direction is a simple directional BUY on own capital \u2014 no circular trading, layering, or spoofing patterns present; single entry zone, single stop, single target. Evidence is entirely technical/quantitative (price, MAs, volume ratios, OOS backtest stats) with no reference to material non-public information \u2014 all cited data points are observable market data. Earnings on 2026-07-31 fall inside the 30-day hold window and the thesis explicitly acknowledges and addresses this gap risk with a defined response rule ('accept the gap loss and exit; do not average down'), satisfying the no-trade-window concern \u2014 the strategy does not target earnings but has a documented plan for the event. Position size of 9 units is modest. Stop at -5.0% from entry is well-defined. No manipulation-adjacent behavior detected. All four compliance vectors (instrument eligibility, manipulation patterns, MNPI, earnings window) clear.",
-          "checked_at": "2026-07-08T13:05:45.016356Z"
+          "reasoning": "SBIN (State Bank of India) is a large-cap NSE/BSE listed stock with GSM/ASM stage 0 \u2014 no surveillance restrictions apply. No banned instrument flag. Direction is BUY on own capital via Kite Connect \u2014 no short-selling or F&O complexity. No circular trading or spoofing patterns: single directional swing entry with a defined stop and one target. All evidence is price/volume/technical (200-DMA, 52W high, momentum returns) derived from public market data dated 2026-07-10 \u2014 no MNPI indicators. Earnings date 2026-08-06 is explicitly flagged in the thesis with a hard invalidation rule ('Earnings are not exited before 2026-08-06'), satisfying the no-trade-window requirement for strategies not targeting earnings events. The thesis mandates exit before the event, which is compliant. Stop at 984.2 (-5.0%) is within the strategy's worst-trade bound (-5.25%). Risk is proportionate: 9 shares \u00d7 ~1036 = ~9,324 notional, max loss ~468 \u2014 no position-sizing concern. No ambiguities requiring a conservative veto.",
+          "checked_at": "2026-07-10T13:04:27.615439Z"
         },
         {
           "level": "L4",
           "agent": "orchestrator",
           "approved": true,
-          "reasoning": "SHRIRAMFIN passes coherence check. Portfolio concentration: 5 open positions (LODHA, CHOLAFIN, ZYDUSLIFE, TITAN, MOTHERSON queued) \u2014 SHRIRAMFIN would be 6th. Correlated exposure concern: CHOLAFIN is already a financial services name (NBFC/lending), and SHRIRAMFIN is also an NBFC. This is the primary flag \u2014 two NBFC-adjacent names in a 6-slot portfolio creates sector concentration risk. However, SHRIRAMFIN's thesis is independently grounded in price structure (200-DMA, dual-MA alignment, 6-month base), not a sector call, and the position size (9 units, pre-risk-sized) is small. Regime view is 'mixed/selective' with 49% breadth \u2014 the thesis explicitly requires the 55-day breakout at 1066.8 as confirmation, meaning this is a pre-breakout accumulation, not a blind breakout chase, which is appropriate for weak-breadth regimes where only the strongest setups deserve capital. The earnings on 2026-07-31 (inside the hold window) is a known, acknowledged risk with a clear rule (accept gap, no averaging). The reasoning is sound: entry below resistance with structural floor well below stop, OOS expectancy validated at scale (3,054 trades), and the invalidation conditions are specific and mechanical. The NBFC overlap is a manageable concentration flag, not a veto condition given position sizing. Approving with the note that if CHOLAFIN or SHRIRAMFIN triggers an exit, the sector slot should not be refilled immediately.",
-          "checked_at": "2026-07-08T13:06:00.325377Z"
+          "reasoning": "Coherence check passes. (1) Concentration: portfolio holds ZYDUSLIFE, TITAN, MOTHERSON, ETERNAL \u2014 no existing SBIN or PSU-bank exposure; SBIN adds a distinct sector (PSU banking) rather than compounding current holdings. (2) Correlated exposure: MOTHERSON is auto-ancillary, ETERNAL is QSR/consumer, TITAN is discretionary/jewellery, ZYDUSLIFE is pharma \u2014 SBIN's beta to that cluster is low; incremental correlation risk is acceptable. (3) Regime fit: mixed/selective market with 55% of Nifty 100 above 200-DMA is not a strong-breadth regime, but SBIN's thesis is explicitly trend-following (price 3.7% above 200-DMA, positive 1M and 6M momentum) rather than a breakout-dependent trade \u2014 it enters the zone before the 1092.16 breakout and lets price confirm. The regime caveat about unreliable breakout follow-through is flagged in invalidation criterion #2 (time-exit if no break within 15 days) and criterion #4 (volume confirmation required). Those clauses directly address the regime risk. (4) Earnings gate: 2026-08-06 is 27 days out inside the 30-day window; invalidation rule #3 mandates exit before that date \u2014 binary gap risk is explicitly managed. (5) Sizing: 9 shares at ~1036 \u2248 \u20b99,324 notional; commensurate with other positions and not disproportionate. (6) Reasoning quality: stop placement below structural 200-DMA support, worst-trade bound consistent with strategy OOS stats (-5.0% vs -5.25% historical worst), and explicit invalidation rules for each risk vector are sound. The reasoning is stakeable.",
+          "checked_at": "2026-07-10T13:04:41.904051Z"
         }
       ]
     }
   },
   {
-    "queued": "2026-07-08",
+    "queued": "2026-07-10",
     "record": {
       "thesis": {
-        "id": "TH-20260708-030",
-        "created_at": "2026-07-08T13:10:04.788798Z",
-        "symbol": "ADANIENT",
+        "id": "TH-20260710-029",
+        "created_at": "2026-07-10T13:08:35.535084Z",
+        "symbol": "DLF",
         "direction": "BUY",
-        "entry_zone_low": 3031.67,
-        "entry_zone_high": 3062.13,
-        "quantity": 3,
-        "stop_loss": 2894.55,
+        "entry_zone_low": 682.32,
+        "entry_zone_high": 689.18,
+        "quantity": 14,
+        "stop_loss": 651.46,
         "targets": [
-          3351.59
+          768.04
         ],
-        "time_horizon_days": 15,
-        "invalidation": "Thesis is dead if: (1) price closes below the 200-DMA at 2399.97 on any day (structural trend break, well below stop at 2894.55 \u2014 note this is a secondary structural signal, the hard stop at 2894.55 exits first); (2) price fails to sustain above the 55-day breakout level 3212.1 after first touching it, reversing back below 3046.9 entry on a closing basis, signaling failed breakout; (3) the stock is still open 7 days before earnings (2026-07-22) \u2014 exit regardless of P&L to avoid binary earnings risk given the 15-day max hold overlaps the 2026-07-29 earnings date.",
+        "time_horizon_days": 30,
+        "invalidation": "Thesis is dead if: (1) price closes back below the 55-day breakout level of 675.90 on meaningful volume before the stop at 651.46 is hit, indicating the breakout is failing and re-entry below the level is occurring; (2) the 200-DMA at 649.54 is breached on a daily close, which would also trigger the stop \u2014 the two levels are near-coincident, so any close below 651.46 effectively confirms 200-DMA breakdown; (3) a broad real-estate sector catalyst (RBI rate shock, FPI outflow data, NBFC stress) reverses the sector trend before DLF reaches target; (4) earnings on 2026-08-04 arrive while the position is still open and the trade has not achieved meaningful unrealised gain \u2014 in that scenario the risk profile changes materially and the position should be evaluated for early exit rather than held into the binary event.",
         "evidence": [
-          "Close 3046.9 on 2026-07-08 is 27.0% above 200-DMA of 2399.97, confirming the stock is in a structurally defined uptrend.",
-          "52-week high is 3245.0 (as of 2026-07-08); current price is only 6.1% below that high, indicating price is near the upper range with limited overhead supply.",
-          "6-month return of +34.9% (as of 2026-07-08) demonstrates sustained institutional accumulation consistent with the turner_trend_filter_sma strategy premise.",
-          "1-month return of +4.0% (as of 2026-07-08) shows near-term momentum has not stalled, reducing mean-reversion risk at entry.",
-          "Volume at 1.14x 20-day average on 2026-07-08 provides mild confirmation without signaling a climactic/exhaustion spike.",
-          "55-day breakout level at 3212.1 (as of 2026-07-08) is the key overhead level; entry at 3046.9 is 5.4% below it, giving the trade room to build before confronting resistance.",
-          "OOS strategy stats (6,987 trades): hit rate 45.2%, expectancy +0.324%, avg win +6.12% vs avg loss -4.46%, worst trade -5.25% \u2014 stop at -5.0% is calibrated tightly to the worst historical loss.",
-          "Earnings on 2026-07-29 are 21 days away, overlapping the 15-day max hold; position must be monitored for early exit before the binary event."
+          "Breakout confirmed: close of 685.75 (2026-07-10) is above 55-day breakout level of 675.90, a net +1.5% above the trigger.",
+          "Volume confirmation: volume on signal day is 2.16x the 20-day average (2026-07-10), consistent with institutional participation on the breakout.",
+          "ATH-proximity check clear: price is 19.3% below the 52-week high of 850.23 (2026-07-10), well outside the whipsaw zone described in Mistake Ledger trade TH-20260706-003.",
+          "Trend structure intact: 200-DMA at 649.54 (2026-07-10) is 5.6% below current price, confirming the stock is in a long-term uptrend context.",
+          "Stop coherence: stop at 651.46 is 2.08 points above the 200-DMA of 649.54 \u2014 a close below stop simultaneously signals 200-DMA breakdown, making the stop structurally sound rather than arbitrary.",
+          "Recent momentum: 1-month return of +16.8% (2026-07-10) confirms the stock is in an active thrust, not a stale base.",
+          "Strategy edge: momentum_breakout_55 out-of-sample hit rate 40.8%, avg win +8.83%, avg loss -4.95%, expectancy +0.678% over 2,265 trades \u2014 positive expectancy with defined skew.",
+          "Earnings risk: next earnings 2026-08-04, 25 days from signal date, within the 30-day max hold \u2014 position must be managed before or at this date."
         ],
         "playbook_citations": [
           {
-            "strategy": "turner_trend_filter_sma",
-            "oos_expectancy_pct": 0.324,
-            "oos_hit_rate": 0.452,
-            "oos_trades": 6987,
+            "strategy": "momentum_breakout_55",
+            "oos_expectancy_pct": 0.678,
+            "oos_hit_rate": 0.408,
+            "oos_trades": 2265,
             "oos_detail": {
-              "trades": 6987,
-              "hit_rate": 0.452,
-              "expectancy_pct": 0.324,
-              "avg_win_pct": 6.12,
-              "avg_loss_pct": -4.46,
+              "trades": 2265,
+              "hit_rate": 0.408,
+              "expectancy_pct": 0.678,
+              "avg_win_pct": 8.83,
+              "avg_loss_pct": -4.95,
               "worst_trade_pct": -5.25,
-              "pct_exit_target": 0.193,
-              "pct_exit_stop": 0.422,
-              "pct_exit_time": 0.385
+              "pct_exit_target": 0.245,
+              "pct_exit_stop": 0.54,
+              "pct_exit_time": 0.215
             }
           }
         ],
-        "narrative": "ADANIENT is in a sustained uptrend, trading 27% above its 200-DMA (2399.97) with strong 6-month momentum (+34.9%). The stock sits only 6.1% below its 52-week high of 3245.0, indicating it has largely absorbed prior distribution. The 55-day breakout level at 3212.1 represents the near-term resistance to clear; a sustained move through that level confirms trend continuation. Entry at current close (3046.9) offers a 10% target (3351.59) with a 5% stop (2894.55), yielding a 2:1 reward-to-risk ratio consistent with the strategy's historical profile (avg win 6.12%, avg loss -4.46%). Volume is marginally elevated at 1.14x 20-day average, providing modest confirmation without signaling exhaustion. The strategy's OOS expectancy of +0.324% per trade across 6,987 trades gives statistical credibility. Primary risk: earnings on 2026-07-29 fall within the 15-day max hold window (21 days away), creating binary event risk if the position is still open near expiry."
+        "narrative": "DLF has broken above its 55-day high (675.90) on 2.16x average volume, confirming a momentum breakout consistent with the momentum_breakout_55 strategy premise. Price is 19.3% below the 52-week high of 850.23, placing it well clear of the ATH-proximity whipsaw zone flagged in the Mistake Ledger \u2014 the breakout is not occurring at or near a new high but rather a recovery move from a base. The 200-DMA at 649.54 sits comfortably below the stop at 651.46, providing a structurally meaningful floor: a stop-out would simultaneously breach both the 55d breakout level and the long-term trend line, making the invalidation genuine rather than noise-driven. One-month momentum of +16.8% confirms recent price strength without the runaway exhaustion signal that would come from proximity to the 52-week high. The risk/reward is asymmetric at roughly 1:2.4 (5.0% stop vs 12.0% target), and the strategy's historical expectancy of +0.678% per trade over 2,265 out-of-sample observations gives statistical backing. The earnings date of 2026-08-04 (25 days away) is the primary timing risk: price must reach target or be managed before the event introduces binary volatility that the strategy's time-exit at 30 days does not account for within the hold window."
       },
       "verdicts": [
         {
@@ -215,28 +133,28 @@
           "agent": "risk-officer",
           "approved": true,
           "reasoning": "all rails pass",
-          "checked_at": "2026-07-08T13:10:04.796199Z"
+          "checked_at": "2026-07-10T13:08:35.539701Z"
         },
         {
           "level": "L2",
           "agent": "devils-advocate",
           "approved": true,
-          "reasoning": "Attacks mounted and survived: (1) STOP INCONSISTENCY \u2014 stop at 2894.55 is 5.0% below entry at 3046.9, consistent with worst historical loss of -5.25%; no contradiction. (2) INVALIDATION INSIDE ENTRY ZONE \u2014 200-DMA invalidation at 2399.97 is correctly flagged as secondary (hard stop exits first at 2894.55); failed-breakout invalidation trigger at 3046.9 closing basis is below the entry zone low of 3031.67, which creates a narrow but real ambiguity: price could enter at 3031.67 and the failed-breakout reversal clause triggers almost immediately. However, the clause requires price to first touch 3212.1 then reverse below 3046.9, so it cannot fire before the breakout level is reached \u2014 contradiction does not hold. (3) EARNINGS OVERLAP \u2014 21 days to earnings vs 15-day max hold is a real risk, but explicitly addressed with a mandatory exit rule 7 days before (exit by 2026-07-15). The 15-day horizon ends 2026-07-23; the forced exit at day 8 (2026-07-16) is before the 2026-07-22 trigger date, so the position clears before binary risk. Rule is internally coherent. (4) LOW HIT RATE (45.2%) \u2014 not a flaw; expectancy is positive at +0.324% with avg win/loss ratio of 1.37:1 across 6,987 OOS trades. (5) NEAR 52-WEEK HIGH / LIMITED UPSIDE \u2014 52-week high is 3245.0 but target is 3351.59, which is 3.3% above the prior high. This is a legitimate overhead resistance concern: the target requires a breakout to new 52-week highs, and only 19.3% of OOS trades exit via target. However, the strategy is a breakout system by design; clearing the 55-day level at 3212.1 (itself below the 52-week high) is the intermediate confirmation trigger, and the exit breakdown (38.5% time exits) means most profitable trades don't require hitting full target. Risk is real but within strategy design. (6) VOLUME \u2014 1.14x is mild, not exhaustion. No fatal contradictions found; risk rails hold; earnings exit rule is coherent.",
-          "checked_at": "2026-07-08T13:10:20.918051Z"
+          "reasoning": "Attacks mounted and survived: (1) STOP COHERENCE vs INVALIDATION CONTRADICTION \u2014 invalidation trigger #1 is a close below 675.90 (55d level), but the stop is at 651.46, a 3.6% gap below. This is a real tension: the thesis acknowledges the breakout is 'failing' at 675.90 yet the system keeps the position open until 651.46. However, this is consistent with how mechanical breakout systems work \u2014 the invalidation is an *early warning* flag triggering evaluation, not an automatic exit; the hard stop is the exchange-enforced level. This is standard systematic desk practice and not a fatal contradiction. (2) MOMENTUM EXHAUSTION \u2014 +16.8% 1-month return raises the question of buying extended momentum. Counterargument survives: price is 19.3% below 52-week high (850.23), so this is recovery momentum from a base, not a runaway exhaustion move. The Mistake Ledger ATH-proximity check is explicitly cited and passed. (3) EARNINGS BINARY RISK within hold window \u2014 this is the strongest attack. Earnings on 2026-08-04 fall 25 days into a 30-day max hold. The strategy's time-exit at day 30 does not account for binary event volatility; the system's OOS statistics were not conditioned on earnings-straddle periods. The thesis *acknowledges* this but treats it as a management note rather than a hard constraint. However, the invalidation language explicitly mandates evaluation for early exit if no meaningful unrealised gain exists at earnings \u2014 this is a structural mitigation, not hand-waving. (4) STOP TOO TIGHT FOR MOMENTUM \u2014 worst OOS loss is -5.25% vs this trade's stop at ~5.0% below mid-entry (686.75 to 651.46 = 5.1%). Stop is within the strategy's loss distribution. (5) LOW HIT RATE (40.8%) \u2014 not a flaw per systematic desk rules; expectancy is positive at +0.678% over 2,265 trades with defined skew (avg win 8.83% vs avg loss 4.95%). R:R of ~2.4:1 is consistent with the OOS stats. (6) VOLUME CONFIRMATION \u2014 2.16x 20-day average cited as institutional participation; this is a thesis claim without independent verification, but it is internally consistent and the strategy premise does not require volume confirmation to generate expectancy \u2014 it is supporting color, not load-bearing. No fatal internal contradictions, no evidence items that contradict the strategy premise, stop is structurally grounded, earnings risk is explicitly flagged with a management protocol. Thesis survives the best attack. APPROVED.",
+          "checked_at": "2026-07-10T13:08:54.179419Z"
         },
         {
           "level": "L3",
           "agent": "compliance",
           "approved": true,
-          "reasoning": "ADANIENT passes all compliance checks. (1) Instrument status: GSM/ASM stage 0 \u2014 no surveillance restriction. (2) No manipulation patterns: single directional BUY of 3 shares of own capital; no layering, spoofing, or circular trading indicators. (3) No MNPI concern: all evidence is price/volume/technical data derivable from public market feeds (NSE closing prices, 200-DMA, 52-week high, volume ratios) \u2014 no non-public corporate information cited. (4) Earnings no-trade window: thesis explicitly identifies earnings on 2026-07-29 and mandates exit if position is still open 7 days before (\u22482026-07-22), which is within the 15-day hold window \u2014 the no-trade window protocol is embedded in the invalidation rules. (5) Risk parameters are internally consistent: hard stop at -5.0% (2894.55) is above the 200-DMA structural stop (2399.97); 2:1 R:R is aligned with OOS historical profile. No regulatory or compliance red flags identified.",
-          "checked_at": "2026-07-08T13:10:30.614985Z"
+          "reasoning": "DLF (NSE: DLF) is a large-cap, actively traded real-estate stock on NSE/BSE with GSM/ASM stage 0 \u2014 no surveillance restrictions apply. No manipulation indicators: single-direction momentum breakout on 2.16x volume is consistent with genuine institutional participation, not circular trading or spoofing. All evidence is price/volume/technical data from public market sources; no MNPI indicators. Earnings risk is explicitly identified (2026-08-04, 25 days) and managed in the invalidation clause with a mandatory pre-event evaluation \u2014 the thesis does not blindly hold into the binary event. The 30-day hold window overlaps the earnings date, but the thesis explicitly flags this and requires active management, satisfying the no-trade-window obligation. Risk/reward (5.0% stop, 12.0% target, R:R ~1:2.4) and positive OOS expectancy (+0.678% over 2,265 trades) are structurally sound. No compliance objections identified.",
+          "checked_at": "2026-07-10T13:09:03.585648Z"
         },
         {
           "level": "L4",
           "agent": "orchestrator",
           "approved": true,
-          "reasoning": "Coherence check passes. ADANIENT does not duplicate existing exposure \u2014 current book holds real estate (LODHA), NBFC (CHOLAFIN, SHRIRAMFIN), pharma (ZYDUSLIFE), consumer (TITAN), and auto-ancillary (MOTHERSON); adding a conglomerate/infrastructure name is additive, not concentrating. Regime is mixed (49% above 200-DMA, VIX 14.7), which warrants caution on marginal breakout theses, but ADANIENT is already 27% above its 200-DMA and only 6.1% below its 52-week high \u2014 this is a trend continuation entry, not a speculative breakout into weak breadth, which partially mitigates the regime headwind. The 2:1 R/R (5% stop, 10% target) and calibrated stop against OOS worst-loss (-5.25%) are internally consistent. The earnings overhang (Jul 29) is correctly identified and the invalidation rule (exit 7 days before = exit by ~Jul 22) is explicit and enforceable within the 15-day hold window. Learning agenda is served: this is the sixth live test of turner_trend_filter_sma, adding a large-cap conglomerate data point. One flag: with 6 positions open or queued, portfolio is near capacity in a mixed regime \u2014 position sizing at qty=3 (~\u20b99,141 notional) is modest and acceptable. Reasoning is sound; I would stake reputation on the process.",
-          "checked_at": "2026-07-08T13:10:42.700407Z"
+          "reasoning": "Coherence checks pass. (1) Portfolio concentration: five positions including queued SBIN; DLF adds a sixth. No existing real-estate exposure, so this is not redundant \u2014 it diversifies sector mix away from pharma (ZYDUSLIFE), consumer (TITAN), auto-ancillary (MOTHERSON), QSR/food (ETERNAL), and banking (SBIN). (2) Regime fit: mixed/selective regime with 55% of Nifty 100 above 200-DMA is marginal for breakout strategies, but DLF's own setup is above-average quality \u2014 2.16x volume confirmation, 5.6% cushion above 200-DMA, and a structurally sound stop that coincides with 200-DMA breakdown. The thesis explicitly acknowledges the regime headwind by noting the strategy's 40.8% hit rate (majority of trades lose individually; positive expectancy comes from skew). The setup is not a weak-breadth lottery ticket \u2014 it has volume, trend, and stop coherence. (3) Correlated exposure: no existing momentum-breakout position in real estate; ETERNAL and DLF are both domestic-consumption proxies but sector correlation is low enough not to constitute doubling up. (4) Earnings risk is explicitly flagged with a clear management protocol (exit before 2026-08-04 if not at target). (5) Mistake Ledger ATH-proximity rule is correctly applied \u2014 19.3% below 52-week high is well outside the whipsaw zone. Reasoning is internally consistent, invalidation levels are specific and structurally grounded, and the learning agenda (momentum_breakout_55 live sample building) is served. Stake reputation on the reasoning: yes.",
+          "checked_at": "2026-07-10T13:09:17.190555Z"
         }
       ]
     }
