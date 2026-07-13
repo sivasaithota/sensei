@@ -51,14 +51,11 @@ of error could plausibly recur."""
 
 
 def run_post_mortem(trade: ClosedTrade, client=None) -> dict:
-    pm = structured_call(
+    return structured_call(
         system=COACH_SYSTEM, name="post_mortem", schema=POST_MORTEM_SCHEMA,
         user=(f"Post-mortem this closed trade:\n"
               f"{json.dumps({k: v for k, v in trade.__dict__.items() if k != 'post_mortem'}, indent=2)}"),
         client=client)
-    if pm.get("mistake_pattern"):
-        record_mistake(pm["mistake_pattern"], trade.thesis_id)
-    return pm
 
 
 def record_mistake(pattern: str, thesis_id: str) -> None:
@@ -76,8 +73,14 @@ def load_mistake_ledger() -> list[dict]:
 
 
 def ledger_summary() -> str:
-    """Compact ledger text to inject into new-proposal checks (Analyst + L2)."""
+    """Legacy observations for display and hypothesis formation only."""
     entries = load_mistake_ledger()
     if not entries:
-        return "Mistake ledger is empty."
-    return "\n".join(f"- {e['pattern']} (trade {e['thesis_id']})" for e in entries)
+        return "No legacy observations."
+    details = "\n".join(
+        f"- {e['pattern']} (trade {e['thesis_id']})" for e in entries
+    )
+    return (
+        "UNVALIDATED ADVISORY OBSERVATIONS — these cannot veto a trade or "
+        "change a strategy:\n" + details
+    )

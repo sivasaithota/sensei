@@ -40,6 +40,16 @@ def test_unapproved_thesis_cannot_open():
         book.open_from(rec, fill_price=100.0)
 
 
+def test_legacy_paper_engine_is_explicitly_long_only():
+    from sensei.paper.engine import PaperBook
+    book = PaperBook(50000)
+    with pytest.raises(ValueError, match="long-only"):
+        book.open_from(
+            make_record(direction="SELL", stop_loss=105.0, targets=[90.0]),
+            fill_price=100.0,
+        )
+
+
 def test_open_and_stop_exit():
     from sensei.paper.engine import PaperBook
     book = PaperBook(50000)
@@ -52,6 +62,19 @@ def test_open_and_stop_exit():
     assert closed[0].exit_reason == "stop"
     assert closed[0].pnl == pytest.approx((95 - 100) * 50)
     assert book.positions == []
+
+
+def test_gap_through_stop_fills_at_open_not_the_unavailable_stop():
+    from sensei.paper.engine import PaperBook
+    book = PaperBook(50000)
+    book.open_from(make_record(), fill_price=100.0, today=date(2026, 7, 1))
+    closed = book.mark_to_market(
+        {"INFY": {"open": 90, "high": 92, "low": 88, "close": 89}},
+        today=date(2026, 7, 2),
+    )
+    assert closed[0].exit_reason == "stop_gap"
+    assert closed[0].exit_price == 90
+    assert closed[0].pnl == pytest.approx((90 - 100) * 50)
 
 
 def test_target_exit_and_pnl():
@@ -71,9 +94,15 @@ def test_time_exit():
     book = PaperBook(50000)
     book.open_from(make_record(time_horizon_days=5), fill_price=100.0,
                    today=date(2026, 7, 1))
-    closed = book.mark_to_market(
-        {"INFY": {"open": 101, "high": 102, "low": 100, "close": 101}},
-        today=date(2026, 7, 10))
+    bar = {"INFY": {"open": 101, "high": 102, "low": 100, "close": 101}}
+    # Holding horizon is exchange sessions, not elapsed calendar days.
+    for session in (
+        date(2026, 7, 2),
+        date(2026, 7, 3),
+        date(2026, 7, 6),
+    ):
+        assert book.mark_to_market(bar, today=session) == []
+    closed = book.mark_to_market(bar, today=date(2026, 7, 7))
     assert closed[0].exit_reason == "time"
 
 

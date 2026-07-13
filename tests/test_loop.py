@@ -51,7 +51,8 @@ def test_sized_position_always_passes_rails(cfg):
                 continue
             res = rails.check(TradeProposal(symbol="X", side="BUY", entry_price=price,
                                             stop_loss=stop, quantity=qty,
-                                            avg_daily_turnover_inr=1e9), state)
+                                            avg_daily_turnover_inr=1e9,
+                                            surveillance_stage=0), state)
             assert res.ok, f"price={price} stop_pct={stop_pct}: {res.violations}"
 
 

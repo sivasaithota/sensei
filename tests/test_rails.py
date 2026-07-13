@@ -21,7 +21,7 @@ def healthy_state(**over) -> PortfolioState:
 
 def good_trade(**over) -> TradeProposal:
     base = dict(symbol="INFY", side="BUY", entry_price=100.0, stop_loss=95.0,
-                quantity=90, avg_daily_turnover_inr=1e9)
+                quantity=90, avg_daily_turnover_inr=1e9, surveillance_stage=0)
     base.update(over)
     return TradeProposal(**base)
 
@@ -72,6 +72,11 @@ def test_liquidity_floor(rails):
 def test_gsm_asm_ban(rails):
     res = rails.check(good_trade(surveillance_stage=2), healthy_state())
     assert any("surveillance" in v for v in res.violations)
+
+
+def test_unknown_surveillance_stage_fails_closed(rails):
+    res = rails.check(good_trade(surveillance_stage=None), healthy_state())
+    assert any("surveillance status unknown" in v for v in res.violations)
 
 
 def test_intraday_product_banned_in_v1(rails):

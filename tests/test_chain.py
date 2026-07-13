@@ -62,7 +62,7 @@ def state():
 
 def test_full_approval(rails):
     chain = ApprovalChain(rails, client=mock_client([True, True, True]))
-    rec = chain.run(make_thesis(), state(), turnover=1e9)
+    rec = chain.run(make_thesis(), state(), turnover=1e9, surveillance_stage=0)
     assert rec.approved
     assert [v.level for v in rec.verdicts] == ["L1", "L2", "L3", "L4"]
 
@@ -70,7 +70,7 @@ def test_full_approval(rails):
 def test_l1_veto_short_circuits(rails):
     chain = ApprovalChain(rails, client=mock_client([]))
     rec = chain.run(make_thesis(stop_loss=None) if False else make_thesis(quantity=500),
-                    state(), turnover=1e9)  # 500 * 100 = 50000 > 20% cap
+                    state(), turnover=1e9, surveillance_stage=0)  # 500 * 100 = 50000 > 20% cap
     assert not rec.approved
     assert len(rec.verdicts) == 1  # never reached the LLM levels
     assert rec.vetoed_by == ["L1:risk-officer"]
@@ -79,7 +79,7 @@ def test_l1_veto_short_circuits(rails):
 
 def test_l2_veto_stops_chain(rails):
     chain = ApprovalChain(rails, client=mock_client([False]))
-    rec = chain.run(make_thesis(), state(), turnover=1e9)
+    rec = chain.run(make_thesis(), state(), turnover=1e9, surveillance_stage=0)
     assert not rec.approved
     assert [v.level for v in rec.verdicts] == ["L1", "L2"]
     assert rec.vetoed_by == ["L2:devils-advocate"]
@@ -87,7 +87,7 @@ def test_l2_veto_stops_chain(rails):
 
 def test_l4_veto_means_not_approved(rails):
     chain = ApprovalChain(rails, client=mock_client([True, True, False]))
-    rec = chain.run(make_thesis(), state(), turnover=1e9)
+    rec = chain.run(make_thesis(), state(), turnover=1e9, surveillance_stage=0)
     assert not rec.approved
     assert rec.vetoed_by == ["L4:orchestrator"]
 
@@ -96,3 +96,11 @@ def test_banned_surveillance_stage_vetoed_at_l1(rails):
     chain = ApprovalChain(rails, client=mock_client([]))
     rec = chain.run(make_thesis(), state(), turnover=1e9, surveillance_stage=2)
     assert not rec.approved and len(rec.verdicts) == 1
+
+
+def test_unknown_surveillance_status_vetoes_before_llm(rails):
+    chain = ApprovalChain(rails, client=mock_client([]))
+    rec = chain.run(make_thesis(), state(), turnover=1e9)
+    assert not rec.approved
+    assert "surveillance status unknown" in rec.verdicts[0].reasoning
+    chain.client.messages.create.assert_not_called()

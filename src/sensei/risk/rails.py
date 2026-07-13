@@ -7,6 +7,7 @@ chain; a returned violation is an unconditional veto.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -44,7 +45,7 @@ class TradeProposal:
     quantity: int
     product: str = "CNC"
     avg_daily_turnover_inr: float = 0.0
-    surveillance_stage: int = 0   # GSM/ASM stage, 0 = none
+    surveillance_stage: int | None = None  # None is unverified and fails closed
 
     @property
     def notional(self) -> float:
@@ -110,6 +111,49 @@ class RiskRails:
         v: list[str] = []
         cfg = self.cfg
 
+        if not isinstance(p.side, str) or p.side not in {"BUY", "SELL"}:
+            v.append("invalid side: expected BUY or SELL")
+        if (
+            isinstance(p.quantity, bool)
+            or not isinstance(p.quantity, int)
+            or p.quantity <= 0
+        ):
+            v.append("invalid quantity: expected a positive integer")
+        if not _positive_finite(p.entry_price):
+            v.append("invalid entry price: expected a positive finite value")
+        if p.stop_loss is not None and not _positive_finite(p.stop_loss):
+            v.append("invalid stop price: expected a positive finite value")
+        if not _nonnegative_finite(p.avg_daily_turnover_inr):
+            v.append("invalid turnover: expected a non-negative finite value")
+        if p.surveillance_stage is None:
+            v.append("surveillance status unknown: verified GSM/ASM stage required")
+        elif (
+            isinstance(p.surveillance_stage, bool)
+            or not isinstance(p.surveillance_stage, int)
+            or p.surveillance_stage < 0
+        ):
+            v.append("invalid surveillance stage")
+        if not _nonnegative_finite(state.cash):
+            v.append("invalid portfolio cash")
+        if (
+            isinstance(state.open_positions, bool)
+            or not isinstance(state.open_positions, int)
+            or state.open_positions < 0
+        ):
+            v.append("invalid open-position count")
+        for label, value in (
+            ("day P&L", state.day_pnl),
+            ("week P&L", state.week_pnl),
+            ("peak equity", state.peak_equity),
+            ("equity", state.equity),
+        ):
+            if not _nonnegative_finite(value) and label not in {"day P&L", "week P&L"}:
+                v.append(f"invalid portfolio {label}")
+            elif label in {"day P&L", "week P&L"} and not _finite(value):
+                v.append(f"invalid portfolio {label}")
+        if v:
+            return RailCheck(ok=False, violations=v)
+
         v.extend(self.breaker_status(state))
 
         if p.product not in cfg.allowed_products:
@@ -148,3 +192,20 @@ class RiskRails:
             v.append(f"GSM/ASM surveillance stage {p.surveillance_stage} is banned")
 
         return RailCheck(ok=not v, violations=v)
+
+
+def _finite(value: object) -> bool:
+    if isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
+def _positive_finite(value: object) -> bool:
+    return _finite(value) and float(value) > 0
+
+
+def _nonnegative_finite(value: object) -> bool:
+    return _finite(value) and float(value) >= 0

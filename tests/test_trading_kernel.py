@@ -1,0 +1,272 @@
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from sensei.kernel import (
+    BrokerPosition,
+    BrokerProtection,
+    BrokerSnapshot,
+    BrokerWorkingOrder,
+    CancelEntryCommand,
+    CommandKind,
+    EntryCommand,
+    ProtectionCommand,
+    RecordingPaperGateway,
+    TradingKernel,
+)
+from sensei.operations.journal import OperationalJournal
+from sensei.portfolio_risk import (
+    AccountSnapshot,
+    PortfolioRisk,
+    RiskLimits,
+    SafetyControl,
+    TradeIntent,
+)
+
+
+NOW = datetime(2026, 7, 13, 4, 0, tzinfo=timezone.utc)
+
+
+def _intent(symbol: str = "INFY", quantity: int = 10) -> TradeIntent:
+    return TradeIntent(
+        strategy_plan_id="plan:hammer-v1",
+        decision_trace_id=f"trace:{symbol.lower()}",
+        market_snapshot_id="snapshot:market-1",
+        account_snapshot_id="snapshot:risk-1",
+        instrument_id=symbol,
+        quantity=quantity,
+        limit_price_paise=150_000,
+        stop_price_paise=145_000,
+        target_price_paise=160_000,
+        created_at=NOW,
+    )
+
+
+def _account() -> AccountSnapshot:
+    return AccountSnapshot(
+        snapshot_id="snapshot:risk-1",
+        available_cash_paise=10_000_000,
+        marked_equity_paise=10_000_000,
+        high_water_mark_paise=10_000_000,
+        day_pnl_paise=0,
+        week_pnl_paise=0,
+        positions=(),
+        included_reservation_ids=(),
+        reconciled=True,
+        captured_at=NOW,
+    )
+
+
+def _kernel(tmp_path, gateway=None, after_command_completed=None):
+    journal = OperationalJournal(tmp_path / "journal.sqlite3")
+    risk = PortfolioRisk(
+        journal,
+        RiskLimits(
+            max_total_notional_paise=10_000_000,
+            max_position_notional_paise=3_000_000,
+            max_risk_per_trade_paise=100_000,
+            max_total_risk_paise=500_000,
+            max_open_positions=3,
+            snapshot_max_age=timedelta(minutes=2),
+            max_daily_loss_paise=500_000,
+            max_weekly_loss_paise=1_000_000,
+            max_drawdown_bps=2_000,
+        ),
+    )
+    safety = SafetyControl(journal)
+    paper = gateway or RecordingPaperGateway()
+    return (
+        TradingKernel(
+            journal,
+            risk,
+            safety,
+            paper,
+            after_command_completed=after_command_completed,
+        ),
+        paper,
+        safety,
+        journal,
+    )
+
+
+def test_accept_only_journals_and_run_once_uses_durable_outbox(tmp_path):
+    kernel, gateway, _, journal = _kernel(tmp_path)
+    accepted = kernel.accept(_intent(), occurred_at=NOW)
+
+    assert accepted.intent_id == _intent().intent_id
+    assert gateway.commands == ()
+    assert any(e.event_type == "TradeIntentAccepted" for e in journal.read_stream("kernel:paper"))
+
+    kernel.run_once(_account(), now=NOW)
+    entries = [c for c in gateway.commands if c.kind is CommandKind.ENTRY]
+    assert len(entries) == 1
+    assert isinstance(entries[0], EntryCommand)
+
+    # Restarting against the journal must not send a completed command again.
+    restarted, _, _, _ = _kernel(tmp_path, gateway)
+    restarted.run_once(_account(), now=NOW)
+    assert [c.command_id for c in gateway.commands].count(entries[0].command_id) == 1
+
+
+def test_partial_entry_fill_is_protected_before_another_entry(tmp_path):
+    gateway = RecordingPaperGateway()
+    gateway.queue_entry_fill(cumulative_quantity=4, average_price_paise=149_500)
+    kernel, gateway, _, _ = _kernel(tmp_path, gateway)
+    kernel.accept(_intent("INFY", 10), occurred_at=NOW)
+    kernel.accept(_intent("TCS", 5), occurred_at=NOW)
+
+    kernel.run_once(_account(), now=NOW)
+
+    commands = gateway.commands
+    first_entry_index = next(i for i, c in enumerate(commands) if c.kind is CommandKind.ENTRY)
+    protection_index = next(i for i, c in enumerate(commands) if c.kind is CommandKind.PROTECTION)
+    entry_indexes = [i for i, c in enumerate(commands) if c.kind is CommandKind.ENTRY]
+    assert first_entry_index < protection_index
+    assert commands[protection_index].quantity == 4
+    assert len(entry_indexes) == 2
+    assert protection_index < entry_indexes[1]
+
+
+def test_cancel_entry_is_typed_and_allowed_while_safety_is_latched(tmp_path):
+    kernel, gateway, safety, _ = _kernel(tmp_path)
+    intent = kernel.accept(_intent(), occurred_at=NOW)
+    safety.latch(
+        reason_code="OWNER_HALT",
+        detail="manual stop",
+        occurred_at=NOW,
+        idempotency_key="owner-halt-1",
+    )
+    kernel.cancel_entry(intent.intent_id, occurred_at=NOW)
+
+    kernel.run_once(_account(), now=NOW)
+
+    assert all(command.kind is not CommandKind.ENTRY for command in gateway.commands)
+    assert any(command.kind is CommandKind.CANCEL_ENTRY for command in gateway.commands)
+
+
+def test_reconciliation_quarantines_unknown_or_unprotected_exposure(tmp_path):
+    kernel, _, safety, journal = _kernel(tmp_path)
+    report = kernel.reconcile(
+        BrokerSnapshot(
+            snapshot_id="broker:1",
+            captured_at=NOW,
+            positions=(BrokerPosition("UNKNOWN", 3), BrokerPosition("INFY", 4)),
+            protections=(BrokerProtection("INFY", 2),),
+        ),
+        now=NOW,
+    )
+
+    assert report.clean is False
+    assert any("unknown" in issue.lower() for issue in report.issues)
+    assert any("unprotected" in issue.lower() for issue in report.issues)
+    assert safety.state().latched is True
+    assert any(e.event_type == "QuarantineRaised" for e in journal.read_stream("kernel:paper"))
+
+
+def test_restart_recovers_fill_from_completed_receipt_before_protection_event(tmp_path):
+    class SimulatedProcessCrash(RuntimeError):
+        pass
+
+    def crash_after_durable_completion(command, receipt):
+        if isinstance(command, EntryCommand) and receipt.cumulative_fill_quantity:
+            raise SimulatedProcessCrash("after completion append")
+
+    gateway = RecordingPaperGateway()
+    gateway.queue_entry_fill(cumulative_quantity=4, average_price_paise=149_500)
+    kernel, gateway, _, journal = _kernel(
+        tmp_path,
+        gateway,
+        after_command_completed=crash_after_durable_completion,
+    )
+    kernel.accept(_intent("INFY", 10), occurred_at=NOW)
+
+    with pytest.raises(SimulatedProcessCrash, match="completion append"):
+        kernel.run_once(_account(), now=NOW)
+
+    event_types = [event.event_type for event in journal.read_stream("kernel:paper")]
+    assert "BrokerCommandCompleted" in event_types
+    assert "EntryFillObserved" not in event_types
+    assert not any(isinstance(command, ProtectionCommand) for command in gateway.commands)
+
+    restarted, _, _, journal = _kernel(tmp_path, gateway)
+    restarted.run_once(_account(), now=NOW)
+
+    assert sum(isinstance(command, EntryCommand) for command in gateway.commands) == 1
+    protections = [
+        command
+        for command in gateway.commands
+        if isinstance(command, ProtectionCommand)
+    ]
+    assert len(protections) == 1
+    assert protections[0].quantity == 4
+    assert any(
+        event.event_type == "EntryFillObserved"
+        for event in journal.read_stream("kernel:paper")
+    )
+
+
+def test_protection_failure_latches_and_cancels_unfilled_entry_remainder(tmp_path):
+    class FailingProtectionGateway(RecordingPaperGateway):
+        def __init__(self):
+            super().__init__()
+            self.failed = False
+
+        def execute(self, command):
+            if isinstance(command, ProtectionCommand) and not self.failed:
+                self.failed = True
+                raise RuntimeError("protective order rejected")
+            return super().execute(command)
+
+    gateway = FailingProtectionGateway()
+    gateway.queue_entry_fill(cumulative_quantity=4, average_price_paise=149_500)
+    kernel, gateway, safety, journal = _kernel(tmp_path, gateway)
+    kernel.accept(_intent("INFY", 10), occurred_at=NOW)
+    kernel.accept(_intent("TCS", 5), occurred_at=NOW)
+
+    with pytest.raises(RuntimeError, match="protective order rejected"):
+        kernel.run_once(_account(), now=NOW)
+
+    assert safety.state().latched is True
+    entries = [command for command in gateway.commands if isinstance(command, EntryCommand)]
+    cancellations = [
+        command
+        for command in gateway.commands
+        if isinstance(command, CancelEntryCommand)
+    ]
+    assert len(entries) == 1
+    assert entries[0].instrument_id == "INFY"
+    assert len(cancellations) == 1
+    assert cancellations[0].remaining_quantity == 6
+    prepared_kinds = [
+        event.payload["command"]["kind"]
+        for event in journal.read_stream("kernel:paper")
+        if event.event_type == "BrokerCommandPrepared"
+    ]
+    assert CommandKind.PROTECTION.value in prepared_kinds
+    assert CommandKind.CANCEL_ENTRY.value in prepared_kinds
+
+
+def test_reconciliation_quarantines_unknown_working_broker_order(tmp_path):
+    kernel, _, safety, _ = _kernel(tmp_path)
+    report = kernel.reconcile(
+        BrokerSnapshot(
+            snapshot_id="broker:working-orders",
+            captured_at=NOW,
+            positions=(),
+            protections=(),
+            working_orders=(
+                BrokerWorkingOrder(
+                    broker_order_id="manual-order-7",
+                    client_command_id=None,
+                    instrument_id="TCS",
+                    kind=CommandKind.ENTRY.value,
+                    quantity=5,
+                ),
+            ),
+        ),
+        now=NOW,
+    )
+
+    assert report.clean is False
+    assert any("unknown broker order" in issue.lower() for issue in report.issues)
+    assert safety.state().latched is True

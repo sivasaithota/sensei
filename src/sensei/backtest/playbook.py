@@ -168,4 +168,10 @@ def load_current_playbook() -> dict:
 
 
 def adopted_strategies() -> list[dict]:
-    return [s for s in load_current_playbook()["strategies"] if s["adopted"]]
+    """Legacy backtest passage is evidence, never trading authorization.
+
+    Governed plans will be supplied by StrategyLifecycle. Until that module
+    authorizes an exact plan version, the scanner must fail closed.
+    """
+
+    return []

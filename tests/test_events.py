@@ -24,10 +24,10 @@ def test_allowed_outside_window(monkeypatch):
     assert not blocked and "next earnings 2026-07-30" in reason
 
 
-def test_unknown_earnings_allowed_but_flagged(monkeypatch):
+def test_unknown_earnings_fails_closed(monkeypatch):
     monkeypatch.setattr(events, "next_earnings_date", lambda s: None)
     blocked, reason = events.in_no_trade_window("X", on=date(2026, 7, 20))
-    assert not blocked and reason == "earnings date unknown"
+    assert blocked and reason == "earnings date unknown — entry blocked"
 
 
 def test_regime_labels():

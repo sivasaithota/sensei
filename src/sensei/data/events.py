@@ -3,8 +3,8 @@
 Earnings dates from Yahoo's calendar for NSE symbols. Conservative
 posture per PRD §12: a symbol inside its no-trade window is blocked in
 code (scanner AND fill time), not left to agent judgment. Unknown
-dates are allowed but flagged in the facts so the Devil's Advocate
-can weigh the uncertainty.
+dates also block new exposure; absence of event data is not evidence
+that an entry is safe.
 
 Results are cached per-day in data/earnings_cache.json — Yahoo calls
 are slow and the calendar doesn't move intraday.
@@ -81,7 +81,7 @@ def in_no_trade_window(symbol: str, on: date | None = None) -> tuple[bool, str]:
     on = on or date.today()
     ed = next_earnings_date(symbol)
     if ed is None:
-        return False, "earnings date unknown"
+        return True, "earnings date unknown — entry blocked"
     lo = ed - timedelta(days=NO_TRADE_DAYS_BEFORE)
     hi = ed + timedelta(days=NO_TRADE_DAYS_AFTER)
     if lo <= on <= hi:

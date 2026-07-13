@@ -69,3 +69,29 @@ def test_default_config_is_off(tmp_path, monkeypatch):
     import sensei.execution.openalgo as oa
     monkeypatch.setattr(oa, "CONFIG_FILE", tmp_path / "missing.yaml")
     assert ExecConfig.load().mode == "off"
+
+
+@pytest.mark.parametrize("mode", ["off", "live"])
+def test_non_sandbox_modes_cannot_reach_the_network(mode):
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"status": "success", "orderid": "unsafe"})
+
+    client = httpx.Client(
+        base_url="http://127.0.0.1:5000",
+        transport=httpx.MockTransport(handler),
+    )
+    executor = OpenAlgoExecutor(
+        ExecConfig(mode=mode, api_key="should-not-matter"), client=client
+    )
+
+    with pytest.raises(OpenAlgoError, match="sandbox-only"):
+        executor.place_limit_buy("LODHA", 1, 100.0)
+    assert calls == []
+
+
+def test_unknown_execution_mode_is_rejected():
+    with pytest.raises(ValueError, match="execution mode"):
+        ExecConfig(mode="paper-ish")

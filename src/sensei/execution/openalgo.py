@@ -10,8 +10,10 @@ Execution discipline (PRD + owner decisions):
   stop-loss + target living AT THE BROKER, surviving local downtime.
 - Kill-switch support: cancel all open orders in one call.
 
-This adapter is P2 infrastructure: nothing in the P1 paper loop calls
-it. It activates when config/execution.yaml sets mode: live.
+This adapter is P2 infrastructure: nothing in the paper loop calls it.  The
+current build is intentionally sandbox-only; ``off`` and ``live`` fail before
+any network call.  A future live adapter must be introduced through the
+governed kernel only after reconciliation and protection readiness evidence.
 """
 
 from __future__ import annotations
@@ -32,6 +34,10 @@ class ExecConfig:
     api_key: str = ""
     strategy_tag: str = "sensei"         # OpenAlgo tags every order with this
 
+    def __post_init__(self) -> None:
+        if self.mode not in {"off", "sandbox", "live"}:
+            raise ValueError("execution mode must be off, sandbox, or live")
+
     @classmethod
     def load(cls) -> "ExecConfig":
         if not CONFIG_FILE.exists():
@@ -51,6 +57,11 @@ class OpenAlgoExecutor:
         self.http = client or httpx.Client(base_url=self.cfg.host, timeout=15)
 
     def _post(self, endpoint: str, payload: dict) -> dict:
+        if self.cfg.mode != "sandbox":
+            raise OpenAlgoError(
+                "OpenAlgo is sandbox-only in this build; off/live network "
+                "execution is disabled"
+            )
         body = {"apikey": self.cfg.api_key, "strategy": self.cfg.strategy_tag,
                 **payload}
         resp = self.http.post(f"/api/v1/{endpoint}", json=body)

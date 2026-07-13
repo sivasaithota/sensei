@@ -1,9 +1,8 @@
 """Strategy & Thesis Agent — "The Analyst" (PRD §4.5).
 
 Takes a SignalCandidate (numbers already computed in code) and either
-drafts a full TradeThesis or declines. The Analyst is mistake-ledger
-aware: the Coach's failure patterns are injected into its prompt and
-it must decline signals matching a known pattern.
+drafts a full TradeThesis or declines. Legacy Coach observations may inform
+questions, but only governed lifecycle evidence can constrain a proposal.
 """
 
 from __future__ import annotations
@@ -39,9 +38,10 @@ were computed by the system from a backtested Playbook strategy — you do NOT c
 the numbers. Your job is judgment: given the computed facts, is this specific
 instance of the signal worth taking?
 
-Decline when: the facts contradict the strategy's premise, the setup matches a
-pattern in the Mistake Ledger, or the evidence is too thin to write an honest
-thesis. Otherwise write the thesis. Every evidence item must cite a concrete
+Decline when: the facts contradict the strategy's premise or the evidence is too
+thin to write an honest thesis. Legacy observations are unvalidated advisory
+notes: they may suggest questions but MUST NOT veto or alter a trade. Otherwise
+write the thesis. Every evidence item must cite a concrete
 number from the supplied facts with its date. Never invent facts not supplied.
 
 Write invalidation conditions that are COHERENT with the supplied levels:
@@ -61,7 +61,7 @@ def draft_thesis(cand: SignalCandidate, seq: int, client=None) -> TradeThesis | 
 - Max hold: {cand.max_hold_days} days
 - Computed facts: {cand.facts}
 
-Mistake Ledger (decline anything matching these patterns):
+Legacy observations (advisory only; never a veto):
 {ledger_summary()}"""
     args = structured_call(system=ANALYST_SYSTEM, user=user,
                            schema=DRAFT_SCHEMA, name="draft_thesis", client=client)

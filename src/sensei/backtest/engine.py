@@ -125,6 +125,10 @@ def run_backtest(
         exit_price, exit_idx, reason = None, None, None
 
         for j in range(e_idx, min(e_idx + max_hold_days, n)):
+            if o[j] <= stop:
+                # Stops execute at the first available price after a gap.
+                exit_price, exit_idx, reason = o[j], j, "stop_gap"
+                break
             if l[j] <= stop:  # stop first — conservative
                 exit_price, exit_idx, reason = stop, j, "stop"
                 break

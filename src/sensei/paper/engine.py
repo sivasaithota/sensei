@@ -32,6 +32,8 @@ class Position:
     opened: str                      # ISO date
     max_hold_days: int
     narrative: str
+    sessions_held: int = 1
+    last_marked_session: str | None = None
 
     @property
     def notional(self) -> float:
@@ -48,7 +50,7 @@ class ClosedTrade:
     quantity: int
     opened: str
     closed: str
-    exit_reason: str                 # "stop" | "target" | "time" | "invalidation" | "kill"
+    exit_reason: str  # "stop" | "stop_gap" | "target" | "time" | "invalidation" | "kill"
     pnl: float
     narrative: str
     post_mortem: dict | None = None  # filled by the Coach
@@ -78,6 +80,8 @@ class PaperBook:
             raise ValueError(f"thesis {record.thesis.id} is not fully approved "
                              f"(vetoed by {record.vetoed_by}) — refusing to open")
         t = record.thesis
+        if t.direction.value != "BUY":
+            raise ValueError("paper execution is long-only; SELL entries are disabled")
         cost = fill_price * t.quantity
         if cost > self.cash:
             raise ValueError(f"insufficient paper cash {self.cash:.0f} for {cost:.0f}")
@@ -85,7 +89,9 @@ class PaperBook:
                        entry_price=fill_price, quantity=t.quantity,
                        stop_loss=t.stop_loss, targets=t.targets,
                        opened=(today or date.today()).isoformat(),
-                       max_hold_days=t.time_horizon_days, narrative=t.narrative)
+                       max_hold_days=t.time_horizon_days, narrative=t.narrative,
+                       sessions_held=1,
+                       last_marked_session=(today or date.today()).isoformat())
         self.cash -= cost
         self.positions.append(pos)
         self._save()
@@ -103,12 +109,22 @@ class PaperBook:
                 remaining.append(pos)
                 continue
             exit_price, reason = None, None
-            held = (today - date.fromisoformat(pos.opened)).days
-            if bar["low"] <= pos.stop_loss:          # stop first — conservative
+            if today < date.fromisoformat(pos.opened):
+                raise ValueError("mark session cannot precede the position open")
+            last_marked = date.fromisoformat(
+                pos.last_marked_session or pos.opened
+            )
+            if today > last_marked:
+                pos.sessions_held += 1
+                pos.last_marked_session = today.isoformat()
+            if bar["open"] <= pos.stop_loss:
+                # A stop cannot fill at a price the market gapped through.
+                exit_price, reason = bar["open"], "stop_gap"
+            elif bar["low"] <= pos.stop_loss:          # stop first — conservative
                 exit_price, reason = pos.stop_loss, "stop"
             elif pos.targets and bar["high"] >= pos.targets[0]:
                 exit_price, reason = pos.targets[0], "target"
-            elif held >= pos.max_hold_days:
+            elif pos.sessions_held >= pos.max_hold_days:
                 exit_price, reason = bar["close"], "time"
 
             if exit_price is None:

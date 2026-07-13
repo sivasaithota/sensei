@@ -17,7 +17,8 @@ def isolated_dirs(tmp_path, monkeypatch):
     monkeypatch.setattr(daily, "KILL_FILE", tmp_path / "KILL")
     import sensei.data.events as events
     monkeypatch.setattr(events, "CACHE_FILE", tmp_path / "earnings_cache.json")
-    monkeypatch.setattr(events, "next_earnings_date", lambda s: None)  # no network
+    # Verified-clear event status; unknown dates now intentionally fail closed.
+    monkeypatch.setattr(events, "next_earnings_date", lambda s: date(2026, 8, 1))
     yield
 
 

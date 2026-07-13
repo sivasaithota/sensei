@@ -89,7 +89,7 @@ class ApprovalChain:
         self.regime_context = regime_context
 
     def _l1(self, thesis: TradeThesis, state: PortfolioState,
-            turnover: float, surveillance_stage: int) -> Verdict:
+            turnover: float, surveillance_stage: int | None) -> Verdict:
         proposal = TradeProposal(
             symbol=thesis.symbol, side=thesis.direction.value,
             entry_price=thesis.mid_entry, stop_loss=thesis.stop_loss,
@@ -102,7 +102,7 @@ class ApprovalChain:
                        reasoning="all rails pass" if res.ok else "; ".join(res.violations))
 
     def run(self, thesis: TradeThesis, state: PortfolioState, *,
-            turnover: float, surveillance_stage: int = 0) -> ApprovalRecord:
+            turnover: float, surveillance_stage: int | None = None) -> ApprovalRecord:
         record = ApprovalRecord(thesis=thesis)
         _audit("thesis_submitted", {"thesis": thesis.model_dump(mode="json")})
         thesis_json = thesis.model_dump_json(indent=2)

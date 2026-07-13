@@ -45,7 +45,8 @@ def test_stop_exit_conservative():
     df = make_df([100, 100, 100, 80, 80, 80])
     res = run_backtest(df, signal_on_day(1), strategy="t", symbol="X",
                        stop_pct=5, target_pct=10, max_hold_days=5)
-    assert res.trades[0].exit_reason == "stop"
+    assert res.trades[0].exit_reason == "stop_gap"
+    assert res.trades[0].exit == 80.0  # gap loss fills at the open, not the stop
     assert res.trades[0].ret_pct < 0
 
 
