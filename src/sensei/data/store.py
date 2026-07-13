@@ -56,6 +56,10 @@ def download_symbol(symbol: str, start: str = "1996-01-01") -> pd.DataFrame | No
         return None
     df = df.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]]
     df.index.name = "date"
+    # Yahoo occasionally emits NaN rows or zero-price rows; either poisons
+    # backtest stats (NaN expectancy) — drop them at the source.
+    df = df.dropna()
+    df = df[(df[["open", "high", "low", "close"]] > 0).all(axis=1)]
     df["turnover"] = df["close"] * df["volume"]
     PRICES_DIR.mkdir(parents=True, exist_ok=True)
     df.to_parquet(PRICES_DIR / f"{symbol}.parquet")
@@ -76,7 +80,10 @@ def download_universe(start: str = "1996-01-01", sleep: float = 0.5) -> dict[str
 
 
 def load_prices(symbol: str) -> pd.DataFrame:
-    return pd.read_parquet(PRICES_DIR / f"{symbol}.parquet")
+    df = pd.read_parquet(PRICES_DIR / f"{symbol}.parquet")
+    # defensive: older parquet files may predate the download-time cleaning
+    df = df.dropna(subset=["open", "high", "low", "close"])
+    return df[(df[["open", "high", "low", "close"]] > 0).all(axis=1)]
 
 
 def available_symbols() -> list[str]:

@@ -143,3 +143,45 @@ def test_intent_factory_fails_closed_on_stale_quote_or_non_entry_trace():
             account_snapshot=forged,
             now=quote.observed_at,
         )
+
+
+@pytest.mark.parametrize(
+    "forged_trace",
+    (
+        lambda trace: trace.model_copy(
+            update={
+                "sizing_intent": trace.sizing_intent.model_copy(
+                    update={"risk_budget_fraction": 1.0}
+                )
+            }
+        ),
+        lambda trace: trace.model_copy(
+            update={
+                "exit_intent": trace.exit_intent.model_copy(
+                    update={"stop_loss_pct": 25.0}
+                )
+            }
+        ),
+        lambda trace: trace.model_copy(
+            update={
+                "exit_intent": trace.exit_intent.model_copy(
+                    update={"max_hold_sessions": 99}
+                )
+            }
+        ),
+    ),
+)
+def test_intent_factory_rejects_trace_semantics_that_differ_from_plan(
+    forged_trace,
+):
+    plan, trace, quote, account, limits = inputs()
+    factory = TradeIntentFactory(limits, maximum_quote_age=timedelta(minutes=1))
+
+    with pytest.raises(IntentBuildError, match="does not match the exact plan"):
+        factory.build(
+            plan=plan,
+            trace=forged_trace(trace),
+            quote=quote,
+            account_snapshot=account,
+            now=quote.observed_at,
+        )

@@ -76,6 +76,42 @@ class TradeIntentFactory:
             raise IntentBuildError("an entry decision trace is required")
         if trace.sizing_intent is None or trace.exit_intent is None:
             raise IntentBuildError("entry trace is missing sizing or exit intent")
+        expected_sizing = (
+            plan.sizing.risk_budget_fraction.value,
+            plan.sizing.max_position_fraction.value,
+        )
+        actual_sizing = (
+            trace.sizing_intent.risk_budget_fraction,
+            trace.sizing_intent.max_position_fraction,
+        )
+        expected_exits = (
+            plan.exits.stop_loss_pct.value,
+            plan.exits.take_profit_pct.value,
+            plan.exits.max_hold_sessions.value,
+        )
+        actual_exits = (
+            trace.exit_intent.stop_loss_pct,
+            trace.exit_intent.take_profit_pct,
+            trace.exit_intent.max_hold_sessions,
+        )
+        expected_condition_ids = tuple(
+            condition.condition_id for condition in plan.entry.conditions
+        )
+        actual_condition_ids = tuple(
+            outcome.condition_id for outcome in trace.condition_outcomes
+        )
+        if (
+            actual_sizing != expected_sizing
+            or actual_exits != expected_exits
+            or actual_condition_ids != expected_condition_ids
+            or not trace.applicability_outcomes
+            or not all(item.passed for item in trace.applicability_outcomes)
+            or not all(item.passed for item in trace.condition_outcomes)
+            or trace.reason_codes != ("entry_conditions_satisfied",)
+        ):
+            raise IntentBuildError(
+                "decision trace semantics do not match the exact plan"
+            )
         evaluation_date = datetime.fromisoformat(trace.evaluation_session).date()
         if quote.observed_at.date() <= evaluation_date:
             raise IntentBuildError("entry quote must be after the decision session")

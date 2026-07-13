@@ -1,5 +1,6 @@
 """Operational control-plane modules."""
 
+from sensei.operations.authority import HmacFactSigner, HmacFactVerifier
 from sensei.operations.control_plane import (
     ComponentHeartbeat,
     ComponentState,
@@ -17,6 +18,8 @@ from sensei.operations.journal import (
 
 __all__ = [
     "EventAppend",
+    "HmacFactSigner",
+    "HmacFactVerifier",
     "JournalConflict",
     "JournalBackup",
     "JournalEvent",

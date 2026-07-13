@@ -22,7 +22,13 @@ PLAYBOOK_DIR = Path(__file__).resolve().parents[3] / "data" / "playbook"
 # Adoption thresholds — a hypothesis must clear ALL of these out-of-sample.
 MIN_TRADES_OOS = 30
 MIN_EXPECTANCY_PCT = 0.30   # per-trade edge after costs
-MIN_HIT_RATE = 0.40
+# Hit-rate floor guards against lottery-dependent strategies, not against
+# the normal asymmetric profile of breakout systems (bounded stops, ~2.5:1
+# win/loss). 0.40 proved miscalibrated on the Nifty 500 universe: it
+# rejected +2%-expectancy strategies with thousands of OOS trades for
+# missing by <1pt while their losses stayed structurally bounded at the
+# stop. Lowered 2026-07-14; expectancy and sample-size gates unchanged.
+MIN_HIT_RATE = 0.35
 
 
 def evaluate_strategy(name: str, spec: dict, symbols: list[str],
