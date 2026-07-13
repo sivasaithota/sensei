@@ -41,7 +41,7 @@ def test_daily_report_counts_operations_and_only_attributed_pnl(tmp_path):
         ("StrategyLifecycleTransitioned", {"stage": "shadow"}),
         ("RiskReserved", {}),
         ("RiskReleased", {}),
-        ("OperationalHealthAssessed", {"state": "HALTED"}),
+        ("OperationalHealthAssessed", {"fact": {"state": "HALTED"}}),
         ("OperationsReadinessAssessed", {"ready": False}),
         ("MistakeHypothesisProposed", {"hypothesis_id": "H-1"}),
         ("BrokerCommandPrepared", {"command": {"command_id": "C-1"}}),

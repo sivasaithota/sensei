@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
+import hashlib
+import json
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from sensei.portfolio_risk.models import require_positive_integer, require_timestamp
 
@@ -84,18 +86,28 @@ class BrokerWorkingOrder:
 
 @dataclass(frozen=True)
 class BrokerSnapshot:
-    snapshot_id: str
     captured_at: datetime
     positions: tuple[BrokerPosition, ...]
     protections: tuple[BrokerProtection, ...]
     working_orders: tuple[BrokerWorkingOrder, ...] = ()
+    snapshot_id: str = field(init=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "positions", tuple(self.positions))
-        object.__setattr__(self, "protections", tuple(self.protections))
-        object.__setattr__(self, "working_orders", tuple(self.working_orders))
-        if not self.snapshot_id.strip():
-            raise ValueError("snapshot_id must not be blank")
+        object.__setattr__(
+            self,
+            "positions",
+            tuple(sorted(self.positions, key=lambda item: item.instrument_id)),
+        )
+        object.__setattr__(
+            self,
+            "protections",
+            tuple(sorted(self.protections, key=lambda item: item.instrument_id)),
+        )
+        object.__setattr__(
+            self,
+            "working_orders",
+            tuple(sorted(self.working_orders, key=lambda item: item.broker_order_id)),
+        )
         require_timestamp(self.captured_at, "captured_at")
         if len({item.instrument_id for item in self.positions}) != len(self.positions):
             raise ValueError("broker positions must be unique by instrument")
@@ -107,6 +119,55 @@ class BrokerSnapshot:
             self.working_orders
         ):
             raise ValueError("working broker orders must have unique broker IDs")
+        canonical = json.dumps(
+            self.to_payload(include_id=False),
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        object.__setattr__(
+            self,
+            "snapshot_id",
+            "broker-snapshot:"
+            + hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        )
+
+    def to_payload(self, *, include_id: bool = True) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "captured_at": self.captured_at.astimezone(timezone.utc).isoformat(),
+            "positions": [
+                {
+                    "instrument_id": item.instrument_id,
+                    "quantity": item.quantity,
+                }
+                for item in self.positions
+            ],
+            "protections": [
+                {
+                    "instrument_id": item.instrument_id,
+                    "quantity": item.quantity,
+                    "stop_price_paise": item.stop_price_paise,
+                    "target_price_paise": item.target_price_paise,
+                    "client_command_id": item.client_command_id,
+                }
+                for item in self.protections
+            ],
+            "working_orders": [
+                {
+                    "broker_order_id": item.broker_order_id,
+                    "client_command_id": item.client_command_id,
+                    "instrument_id": item.instrument_id,
+                    "kind": item.kind,
+                    "quantity": item.quantity,
+                    "stop_price_paise": item.stop_price_paise,
+                    "target_price_paise": item.target_price_paise,
+                }
+                for item in self.working_orders
+            ],
+        }
+        if include_id:
+            payload["snapshot_id"] = self.snapshot_id
+        return payload
 
 
 @dataclass(frozen=True)
@@ -114,3 +175,7 @@ class ReconciliationReport:
     snapshot_id: str
     clean: bool
     issues: tuple[str, ...]
+    observed_at: datetime
+    broker_snapshot_event_id: str
+    kernel_event_id: str
+    evidence_event_id: str

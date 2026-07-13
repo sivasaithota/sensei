@@ -8,14 +8,15 @@ from datetime import datetime, timedelta
 
 from sensei.agents.thesis import ApprovalRecord
 from sensei.governance.lifecycle import LifecycleStage, StrategyLifecycle
-from sensei.kernel import TradingKernel
+from sensei.kernel import KernelAdmissionAuthority, TradingKernel
 from sensei.learning.episodes import (
     EpisodeCommand,
     EpisodeEventType,
     TradeEpisode,
     TradeEpisodeJournal,
 )
-from sensei.operations.health import HealthState, OperationalHealth
+from sensei.operations.health import HealthState, OperationalHealth, OperationsMonitor
+from sensei.operations import HmacFactSigner
 from sensei.operations.journal import OperationalJournal
 from sensei.portfolio_risk import (
     AccountSnapshot,
@@ -25,7 +26,12 @@ from sensei.portfolio_risk import (
     TradeIntent,
 )
 from sensei.provenance import ProvenanceCorpus
-from sensei.strategy import PlanDecisionTrace, StrategyPlan, assess_strategy_conformance
+from sensei.strategy import (
+    DecisionTraceAuthority,
+    PlanDecisionTrace,
+    StrategyPlan,
+    assess_strategy_conformance,
+)
 
 from .committee import TradeCommitteeGate
 from .intents import (
@@ -50,6 +56,9 @@ class PaperAcceptance:
     committee_event_id: str
     committee_approval_id: str
     thesis_id: str
+    trace_attestation_event_id: str
+    admission_event_id: str
+    admission_id: str
 
 
 class GovernedPaperCoordinator:
@@ -69,6 +78,10 @@ class GovernedPaperCoordinator:
         kernel: TradingKernel,
         safety: SafetyControl,
         committee_gate: TradeCommitteeGate,
+        decision_trace_authority: DecisionTraceAuthority,
+        admission_authority: KernelAdmissionAuthority,
+        admission_signer: HmacFactSigner,
+        operations_monitor: OperationsMonitor,
         provenance: ProvenanceCorpus,
         maximum_health_age: timedelta = timedelta(minutes=2),
     ) -> None:
@@ -81,8 +94,34 @@ class GovernedPaperCoordinator:
         self._kernel = kernel
         self._safety = safety
         self._committee_gate = committee_gate
+        self._decision_trace_authority = decision_trace_authority
+        self._admission_authority = admission_authority
+        self._admission_signer = admission_signer
+        self._operations_monitor = operations_monitor
         self._provenance = provenance
         self._maximum_health_age = maximum_health_age
+
+    def derive_candidate(
+        self,
+        *,
+        plan: StrategyPlan,
+        trace: PlanDecisionTrace,
+        quote: ExecutableQuote,
+        account_snapshot: AccountSnapshot,
+        now: datetime,
+    ) -> IntentBuildResult:
+        """Derive exact thesis numbers without granting admission or dispatch."""
+
+        try:
+            return self._intent_factory.build(
+                plan=plan,
+                trace=trace,
+                quote=quote,
+                account_snapshot=account_snapshot,
+                now=now,
+            )
+        except IntentBuildError as exc:
+            raise PaperAdmissionRejected(str(exc)) from exc
 
     def accept(
         self,
@@ -97,6 +136,9 @@ class GovernedPaperCoordinator:
         now: datetime,
         command_id: str,
         approval_record: ApprovalRecord,
+        decision_market_snapshot_id: str,
+        trace_attestation_event_id: str,
+        verdict_evidence_event_ids: tuple[str, ...],
     ) -> PaperAcceptance:
         _aware("signal_observed_at", signal_observed_at)
         _aware("now", now)
@@ -121,10 +163,19 @@ class GovernedPaperCoordinator:
             raise PaperAdmissionRejected(
                 "exact plan version must be in the paper stage"
             )
+        if not self._decision_trace_authority.verify(
+            trace_attestation_event_id,
+            trace=trace,
+            market_snapshot_id=decision_market_snapshot_id,
+            no_later_than=now,
+        ):
+            raise PaperAdmissionRejected(
+                "decision trace requires authenticated market-snapshot evidence"
+            )
         self._validate_health(operational_health, now)
         try:
             self._safety.assert_allowed(SafetyAction.ENTRY)
-            sizing = self._intent_factory.build(
+            sizing = self.derive_candidate(
                 plan=plan,
                 trace=trace,
                 quote=quote,
@@ -144,8 +195,6 @@ class GovernedPaperCoordinator:
             raise PaperAdmissionRejected(
                 "every plan source claim must exist in the verified provenance corpus"
             )
-        if trace.exit_intent is None:
-            raise PaperAdmissionRejected("entry trace is missing its exit intent")
         command_digest = hashlib.sha256(command_id.encode("utf-8")).hexdigest()
         try:
             committee = self._committee_gate.record(
@@ -153,14 +202,35 @@ class GovernedPaperCoordinator:
                 intent=intent,
                 lineage_id=lineage_id,
                 allowed_claim_ids=claim_ids,
-                maximum_holding_sessions=trace.exit_intent.max_hold_sessions,
+                maximum_holding_sessions=plan.exits.max_hold_sessions.value,
                 signal_observed_at=signal_observed_at,
                 occurred_at=now,
                 command_id=f"paper-committee:{command_digest}",
+                verdict_evidence_event_ids=verdict_evidence_event_ids,
             )
         except (TypeError, ValueError, RuntimeError) as exc:
             raise PaperAdmissionRejected(
                 f"trade committee approval rejected: {exc}"
+            ) from exc
+
+        try:
+            admission = self._admission_authority.issue(
+                intent,
+                lineage_id=lineage_id,
+                trace_attestation_event_id=trace_attestation_event_id,
+                lifecycle_event_id=plan_state.last_record.event_id,
+                health_event_id=operational_health.event_id,
+                committee_event_id=committee.event_id,
+                committee_approval_id=committee.approval_id,
+                verdict_evidence_event_ids=committee.verdict_evidence_event_ids,
+                provenance_claim_ids=tuple(sorted(claim_ids)),
+                signer=self._admission_signer,
+                occurred_at=now,
+                command_id=f"paper-admission:{command_digest}",
+            )
+        except (TypeError, ValueError, RuntimeError) as exc:
+            raise PaperAdmissionRejected(
+                f"kernel admission authorization rejected: {exc}"
             ) from exc
 
         suffix = intent.intent_id.removeprefix("intent:")
@@ -192,12 +262,22 @@ class GovernedPaperCoordinator:
                     "thesis_id": committee.thesis_id,
                     "lifecycle_event_id": plan_state.last_record.event_id,
                     "health_event_id": operational_health.event_id,
+                    "trace_attestation_event_id": trace_attestation_event_id,
+                    "verdict_evidence_event_ids": (
+                        committee.verdict_evidence_event_ids
+                    ),
+                    "admission_event_id": admission.event_id,
+                    "admission_id": admission.admission_id,
                 },
                 occurred_at=now,
                 command_id=f"paper-approval:{command_digest}",
             )
         )
-        self._kernel.accept(intent, occurred_at=now)
+        self._kernel.accept(
+            intent,
+            admission_event_id=admission.event_id,
+            occurred_at=now,
+        )
         self._episodes.record(
             EpisodeCommand(
                 episode_id=episode_id,
@@ -216,11 +296,18 @@ class GovernedPaperCoordinator:
             committee_event_id=committee.event_id,
             committee_approval_id=committee.approval_id,
             thesis_id=committee.thesis_id,
+            trace_attestation_event_id=trace_attestation_event_id,
+            admission_event_id=admission.event_id,
+            admission_id=admission.admission_id,
         )
 
     def _validate_health(
         self, health: OperationalHealth, now: datetime
     ) -> None:
+        if not self._operations_monitor.verify(health, no_later_than=now):
+            raise PaperAdmissionRejected(
+                "operational health evidence is not authenticated"
+            )
         if (
             health.state is not HealthState.HEALTHY
             or not health.new_entries_allowed
@@ -229,24 +316,6 @@ class GovernedPaperCoordinator:
         age = now - health.assessed_at
         if age < timedelta(0) or age > self._maximum_health_age:
             raise PaperAdmissionRejected("operational health assessment is stale")
-        event = next(
-            (
-                candidate
-                for candidate in self._journal.read_all()
-                if candidate.event_id == health.event_id
-            ),
-            None,
-        )
-        if (
-            event is None
-            or event.event_type != "OperationalHealthAssessed"
-            or event.payload.get("state") != HealthState.HEALTHY.value
-            or event.payload.get("new_entries_allowed") is not True
-            or event.occurred_at != health.assessed_at
-        ):
-            raise PaperAdmissionRejected(
-                "operational health must be backed by a durable healthy assessment"
-            )
 
 
 def _aware(label: str, value: datetime) -> None:

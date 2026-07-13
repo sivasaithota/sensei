@@ -24,11 +24,22 @@ from sensei.governance.lifecycle import (
     StrategyLifecycle,
     TransitionRequest,
 )
-from sensei.kernel import RecordingPaperGateway, TradingKernel
+from sensei.kernel import (
+    KernelAdmissionAuthority,
+    RecordingPaperGateway,
+    TradingKernel,
+)
 from sensei.learning.episodes import TradeEpisodeJournal
 from sensei.operations.health import HealthAssessmentInput, OperationsMonitor
-from sensei.operations.journal import EventAppend, OperationalJournal
-from sensei.orchestration.committee import TradeCommitteeGate
+from sensei.operations import (
+    ComponentState,
+    EventAppend,
+    HmacFactSigner,
+    HmacFactVerifier,
+    OperationalJournal,
+    OperationsControlPlane,
+)
+from sensei.orchestration import CommitteeVerdictAuthority, TradeCommitteeGate
 from sensei.orchestration.intents import ExecutableQuote, TradeIntentFactory
 from sensei.orchestration.paper import (
     GovernedPaperCoordinator,
@@ -48,7 +59,11 @@ from sensei.provenance import (
     SourceKind,
     SourceMetadata,
 )
-from sensei.strategy import PlanEvaluationRequest, StrategyPlanEngine
+from sensei.strategy import (
+    DecisionTraceAuthority,
+    PlanEvaluationRequest,
+    StrategyPlanEngine,
+)
 from tests.test_strategy_plan import hammer_bars, hammer_follow_through_plan
 
 
@@ -56,6 +71,20 @@ UTC = timezone.utc
 SIGNAL_TIME = datetime(2025, 1, 9, 16, 0, tzinfo=UTC)
 QUOTE_TIME = datetime(2025, 1, 10, 9, 15, tzinfo=UTC)
 LINEAGE = "hammer-follow-through"
+DECISION_SNAPSHOT = "snapshot:" + "a" * 64
+HISTORIAN_SECRET = b"historian-fixture-secret-at-least-32-bytes"
+ADMISSION_SECRET = b"paper-admission-fixture-secret-at-least-32b"
+COMMITTEE_SECRETS = {
+    "risk-officer": b"risk-officer-fixture-secret-at-least-32",
+    "devils-advocate": b"devils-advocate-fixture-secret-at-least-32",
+    "compliance": b"compliance-fixture-secret-at-least-32b",
+    "orchestrator": b"orchestrator-fixture-secret-at-least-32b",
+}
+OPERATIONS_SECRETS = {
+    component: f"{component}-paper-fixture-secret-at-least-32".encode()
+    for component in ("market-data", "paper-gateway", "reconciliation")
+}
+MONITOR_SECRET = b"operations-monitor-paper-fixture-secret-32b"
 
 
 def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER):
@@ -111,6 +140,17 @@ def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER)
             bars=bars,
             evaluation_session=bars.index[-1].date(),
         )
+    )
+    trace_authority = DecisionTraceAuthority(
+        journal,
+        HmacFactVerifier({"historian-1": HISTORIAN_SECRET}),
+    )
+    trace_attestation = trace_authority.record(
+        trace,
+        market_snapshot_id=DECISION_SNAPSHOT,
+        signer=HmacFactSigner("historian-1", HISTORIAN_SECRET),
+        occurred_at=SIGNAL_TIME,
+        command_id="attest-paper-trace",
     )
     dossiers = StageDossierRegistry(
         journal,
@@ -210,20 +250,36 @@ def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER)
         if stage is stop_at:
             break
 
-    health = OperationsMonitor(journal).assess(
-        HealthAssessmentInput(
-            now=QUOTE_TIME,
-            market_data_watermark=QUOTE_TIME,
-            broker_snapshot_at=QUOTE_TIME,
-            last_reconciliation_at=QUOTE_TIME,
-            maximum_market_data_age=timedelta(minutes=1),
-            maximum_broker_age=timedelta(minutes=1),
-            maximum_reconciliation_age=timedelta(minutes=1),
-            session_active=True,
-            safety_latched=False,
-            unprotected_quantity=0,
-            unknown_broker_objects=0,
-        ),
+    required_components = {
+        component: timedelta(minutes=1) for component in OPERATIONS_SECRETS
+    }
+    control_plane = OperationsControlPlane(
+        journal, HmacFactVerifier(OPERATIONS_SECRETS)
+    )
+    for component in required_components:
+        control_plane.record_heartbeat(
+            component=component,
+            state=ComponentState.HEALTHY,
+            occurred_at=QUOTE_TIME,
+            command_id=f"paper-heartbeat-{component}",
+            detail="paper fixture ready",
+            signer=HmacFactSigner(component, OPERATIONS_SECRETS[component]),
+        )
+    readiness = control_plane.assess_readiness(
+        required_components=required_components,
+        now=QUOTE_TIME,
+        command_id="readiness-paper-admission",
+    )
+    operations_monitor = OperationsMonitor(
+        journal,
+        control_plane=control_plane,
+        required_components=required_components,
+        maximum_readiness_age=timedelta(minutes=2),
+        signer=HmacFactSigner("operations-monitor", MONITOR_SECRET),
+        verifier=HmacFactVerifier({"operations-monitor": MONITOR_SECRET}),
+    )
+    health = operations_monitor.assess(
+        HealthAssessmentInput(now=QUOTE_TIME, readiness=readiness),
         command_id="health-paper-admission",
     )
     limits = RiskLimits(
@@ -240,9 +296,23 @@ def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER)
     risk = PortfolioRisk(journal, limits)
     safety = SafetyControl(journal)
     gateway = RecordingPaperGateway()
-    kernel = TradingKernel(journal, risk, safety, gateway)
+    admission_authority = KernelAdmissionAuthority(
+        journal,
+        HmacFactVerifier({"paper-admission": ADMISSION_SECRET}),
+    )
+    kernel = TradingKernel(
+        journal,
+        risk,
+        safety,
+        gateway,
+        admission_authority=admission_authority,
+    )
     intent_factory = TradeIntentFactory(
         limits, maximum_quote_age=timedelta(minutes=1)
+    )
+    committee_authority = CommitteeVerdictAuthority(
+        journal,
+        HmacFactVerifier(COMMITTEE_SECRETS),
     )
     coordinator = GovernedPaperCoordinator(
         journal=journal,
@@ -251,7 +321,11 @@ def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER)
         episodes=TradeEpisodeJournal(journal),
         kernel=kernel,
         safety=safety,
-        committee_gate=TradeCommitteeGate(journal),
+        committee_gate=TradeCommitteeGate(journal, committee_authority),
+        decision_trace_authority=trace_authority,
+        admission_authority=admission_authority,
+        admission_signer=HmacFactSigner("paper-admission", ADMISSION_SECRET),
+        operations_monitor=operations_monitor,
         provenance=provenance,
     )
     quote = ExecutableQuote(
@@ -323,6 +397,18 @@ def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER)
             )
         ],
     )
+    verdict_evidence_event_ids = tuple(
+        committee_authority.record(
+            approval.thesis,
+            verdict,
+            signer=HmacFactSigner(
+                verdict.agent, COMMITTEE_SECRETS[verdict.agent]
+            ),
+            occurred_at=verdict.checked_at,
+            command_id=f"attest-paper-{verdict.level}",
+        ).event_id
+        for verdict in approval.verdicts
+    )
     return (
         coordinator,
         plan,
@@ -333,13 +419,27 @@ def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER)
         approval,
         gateway,
         journal,
+        trace_attestation.event_id,
+        verdict_evidence_event_ids,
+        kernel,
     )
 
 
 def test_governed_paper_admission_connects_lifecycle_trace_episode_and_kernel(tmp_path):
-    coordinator, plan, trace, quote, account, health, approval, gateway, journal = (
-        governed_system(tmp_path)
-    )
+    (
+        coordinator,
+        plan,
+        trace,
+        quote,
+        account,
+        health,
+        approval,
+        gateway,
+        journal,
+        trace_event_id,
+        verdict_event_ids,
+        _,
+    ) = governed_system(tmp_path)
     arguments = dict(
         lineage_id=LINEAGE,
         plan=plan,
@@ -351,6 +451,9 @@ def test_governed_paper_admission_connects_lifecycle_trace_episode_and_kernel(tm
         now=QUOTE_TIME + timedelta(seconds=10),
         command_id="paper-admit-1",
         approval_record=approval,
+        decision_market_snapshot_id=DECISION_SNAPSHOT,
+        trace_attestation_event_id=trace_event_id,
+        verdict_evidence_event_ids=verdict_event_ids,
     )
 
     accepted = coordinator.accept(**arguments)
@@ -371,9 +474,20 @@ def test_governed_paper_admission_connects_lifecycle_trace_episode_and_kernel(tm
 
 
 def test_governed_paper_admission_rejects_shadow_only_plan(tmp_path):
-    coordinator, plan, trace, quote, account, health, approval, _, _ = governed_system(
-        tmp_path, stop_at=LifecycleStage.SHADOW
-    )
+    (
+        coordinator,
+        plan,
+        trace,
+        quote,
+        account,
+        health,
+        approval,
+        _,
+        _,
+        trace_event_id,
+        verdict_event_ids,
+        _,
+    ) = governed_system(tmp_path, stop_at=LifecycleStage.SHADOW)
     with pytest.raises(PaperAdmissionRejected, match="paper stage"):
         coordinator.accept(
             lineage_id=LINEAGE,
@@ -386,13 +500,27 @@ def test_governed_paper_admission_rejects_shadow_only_plan(tmp_path):
             now=QUOTE_TIME,
             command_id="paper-admit-too-early",
             approval_record=approval,
+            decision_market_snapshot_id=DECISION_SNAPSHOT,
+            trace_attestation_event_id=trace_event_id,
+            verdict_evidence_event_ids=verdict_event_ids,
         )
 
 
 def test_governed_paper_admission_rejects_any_committee_veto(tmp_path):
-    coordinator, plan, trace, quote, account, health, approval, gateway, journal = (
-        governed_system(tmp_path)
-    )
+    (
+        coordinator,
+        plan,
+        trace,
+        quote,
+        account,
+        health,
+        approval,
+        gateway,
+        journal,
+        trace_event_id,
+        verdict_event_ids,
+        _,
+    ) = governed_system(tmp_path)
     vetoed_verdicts = list(approval.verdicts)
     vetoed_verdicts[1] = vetoed_verdicts[1].model_copy(
         update={"approved": False, "reasoning": "Risk/reward is not acceptable."}
@@ -411,6 +539,9 @@ def test_governed_paper_admission_rejects_any_committee_veto(tmp_path):
             now=QUOTE_TIME + timedelta(seconds=10),
             command_id="paper-admit-vetoed",
             approval_record=vetoed,
+            decision_market_snapshot_id=DECISION_SNAPSHOT,
+            trace_attestation_event_id=trace_event_id,
+            verdict_evidence_event_ids=verdict_event_ids,
         )
 
     assert gateway.commands == ()

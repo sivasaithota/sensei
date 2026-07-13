@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 
-from sensei.operations.journal import EventAppend, OperationalJournal
+from sensei.operations.journal import EventAppend, JournalEvent, OperationalJournal
 
 
 @dataclass(frozen=True)
@@ -109,6 +110,58 @@ class OutcomeLearner:
         if observation.episode_id in existing_episode_ids:
             raise ValueError("an observation for this episode and scope already exists")
         return self._journal.append(command)
+
+    def record_pending_reviews(
+        self,
+        *,
+        no_later_than: datetime,
+        command_id: str,
+    ) -> tuple[LearningObservation, ...]:
+        """Discover and record evidence-complete closed episodes exactly once.
+
+        Replaying the same command returns the observations that command originally
+        recorded. A later command skips episodes already learned under any scope.
+        """
+
+        if no_later_than.tzinfo is None or no_later_than.utcoffset() is None:
+            raise ValueError("no_later_than must be timezone-aware")
+        if not command_id.strip():
+            raise ValueError("command_id is required")
+
+        all_events = self._journal.read_all()
+        recorded = tuple(
+            event
+            for event in all_events
+            if event.event_type == "LearningObservationRecorded"
+        )
+        recorded_by_episode = {
+            str(event.payload["episode_id"]): event
+            for event in recorded
+            if isinstance(event.payload.get("episode_id"), str)
+        }
+        recorded_by_command = {event.idempotency_key: event for event in recorded}
+        processed: list[LearningObservation] = []
+
+        for observation in _eligible_observations(all_events, no_later_than):
+            observation_command = "auto-observation:" + _hash(
+                {
+                    "command_id": command_id,
+                    "episode_id": observation.episode_id,
+                }
+            )
+            replayed = recorded_by_command.get(observation_command)
+            if replayed is not None:
+                processed.append(_observation_from_event(replayed))
+                continue
+            if observation.episode_id in recorded_by_episode:
+                continue
+
+            event = self.record(observation, command_id=observation_command)
+            processed.append(observation)
+            recorded_by_episode[observation.episode_id] = event
+            recorded_by_command[observation_command] = event
+
+        return tuple(processed)
 
     def _validate_evidence(self, observation: LearningObservation) -> None:
         episode_events = self._journal.read_stream(
@@ -220,6 +273,104 @@ def _hypothesis_from_payload(scope: LearningScope, payload) -> MistakeHypothesis
         requires_examination=bool(payload["requires_examination"]),
         can_veto_trades=bool(payload["can_veto_trades"]),
     )
+
+
+def _eligible_observations(
+    events: tuple[JournalEvent, ...],
+    no_later_than: datetime,
+) -> tuple[LearningObservation, ...]:
+    episode_streams: dict[str, list[JournalEvent]] = {}
+    for event in events:
+        if (
+            event.stream_id.startswith("episode:")
+            and event.occurred_at <= no_later_than
+        ):
+            episode_streams.setdefault(event.stream_id, []).append(event)
+
+    observations: list[LearningObservation] = []
+    for episode_events in episode_streams.values():
+        started = episode_events[0]
+        if started.event_type != "EpisodeStarted" or not any(
+            event.event_type == "EpisodeClosed" for event in episode_events
+        ):
+            continue
+        outcomes = [
+            event
+            for event in episode_events
+            if event.event_type == "OutcomeAttributed"
+        ]
+        reviews = [
+            event
+            for event in episode_events
+            if event.event_type == "ReviewRecorded"
+        ]
+        if len(outcomes) != 1 or not reviews:
+            continue
+        outcome = outcomes[0]
+        review = reviews[-1]
+        if outcome.payload.get("reconciles") is not True:
+            continue
+        try:
+            scope = LearningScope(
+                strategy_lineage_id=_required_text(
+                    started.payload, "strategy_lineage_id"
+                ),
+                plan_version_id=_required_text(started.payload, "plan_version_id"),
+                timeframe=_required_text(started.payload, "timeframe"),
+                market_regime=_required_text(review.payload, "market_regime"),
+                failure_type=_required_text(review.payload, "failure_type"),
+            )
+            observation = LearningObservation(
+                episode_id=_required_text(started.payload, "episode_id"),
+                scope=scope,
+                summary=_required_text(review.payload, "assessment"),
+                evidence_refs=(outcome.event_id, review.event_id),
+                occurred_at=max(outcome.occurred_at, review.occurred_at),
+            )
+        except (TypeError, ValueError):
+            continue
+        observations.append(observation)
+
+    return tuple(
+        sorted(
+            observations,
+            key=lambda observation: (
+                observation.occurred_at,
+                observation.episode_id,
+            ),
+        )
+    )
+
+
+def _observation_from_event(event: JournalEvent) -> LearningObservation:
+    scope_payload = event.payload.get("scope")
+    if not isinstance(scope_payload, Mapping):
+        raise ValueError("recorded learning observation has no valid scope")
+    evidence_refs = event.payload.get("evidence_refs")
+    if not isinstance(evidence_refs, (list, tuple)):
+        raise ValueError("recorded learning observation has no evidence references")
+    return LearningObservation(
+        episode_id=_required_text(event.payload, "episode_id"),
+        scope=LearningScope(
+            strategy_lineage_id=_required_text(
+                scope_payload, "strategy_lineage_id"
+            ),
+            plan_version_id=_required_text(scope_payload, "plan_version_id"),
+            timeframe=_required_text(scope_payload, "timeframe"),
+            market_regime=_required_text(scope_payload, "market_regime"),
+            failure_type=_required_text(scope_payload, "failure_type"),
+        ),
+        summary=_required_text(event.payload, "summary"),
+        evidence_refs=tuple(str(reference) for reference in evidence_refs),
+        occurred_at=event.occurred_at,
+    )
+
+
+def _required_text(payload: Mapping[str, object], key: str) -> str:
+    value = payload.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{key} is required")
+    return value
 
 
 def _scope_payload(scope: LearningScope) -> dict[str, str | int]:

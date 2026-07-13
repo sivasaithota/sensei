@@ -6,25 +6,32 @@ from sensei.kernel import (
     BrokerPosition,
     BrokerProtection,
     BrokerSnapshot,
+    BrokerSnapshotAuthority,
     BrokerWorkingOrder,
     CancelEntryCommand,
     CommandKind,
     EntryCommand,
+    KernelAdmissionAuthority,
     ProtectionCommand,
     RecordingPaperGateway,
     TradingKernel,
 )
-from sensei.operations.journal import OperationalJournal
+from sensei.operations import HmacFactSigner, HmacFactVerifier, OperationalJournal
 from sensei.portfolio_risk import (
     AccountSnapshot,
     PortfolioRisk,
     RiskLimits,
     SafetyControl,
+    SafetyResetAuthority,
     TradeIntent,
 )
 
 
 NOW = datetime(2026, 7, 13, 4, 0, tzinfo=timezone.utc)
+ADMISSION_SECRET = b"paper-admission-test-secret-at-least-32b"
+BROKER_SECRET = b"paper-gateway-snapshot-test-secret-32bytes"
+RECONCILIATION_SECRET = b"kernel-reconciler-test-secret-at-least-32b"
+OWNER_SECRET = b"kernel-owner-test-secret-at-least-32-bytes"
 
 
 def _intent(symbol: str = "INFY", quantity: int = 10) -> TradeIntent:
@@ -73,14 +80,37 @@ def _kernel(tmp_path, gateway=None, after_command_completed=None):
             max_drawdown_bps=2_000,
         ),
     )
-    safety = SafetyControl(journal)
+    reset_authority = SafetyResetAuthority(
+        journal,
+        owner_verifier=HmacFactVerifier({"kernel-owner": OWNER_SECRET}),
+        reconciliation_verifier=HmacFactVerifier(
+            {"kernel-reconciler": RECONCILIATION_SECRET}
+        ),
+        expected_reconciliation_issuer_id="kernel-reconciler",
+    )
+    safety = SafetyControl(journal, reset_authority=reset_authority)
     paper = gateway or RecordingPaperGateway()
+    admission_authority = KernelAdmissionAuthority(
+        journal,
+        HmacFactVerifier({"paper-admission": ADMISSION_SECRET}),
+    )
+    broker_authority = BrokerSnapshotAuthority(
+        journal,
+        HmacFactVerifier({"paper-gateway": BROKER_SECRET}),
+        expected_issuer_id="paper-gateway",
+    )
     return (
         TradingKernel(
             journal,
             risk,
             safety,
             paper,
+            admission_authority=admission_authority,
+            broker_snapshot_authority=broker_authority,
+            safety_reset_authority=reset_authority,
+            reconciliation_signer=HmacFactSigner(
+                "kernel-reconciler", RECONCILIATION_SECRET
+            ),
             after_command_completed=after_command_completed,
         ),
         paper,
@@ -89,9 +119,68 @@ def _kernel(tmp_path, gateway=None, after_command_completed=None):
     )
 
 
+def _accept(kernel, journal, intent):
+    authority = KernelAdmissionAuthority(
+        journal,
+        HmacFactVerifier({"paper-admission": ADMISSION_SECRET}),
+    )
+    suffix = intent.intent_id.removeprefix("intent:")
+    admission = authority.issue(
+        intent,
+        lineage_id="kernel-test-lineage",
+        trace_attestation_event_id="event:" + "1" * 64,
+        lifecycle_event_id="event:" + "2" * 64,
+        health_event_id="event:" + "3" * 64,
+        committee_event_id="event:" + "4" * 64,
+        committee_approval_id="approval:" + "5" * 64,
+        verdict_evidence_event_ids=tuple(
+            "event:" + str(number) * 64 for number in range(5, 9)
+        ),
+        provenance_claim_ids=("claim:" + "9" * 64,),
+        signer=HmacFactSigner("paper-admission", ADMISSION_SECRET),
+        occurred_at=NOW,
+        command_id=f"authorize-{suffix}",
+    )
+    return kernel.accept(
+        intent,
+        admission_event_id=admission.event_id,
+        occurred_at=NOW,
+    )
+
+
+def _reconcile(kernel, journal, snapshot):
+    authority = BrokerSnapshotAuthority(
+        journal,
+        HmacFactVerifier({"paper-gateway": BROKER_SECRET}),
+        expected_issuer_id="paper-gateway",
+    )
+    evidence = authority.record(
+        snapshot,
+        signer=HmacFactSigner("paper-gateway", BROKER_SECRET),
+        occurred_at=NOW,
+        command_id=f"observe-{snapshot.snapshot_id}",
+    )
+    return kernel.reconcile(
+        snapshot,
+        snapshot_event_id=evidence.event_id,
+        now=NOW,
+    )
+
+
+def test_kernel_rejects_intent_without_authenticated_admission(tmp_path):
+    kernel, _, _, _ = _kernel(tmp_path)
+
+    with pytest.raises(ValueError, match="authenticated paper admission"):
+        kernel.accept(
+            _intent(),
+            admission_event_id="event:" + "0" * 64,
+            occurred_at=NOW,
+        )
+
+
 def test_accept_only_journals_and_run_once_uses_durable_outbox(tmp_path):
     kernel, gateway, _, journal = _kernel(tmp_path)
-    accepted = kernel.accept(_intent(), occurred_at=NOW)
+    accepted = _accept(kernel, journal, _intent())
 
     assert accepted.intent_id == _intent().intent_id
     assert gateway.commands == ()
@@ -111,9 +200,9 @@ def test_accept_only_journals_and_run_once_uses_durable_outbox(tmp_path):
 def test_partial_entry_fill_is_protected_before_another_entry(tmp_path):
     gateway = RecordingPaperGateway()
     gateway.queue_entry_fill(cumulative_quantity=4, average_price_paise=149_500)
-    kernel, gateway, _, _ = _kernel(tmp_path, gateway)
-    kernel.accept(_intent("INFY", 10), occurred_at=NOW)
-    kernel.accept(_intent("TCS", 5), occurred_at=NOW)
+    kernel, gateway, _, journal = _kernel(tmp_path, gateway)
+    _accept(kernel, journal, _intent("INFY", 10))
+    _accept(kernel, journal, _intent("TCS", 5))
 
     kernel.run_once(_account(), now=NOW)
 
@@ -128,8 +217,8 @@ def test_partial_entry_fill_is_protected_before_another_entry(tmp_path):
 
 
 def test_cancel_entry_is_typed_and_allowed_while_safety_is_latched(tmp_path):
-    kernel, gateway, safety, _ = _kernel(tmp_path)
-    intent = kernel.accept(_intent(), occurred_at=NOW)
+    kernel, gateway, safety, journal = _kernel(tmp_path)
+    intent = _accept(kernel, journal, _intent())
     kernel.run_once(_account(), now=NOW)
     safety.latch(
         reason_code="OWNER_HALT",
@@ -147,9 +236,10 @@ def test_cancel_entry_is_typed_and_allowed_while_safety_is_latched(tmp_path):
 
 def test_reconciliation_quarantines_unknown_or_unprotected_exposure(tmp_path):
     kernel, _, safety, journal = _kernel(tmp_path)
-    report = kernel.reconcile(
+    report = _reconcile(
+        kernel,
+        journal,
         BrokerSnapshot(
-            snapshot_id="broker:1",
             captured_at=NOW,
             positions=(BrokerPosition("UNKNOWN", 3), BrokerPosition("INFY", 4)),
             protections=(
@@ -162,7 +252,6 @@ def test_reconciliation_quarantines_unknown_or_unprotected_exposure(tmp_path):
                 ),
             ),
         ),
-        now=NOW,
     )
 
     assert report.clean is False
@@ -170,6 +259,17 @@ def test_reconciliation_quarantines_unknown_or_unprotected_exposure(tmp_path):
     assert any("unprotected" in issue.lower() for issue in report.issues)
     assert safety.state().latched is True
     assert any(e.event_type == "QuarantineRaised" for e in journal.read_stream("kernel:paper"))
+
+
+def test_reconciliation_rejects_an_unauthenticated_broker_snapshot(tmp_path):
+    kernel, _, _, _ = _kernel(tmp_path)
+
+    with pytest.raises(ValueError, match="authenticated broker snapshot"):
+        kernel.reconcile(
+            BrokerSnapshot(captured_at=NOW, positions=(), protections=()),
+            snapshot_event_id="event:" + "0" * 64,
+            now=NOW,
+        )
 
 
 def test_restart_recovers_fill_from_completed_receipt_before_protection_event(tmp_path):
@@ -187,7 +287,7 @@ def test_restart_recovers_fill_from_completed_receipt_before_protection_event(tm
         gateway,
         after_command_completed=crash_after_durable_completion,
     )
-    kernel.accept(_intent("INFY", 10), occurred_at=NOW)
+    _accept(kernel, journal, _intent("INFY", 10))
 
     with pytest.raises(SimulatedProcessCrash, match="completion append"):
         kernel.run_once(_account(), now=NOW)
@@ -229,8 +329,8 @@ def test_protection_failure_latches_and_cancels_unfilled_entry_remainder(tmp_pat
     gateway = FailingProtectionGateway()
     gateway.queue_entry_fill(cumulative_quantity=4, average_price_paise=149_500)
     kernel, gateway, safety, journal = _kernel(tmp_path, gateway)
-    kernel.accept(_intent("INFY", 10), occurred_at=NOW)
-    kernel.accept(_intent("TCS", 5), occurred_at=NOW)
+    _accept(kernel, journal, _intent("INFY", 10))
+    _accept(kernel, journal, _intent("TCS", 5))
 
     with pytest.raises(RuntimeError, match="protective order rejected"):
         kernel.run_once(_account(), now=NOW)
@@ -256,10 +356,11 @@ def test_protection_failure_latches_and_cancels_unfilled_entry_remainder(tmp_pat
 
 
 def test_reconciliation_quarantines_unknown_working_broker_order(tmp_path):
-    kernel, _, safety, _ = _kernel(tmp_path)
-    report = kernel.reconcile(
+    kernel, _, safety, journal = _kernel(tmp_path)
+    report = _reconcile(
+        kernel,
+        journal,
         BrokerSnapshot(
-            snapshot_id="broker:working-orders",
             captured_at=NOW,
             positions=(),
             protections=(),
@@ -273,7 +374,6 @@ def test_reconciliation_quarantines_unknown_working_broker_order(tmp_path):
                 ),
             ),
         ),
-        now=NOW,
     )
 
     assert report.clean is False
@@ -291,13 +391,13 @@ def test_latched_enforcement_protects_then_cancels_only_dispatched_remainder(tmp
 
     gateway = RecordingPaperGateway()
     gateway.queue_entry_fill(cumulative_quantity=4, average_price_paise=149_500)
-    kernel, gateway, safety, _ = _kernel(
+    kernel, gateway, safety, journal = _kernel(
         tmp_path,
         gateway,
         after_command_completed=crash_after_entry_completion,
     )
-    kernel.accept(_intent("INFY", 10), occurred_at=NOW)
-    kernel.accept(_intent("TCS", 5), occurred_at=NOW)
+    _accept(kernel, journal, _intent("INFY", 10))
+    _accept(kernel, journal, _intent("TCS", 5))
     with pytest.raises(SimulatedProcessCrash):
         kernel.run_once(_account(), now=NOW)
     safety.latch(
@@ -343,8 +443,8 @@ def test_reconciliation_quarantines_wrong_protective_prices(
 ):
     gateway = RecordingPaperGateway()
     gateway.queue_entry_fill(cumulative_quantity=4, average_price_paise=149_500)
-    kernel, gateway, safety, _ = _kernel(tmp_path, gateway)
-    kernel.accept(_intent("INFY", 10), occurred_at=NOW)
+    kernel, gateway, safety, journal = _kernel(tmp_path, gateway)
+    _accept(kernel, journal, _intent("INFY", 10))
     kernel.run_once(_account(), now=NOW)
     protection = next(
         command
@@ -352,9 +452,10 @@ def test_reconciliation_quarantines_wrong_protective_prices(
         if isinstance(command, ProtectionCommand)
     )
 
-    report = kernel.reconcile(
+    report = _reconcile(
+        kernel,
+        journal,
         BrokerSnapshot(
-            snapshot_id="broker:wrong-protection-level",
             captured_at=NOW,
             positions=(BrokerPosition("INFY", 4),),
             protections=(
@@ -378,7 +479,6 @@ def test_reconciliation_quarantines_wrong_protective_prices(
                 ),
             ),
         ),
-        now=NOW,
     )
 
     assert report.clean is False
@@ -389,8 +489,8 @@ def test_reconciliation_quarantines_wrong_protective_prices(
 def test_reconciliation_checks_working_protection_levels_independently(tmp_path):
     gateway = RecordingPaperGateway()
     gateway.queue_entry_fill(cumulative_quantity=4, average_price_paise=149_500)
-    kernel, gateway, _, _ = _kernel(tmp_path, gateway)
-    kernel.accept(_intent("INFY", 10), occurred_at=NOW)
+    kernel, gateway, _, journal = _kernel(tmp_path, gateway)
+    _accept(kernel, journal, _intent("INFY", 10))
     kernel.run_once(_account(), now=NOW)
     protection = next(
         command
@@ -398,9 +498,10 @@ def test_reconciliation_checks_working_protection_levels_independently(tmp_path)
         if isinstance(command, ProtectionCommand)
     )
 
-    report = kernel.reconcile(
+    report = _reconcile(
+        kernel,
+        journal,
         BrokerSnapshot(
-            snapshot_id="broker:wrong-working-protection-level",
             captured_at=NOW,
             positions=(BrokerPosition("INFY", 4),),
             protections=(
@@ -424,7 +525,6 @@ def test_reconciliation_checks_working_protection_levels_independently(tmp_path)
                 ),
             ),
         ),
-        now=NOW,
     )
 
     assert any(
@@ -445,9 +545,9 @@ def test_latched_enforcement_attempts_every_working_cancel_after_one_failure(tmp
             return super().execute(command)
 
     gateway = FailFirstCancellationGateway()
-    kernel, gateway, safety, _ = _kernel(tmp_path, gateway)
-    kernel.accept(_intent("INFY", 10), occurred_at=NOW)
-    kernel.accept(_intent("TCS", 5), occurred_at=NOW)
+    kernel, gateway, safety, journal = _kernel(tmp_path, gateway)
+    _accept(kernel, journal, _intent("INFY", 10))
+    _accept(kernel, journal, _intent("TCS", 5))
     kernel.run_once(_account(), now=NOW)
     safety.latch(
         reason_code="OWNER_HALT",

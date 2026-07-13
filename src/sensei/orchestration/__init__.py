@@ -1,6 +1,23 @@
 """Safe composition seams between governed decisions and paper execution."""
 
 from .committee import CommitteeApproval, TradeCommitteeGate
+from .desk import (
+    AnalystBrief,
+    AuthenticatedCommitteeDecision,
+    CoachReflection,
+    DeskCycleRequest,
+    DeskCycleResult,
+    DeskCycleFailed,
+    DeskCycleStatus,
+    DeskRuntime,
+    EventBrief,
+    HistoricalDecision,
+    HistoricalRequest,
+    MarketMood,
+    PaperExecutionRequest,
+    PaperTrader,
+    StrategyEvidenceStats,
+)
 from .intents import (
     ExecutableQuote,
     IntentBuildError,
@@ -8,9 +25,49 @@ from .intents import (
     TradeIntentFactory,
 )
 from .paper import GovernedPaperCoordinator, PaperAcceptance, PaperAdmissionRejected
+from .roles import (
+    AnalystJudgment,
+    ApprovalChainCommittee,
+    CommitteeInputs,
+    CommitteeReviewContext,
+    EarningsReporter,
+    GovernedAnalyst,
+    OperationalSecretary,
+    OutcomeCoach,
+    RegimeCrowdReader,
+    StrategyHistorian,
+)
+from .verdicts import CommitteeVerdictAuthority, CommitteeVerdictEvidence
 
 __all__ = [
     "CommitteeApproval",
+    "CommitteeVerdictAuthority",
+    "CommitteeVerdictEvidence",
+    "AnalystBrief",
+    "AuthenticatedCommitteeDecision",
+    "CoachReflection",
+    "DeskCycleRequest",
+    "DeskCycleResult",
+    "DeskCycleFailed",
+    "DeskCycleStatus",
+    "DeskRuntime",
+    "EventBrief",
+    "HistoricalDecision",
+    "HistoricalRequest",
+    "MarketMood",
+    "PaperExecutionRequest",
+    "PaperTrader",
+    "StrategyEvidenceStats",
+    "AnalystJudgment",
+    "ApprovalChainCommittee",
+    "CommitteeInputs",
+    "CommitteeReviewContext",
+    "EarningsReporter",
+    "GovernedAnalyst",
+    "OperationalSecretary",
+    "OutcomeCoach",
+    "RegimeCrowdReader",
+    "StrategyHistorian",
     "ExecutableQuote",
     "IntentBuildError",
     "IntentBuildResult",

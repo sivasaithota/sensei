@@ -20,6 +20,8 @@ This glossary is the shared language for the trading system. Terms describe doma
 
 **Plan Decision Trace** — The deterministic, time-ordered decisions produced by applying one Strategy Plan Version to normalized observations. Research, shadow, paper, and live adapters consume the same trace.
 
+**Decision Trace Attestation** — A producer-signed durable fact binding one exact Plan Decision Trace to the exact Market Data Snapshot used to create it. A matching trace ID without this attestation is not admission evidence.
+
 **Market Data Snapshot** — An immutable, point-in-time view of a universe and its market data, including lineage and a data-quality report.
 
 **Stable Instrument** — A listed security identified independently of its current ticker. Symbol changes do not create a new Stable Instrument; a genuinely different security does.
@@ -66,7 +68,11 @@ This glossary is the shared language for the trading system. Terms describe doma
 
 **Per-Trade Committee Approval** — The content-addressed, unanimous and ordered decision of L1 risk-officer, L2 devil's advocate, L3 compliance, and L4 orchestrator on one exact Trade Thesis and derived Trade Intent. Lifecycle eligibility never substitutes for it.
 
+**Committee Verdict Evidence** — A producer-signed durable verdict from exactly one Committee seat. Four freely constructed verdict objects are not Per-Trade Committee Approval.
+
 **Trade Intent** — A fully approved, immutable request to trade. It is not an order and carries no broker side effect by itself.
+
+**Kernel Admission** — A signed paper-only capability binding one exact Trade Intent to its trace, lifecycle, health, provenance, Committee and verdict evidence. The Trading Kernel rejects an intent without it.
 
 **Account Snapshot** — Immutable reconciled account truth whose content-derived identity covers cash, marked equity, high-water mark, P&L, positions, included reservations, reconciliation state, and capture time. A caller label cannot preserve identity after content changes.
 
@@ -74,7 +80,13 @@ This glossary is the shared language for the trading system. Terms describe doma
 
 **Operational Journal** — The append-only, ordered record of governance, risk, trading, episode, and operator facts from which rebuildable views are derived.
 
-**Observation** — A fact inferred from a Trade Episode with stated uncertainty. One loss may create an Observation, never an active rule.
+**Signed Fact** — A canonical domain fact authenticated by a producer credential and checked against independently configured trust. Journal durability and producer authenticity are separate properties and both may be required.
+
+**Desk Cycle** — One durable Desk Head orchestration of Historian, Reporter, Crowd Reader, Analyst, Committee, Trader, Coach and Secretary. It records each role as completed or skipped but does not itself grant trading authority.
+
+**Broker Snapshot** — Content-addressed, producer-signed broker account and order truth used by reconciliation. Caller-selected labels and unsigned snapshots are not broker truth.
+
+**Observation** — A fact inferred from a closed Trade Episode with exact reconciled-attribution and review evidence. The Coach discovers eligible episodes from the journal. One loss may create an Observation, never an active rule.
 
 **Mistake Hypothesis** — A scoped, testable explanation formed from repeated or high-severity Observations and counterfactual evidence.
 

@@ -11,14 +11,16 @@ import hashlib
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from sensei.operations.journal import EventAppend, OperationalJournal
+from sensei.operations.authority import HmacFactSigner
+from sensei.operations.journal import EventAppend, JournalEvent, OperationalJournal
 from sensei.portfolio_risk import (
     AccountSnapshot,
     PortfolioRisk,
     SafetyAction,
     SafetyControl,
+    SafetyResetAuthority,
     TradeIntent,
 )
 from sensei.portfolio_risk.models import require_timestamp
@@ -31,6 +33,8 @@ from .commands import (
     ProtectionCommand,
     command_from_payload,
 )
+from .admission import KernelAdmissionAuthority
+from .broker_authority import BrokerSnapshotAuthority
 from .gateway import GatewayReceipt, PaperGateway
 from .reconciliation import BrokerSnapshot, ReconciliationReport
 
@@ -83,19 +87,43 @@ class TradingKernel:
         safety: SafetyControl,
         gateway: PaperGateway,
         *,
+        admission_authority: KernelAdmissionAuthority,
+        broker_snapshot_authority: BrokerSnapshotAuthority | None = None,
+        safety_reset_authority: SafetyResetAuthority | None = None,
+        reconciliation_signer: HmacFactSigner | None = None,
+        maximum_broker_snapshot_age: timedelta = timedelta(minutes=2),
         after_command_completed: Callable[
             [BrokerCommand, GatewayReceipt], None
         ]
         | None = None,
     ) -> None:
+        if maximum_broker_snapshot_age <= timedelta(0):
+            raise ValueError("maximum_broker_snapshot_age must be positive")
         self._journal = journal
         self._risk = portfolio_risk
         self._safety = safety
         self._gateway = gateway
+        self._admission_authority = admission_authority
+        self._broker_snapshot_authority = broker_snapshot_authority
+        self._safety_reset_authority = safety_reset_authority
+        self._reconciliation_signer = reconciliation_signer
+        self._maximum_broker_snapshot_age = maximum_broker_snapshot_age
         self._after_command_completed = after_command_completed
 
-    def accept(self, intent: TradeIntent, *, occurred_at: datetime) -> TradeIntent:
+    def accept(
+        self,
+        intent: TradeIntent,
+        *,
+        admission_event_id: str,
+        occurred_at: datetime,
+    ) -> TradeIntent:
         require_timestamp(occurred_at, "occurred_at")
+        if not self._admission_authority.verify(
+            admission_event_id,
+            intent=intent,
+            no_later_than=occurred_at,
+        ):
+            raise ValueError("intent requires authenticated paper admission")
         state = self._state()
         existing = state.intents.get(intent.intent_id)
         if existing is not None:
@@ -104,7 +132,10 @@ class TradingKernel:
             return existing
         self._append(
             event_type="TradeIntentAccepted",
-            payload={"intent": intent.to_payload()},
+            payload={
+                "intent": intent.to_payload(),
+                "admission_event_id": admission_event_id,
+            },
             idempotency_key=(
                 f"kernel-accept:{intent.intent_id.removeprefix('intent:')}"
             ),
@@ -249,9 +280,30 @@ class TradingKernel:
             raise cancellation_errors[0]
 
     def reconcile(
-        self, snapshot: BrokerSnapshot, *, now: datetime
+        self,
+        snapshot: BrokerSnapshot,
+        *,
+        snapshot_event_id: str,
+        now: datetime,
     ) -> ReconciliationReport:
         require_timestamp(now, "now")
+        if (
+            self._broker_snapshot_authority is None
+            or self._safety_reset_authority is None
+            or self._reconciliation_signer is None
+            or not self._broker_snapshot_authority.verify(
+                snapshot_event_id,
+                snapshot=snapshot,
+                no_later_than=now,
+            )
+        ):
+            raise ValueError("reconciliation requires an authenticated broker snapshot")
+        snapshot_age = now - snapshot.captured_at
+        if (
+            snapshot_age < timedelta(0)
+            or snapshot_age > self._maximum_broker_snapshot_age
+        ):
+            raise ValueError("broker snapshot is stale or future-dated")
         state = self._state()
         known_by_instrument: dict[str, int] = {}
         for intent_id, (quantity, _) in state.fills.items():
@@ -352,9 +404,13 @@ class TradingKernel:
 
         identity = self._snapshot_digest(snapshot, issues)
         if issues:
-            self._append(
+            kernel_event = self._append(
                 event_type="QuarantineRaised",
-                payload={"snapshot_id": snapshot.snapshot_id, "issues": issues},
+                payload={
+                    "snapshot_id": snapshot.snapshot_id,
+                    "broker_snapshot_event_id": snapshot_event_id,
+                    "issues": issues,
+                },
                 idempotency_key=f"kernel-quarantine:{identity}",
                 occurred_at=now,
             )
@@ -365,16 +421,34 @@ class TradingKernel:
                 identity=identity,
             )
         else:
-            self._append(
+            kernel_event = self._append(
                 event_type="ReconciliationClean",
-                payload={"snapshot_id": snapshot.snapshot_id},
+                payload={
+                    "snapshot_id": snapshot.snapshot_id,
+                    "broker_snapshot_event_id": snapshot_event_id,
+                    "issues": (),
+                },
                 idempotency_key=f"kernel-reconciled:{identity}",
                 occurred_at=now,
             )
+        evidence = self._safety_reset_authority.attest_reconciliation(
+            kernel_event_id=kernel_event.event_id,
+            broker_snapshot_event_id=snapshot_event_id,
+            snapshot_id=snapshot.snapshot_id,
+            clean=not issues,
+            issues=tuple(issues),
+            signer=self._reconciliation_signer,
+            occurred_at=now,
+            command_id=f"kernel-reconciliation:{identity}",
+        )
         return ReconciliationReport(
             snapshot_id=snapshot.snapshot_id,
             clean=not issues,
             issues=tuple(issues),
+            observed_at=now,
+            broker_snapshot_event_id=snapshot_event_id,
+            kernel_event_id=kernel_event.event_id,
+            evidence_event_id=evidence.event_id,
         )
 
     def _protect_all_gaps(self, now: datetime) -> list[Exception]:
@@ -460,7 +534,7 @@ class TradingKernel:
 
     def _cancel_unfilled_remainder(
         self, intent: TradeIntent, filled_quantity: int, now: datetime
-    ) -> None:
+    ) -> JournalEvent:
         remaining = intent.quantity - filled_quantity
         if remaining <= 0:
             return
@@ -649,7 +723,7 @@ class TradingKernel:
         causation_id: str | None = None,
     ) -> None:
         events = self._journal.read_stream(_STREAM)
-        self._journal.append(
+        return self._journal.append(
             EventAppend(
                 stream_id=_STREAM,
                 event_type=event_type,

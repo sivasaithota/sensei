@@ -20,6 +20,7 @@ from .safety import (
     SafetyResetRejected,
     SafetyState,
 )
+from .safety_authority import SafetyResetAuthority
 
 __all__ = [
     "AccountPosition",
@@ -36,6 +37,7 @@ __all__ = [
     "SafetyControl",
     "SafetyReason",
     "SafetyResetRejected",
+    "SafetyResetAuthority",
     "SafetyState",
     "TradeIntent",
 ]

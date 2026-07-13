@@ -1,5 +1,6 @@
 """Governed, mode-independent Strategy Plan contracts."""
 
+from .attestation import DecisionTraceAttestation, DecisionTraceAuthority
 from .conformance import StrategyConformance, assess_strategy_conformance
 from .engine import PlanEvaluationRequest, PlanInputError, StrategyPlanEngine
 from .models import (
@@ -31,6 +32,8 @@ __all__ = [
     "ComparisonOperator",
     "ConditionOutcome",
     "DecisionAction",
+    "DecisionTraceAttestation",
+    "DecisionTraceAuthority",
     "EntryCondition",
     "EntryPolicy",
     "ExitPolicy",

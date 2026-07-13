@@ -11,8 +11,9 @@ a live-trading runbook. Do not connect the governed kernel to real capital.
 2. Never repair, delete, truncate or hand-edit the Operational Journal. Preserve
    the database plus any `-wal` and `-shm` files during incident capture.
 3. A restart is not a safety reset. A clean reconciliation is not a safety reset.
-   Only an authenticated owner with `safety:reset` may clear a latch, and the
-   clean reconciliation must be no older than the latest latch.
+   Only a fresh owner-signed `safety:reset` capability plus the latest fresh,
+   signed clean reconciliation outcome may clear a latch; both must follow the
+   latch.
 4. When health, readiness or reconciliation is uncertain, stop new entries.
    Continue only protective actions and cancellation of unfilled entries.
 5. Do not promote a plan or tune paper-soak thresholds after seeing its result.
@@ -43,11 +44,12 @@ Complete every check; a failed or unknown item means no new entries.
   manifest, and a precise character or transcript-time citation. A
   syntactically valid but missing Claim ID blocks the session.
 - Confirm `SafetyControl.state().latched` is false.
-- Record fresh component heartbeats for the operator-selected required set. At
+- Record fresh component-signed heartbeats for the operator-selected required set. At
   minimum the current tests model `market-data`, `paper-gateway`, and
   `reconciliation`. Derive readiness with explicit maximum ages; do not accept a
   caller-supplied `ready=True`.
-- Record a fresh operational health assessment. It must be durably `HEALTHY`,
+- Derive readiness reproducibly and record a monitor-signed operational health
+  assessment. It must be durably `HEALTHY`,
   allow new entries, and be within the coordinator's configured maximum age.
 - Supply a recent, explicitly reconciled Account Snapshot matching the snapshot
   pinned by the intent. Check marked equity, high-water mark, day/week P&L,
@@ -118,10 +120,11 @@ allowing another entry.
 
 ## Normal session flow
 
-1. Record component heartbeats, derive Operations Readiness, and record an
-   Operational Health assessment. These are evidence events, not informal log
-   messages.
-2. Evaluate the immutable plan to obtain its decision trace. The same engine and
+1. Record component-signed heartbeats, derive Operations Readiness, and record a
+   monitor-signed Operational Health assessment. These are evidence events, not
+   informal log messages.
+2. Evaluate the immutable plan to obtain its decision trace and record the
+   Historian's signature over that trace and exact market snapshot. The same engine and
    plan must be used for research, shadow and paper; mode-specific strategy
    branches are not allowed.
 3. Use the side-effect-free `TradeIntentFactory` with the exact quote and Account
@@ -134,12 +137,14 @@ allowing another entry.
    `L2/devils-advocate`, `L3/compliance`, and `L4/orchestrator`. Each verdict
    needs nonblank reasoning and an aware, non-regressing timestamp. Any veto,
    missing/extra/reordered verdict, identity mismatch or future time means no
-   admission.
+   admission. Every role must authenticate its own exact verdict; a freely
+   constructed `ApprovalRecord` is not committee evidence.
 5. Call `GovernedPaperCoordinator.accept` with that `ApprovalRecord`. It
    validates the exact plan at `paper`, resolves all plan claims in the real
    corpus, checks durable health and safety, re-derives quantity, and requires
    the thesis to match the resulting intent. It durably records
-   `TradeCommitteeApproved`, starts the linked Trade Episode, records the exact
+   `TradeCommitteeApproved`, signs an exact kernel-admission capability, starts
+   the linked Trade Episode, records the exact
    committee/lifecycle/health evidence, and appends `TradeIntentAccepted`. It
    does not call the gateway.
 6. Call `TradingKernel.run_once` with the matching fresh reconciled Account
@@ -148,11 +153,12 @@ allowing another entry.
    ID, records its receipt, and protects any positive fill before another entry.
 7. Ingest cumulative fills monotonically. Never decrease cumulative quantity or
    replace an average fill price for the same cumulative quantity.
-8. Reconcile a complete `BrokerSnapshot`, including positions, protection and
+8. Reconcile a complete, content-addressed and gateway-signed `BrokerSnapshot`, including positions, protection and
    every working paper order. Every protective object must match its known
    content-addressed client command on instrument, quantity, stop and target; a
-   quantity match with different levels is not clean. A clean result is recorded
-   as `ReconciliationClean`; any unknown, mismatched or under-protected object is
+   quantity match with different levels is not clean. The kernel rejects an
+   unsigned, stale or future snapshot. A clean result is recorded and signed;
+   any unknown, mismatched or under-protected object is
    quarantined and latches safety.
 9. Append the linked episode facts through protection, exit and close, then
    append one reconciled cost record and the advisory review. Record outcome
@@ -164,6 +170,12 @@ allowing another entry.
 11. At session end, verify the journal again, take a new verified backup, and
    retain the readiness, health, reconciliation and report outputs with the soak
    evidence.
+
+Inspect the Desk Head and actual role routing without changing state:
+
+```bash
+uv run sensei desk-status --journal /absolute/path/to/operations.sqlite3 --limit 10
+```
 
 For intraday paper, feed event time and receipt time separately and preserve
 sequence ordering. Reconnect alone never clears a feed halt: the engine must
@@ -228,10 +240,11 @@ A safety reset is allowed only after the incident cause is closed. The required
 sequence is:
 
 1. journal verification succeeds;
-2. a complete broker snapshot reconciles cleanly after the latest latch;
+2. a complete signed broker snapshot reconciles cleanly after the latest latch,
+   and that signed outcome is fresh and still the newest reconciliation outcome;
 3. no exposure is unprotected and no broker object is unknown;
-4. an authenticated owner authorization contains `safety:reset` and is not in
-   the future;
+4. a fresh owner-signed authorization contains `safety:reset`, follows the
+   latch, and is not in the future;
 5. `SafetyControl.reset` appends the reset with the clean reconciliation time;
 6. required components publish fresh healthy heartbeats;
 7. readiness and operational health are reassessed and durably healthy;

@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 
 from sensei.operations.journal import EventAppend, OperationalJournal
 
 from .models import require_timestamp
+from .safety_authority import (
+    OwnerAuthorization,
+    ReconciliationHealth,
+    SafetyResetAuthority,
+)
 
 _STREAM = "safety:global"
 
@@ -40,33 +45,23 @@ class SafetyState:
     version: int
 
 
-@dataclass(frozen=True)
-class OwnerAuthorization:
-    owner_id: str
-    scopes: frozenset[str]
-    authenticated_at: datetime
-    authenticated: bool = True
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "scopes", frozenset(self.scopes))
-        if not self.owner_id.strip():
-            raise ValueError("owner_id must not be blank")
-        require_timestamp(self.authenticated_at, "authenticated_at")
-
-
-@dataclass(frozen=True)
-class ReconciliationHealth:
-    clean: bool
-    observed_at: datetime
-    detail: str = ""
-
-    def __post_init__(self) -> None:
-        require_timestamp(self.observed_at, "observed_at")
-
-
 class SafetyControl:
-    def __init__(self, journal: OperationalJournal) -> None:
+    def __init__(
+        self,
+        journal: OperationalJournal,
+        *,
+        reset_authority: SafetyResetAuthority | None = None,
+        maximum_authorization_age: timedelta = timedelta(minutes=5),
+        maximum_reconciliation_age: timedelta = timedelta(minutes=2),
+    ) -> None:
+        if maximum_authorization_age <= timedelta(0):
+            raise ValueError("maximum_authorization_age must be positive")
+        if maximum_reconciliation_age <= timedelta(0):
+            raise ValueError("maximum_reconciliation_age must be positive")
         self._journal = journal
+        self._reset_authority = reset_authority
+        self._maximum_authorization_age = maximum_authorization_age
+        self._maximum_reconciliation_age = maximum_reconciliation_age
 
     def latch(
         self,
@@ -102,11 +97,22 @@ class SafetyControl:
     ) -> SafetyState:
         require_timestamp(occurred_at, "occurred_at")
         if (
-            not authorization.authenticated
+            self._reset_authority is None
+            or not self._reset_authority.verify_owner(
+                authorization, no_later_than=occurred_at
+            )
             or "safety:reset" not in authorization.scopes
         ):
             raise SafetyResetRejected("valid owner authorization is required")
-        if not reconciliation.clean:
+        if (
+            not self._reset_authority.verify_reconciliation(
+                reconciliation, no_later_than=occurred_at
+            )
+            or not self._reset_authority.is_latest_reconciliation(
+                reconciliation.event_id
+            )
+            or not reconciliation.clean
+        ):
             raise SafetyResetRejected("a clean reconciliation is required")
         events = self._journal.read_stream(_STREAM)
         latest_latch = next(
@@ -124,18 +130,31 @@ class SafetyControl:
             raise SafetyResetRejected(
                 "clean reconciliation must be newer than the safety latch"
             )
+        if (
+            latest_latch is not None
+            and authorization.authenticated_at < latest_latch.occurred_at
+        ):
+            raise SafetyResetRejected(
+                "owner authorization must be newer than the safety latch"
+            )
         if authorization.authenticated_at > occurred_at:
             raise SafetyResetRejected("owner authorization cannot be in the future")
         if reconciliation.observed_at > occurred_at:
             raise SafetyResetRejected("reconciliation cannot be in the future")
+        if occurred_at - authorization.authenticated_at > self._maximum_authorization_age:
+            raise SafetyResetRejected("owner authorization is stale")
+        if occurred_at - reconciliation.observed_at > self._maximum_reconciliation_age:
+            raise SafetyResetRejected("clean reconciliation is stale")
         self._journal.append(
             EventAppend(
                 stream_id=_STREAM,
                 event_type="SafetyReset",
                 payload={
                     "owner_id": authorization.owner_id,
+                    "owner_authorization_event_id": authorization.event_id,
                     "authenticated_at": authorization.authenticated_at.isoformat(),
                     "reconciliation_observed_at": reconciliation.observed_at.isoformat(),
+                    "reconciliation_event_id": reconciliation.event_id,
                 },
                 idempotency_key=idempotency_key,
                 expected_version=len(events),

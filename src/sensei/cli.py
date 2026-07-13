@@ -31,9 +31,31 @@ def main() -> None:
     sub.add_parser("resume")
     sub.add_parser("status")
     sub.add_parser("playbook")
+    desk_p = sub.add_parser("desk-status")
+    desk_p.add_argument(
+        "--journal",
+        default="data/operations.sqlite3",
+        help="existing governed operational journal",
+    )
+    desk_p.add_argument("--limit", type=int, default=10)
     ui_p = sub.add_parser("ui")
     ui_p.add_argument("--port", type=int, default=8642)
     args = parser.parse_args()
+
+    if args.cmd == "desk-status":
+        from pathlib import Path
+
+        from sensei.operations import OperationalJournal
+        from sensei.reporting.desk import DeskStatusReporter
+
+        journal_path = Path(args.journal)
+        if not journal_path.is_file():
+            parser.error(f"governed journal does not exist: {journal_path}")
+        summaries = DeskStatusReporter(
+            OperationalJournal(journal_path)
+        ).latest(limit=args.limit)
+        print(json.dumps([item.to_dict() for item in summaries], indent=2))
+        return
 
     if args.cmd == "kill":
         from sensei.loop.daily import KILL_FILE

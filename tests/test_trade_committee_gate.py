@@ -9,13 +9,19 @@ from sensei.agents.thesis import (
     TradeThesis,
     Verdict,
 )
-from sensei.operations.journal import OperationalJournal
-from sensei.orchestration.committee import TradeCommitteeGate
+from sensei.operations import HmacFactSigner, HmacFactVerifier, OperationalJournal
+from sensei.orchestration import CommitteeVerdictAuthority, TradeCommitteeGate
 from sensei.portfolio_risk import TradeIntent
 
 
 NOW = datetime(2026, 7, 13, 4, 0, tzinfo=timezone.utc)
 CLAIM = "claim:" + "c" * 64
+SECRETS = {
+    "risk-officer": b"risk-officer-test-secret-at-least-32b",
+    "devils-advocate": b"devils-advocate-test-secret-at-least-32b",
+    "compliance": b"compliance-test-secret-at-least-32bytes",
+    "orchestrator": b"orchestrator-test-secret-at-least-32b",
+}
 
 
 def _intent() -> TradeIntent:
@@ -80,11 +86,31 @@ def _approval(**thesis_updates) -> ApprovalRecord:
     return ApprovalRecord(thesis=thesis, verdicts=verdicts)
 
 
+def _gate(journal):
+    authority = CommitteeVerdictAuthority(journal, HmacFactVerifier(SECRETS))
+    return TradeCommitteeGate(journal, authority), authority
+
+
+def _attest(authority, approval, command_prefix):
+    return tuple(
+        authority.record(
+            approval.thesis,
+            verdict,
+            signer=HmacFactSigner(verdict.agent, SECRETS[verdict.agent]),
+            occurred_at=verdict.checked_at,
+            command_id=f"{command_prefix}-{verdict.level}",
+        ).event_id
+        for verdict in approval.verdicts
+    )
+
+
 def test_committee_gate_pins_all_four_approvals_to_exact_intent(tmp_path):
     journal = OperationalJournal(tmp_path / "journal.sqlite3")
-    gate = TradeCommitteeGate(journal)
+    gate, authority = _gate(journal)
+    approval = _approval()
+    evidence = _attest(authority, approval, "accepted")
     accepted = gate.record(
-        _approval(),
+        approval,
         intent=_intent(),
         lineage_id="hammer-follow-through",
         allowed_claim_ids=frozenset({CLAIM}),
@@ -92,9 +118,10 @@ def test_committee_gate_pins_all_four_approvals_to_exact_intent(tmp_path):
         signal_observed_at=NOW,
         occurred_at=NOW + timedelta(minutes=1),
         command_id="committee-accept-1",
+        verdict_evidence_event_ids=evidence,
     )
     repeated = gate.record(
-        _approval(),
+        approval,
         intent=_intent(),
         lineage_id="hammer-follow-through",
         allowed_claim_ids=frozenset({CLAIM}),
@@ -102,6 +129,7 @@ def test_committee_gate_pins_all_four_approvals_to_exact_intent(tmp_path):
         signal_observed_at=NOW,
         occurred_at=NOW + timedelta(minutes=1),
         command_id="committee-accept-1",
+        verdict_evidence_event_ids=evidence,
     )
 
     assert repeated == accepted
@@ -114,9 +142,10 @@ def test_committee_gate_pins_all_four_approvals_to_exact_intent(tmp_path):
 
 def test_committee_gate_rejects_veto_or_thesis_drift(tmp_path):
     journal = OperationalJournal(tmp_path / "journal.sqlite3")
-    gate = TradeCommitteeGate(journal)
+    gate, authority = _gate(journal)
     vetoed = _approval()
     vetoed.verdicts[1].approved = False
+    veto_evidence = _attest(authority, vetoed, "vetoed")
 
     with pytest.raises(ValueError, match="four approved"):
         gate.record(
@@ -128,11 +157,13 @@ def test_committee_gate_rejects_veto_or_thesis_drift(tmp_path):
             signal_observed_at=NOW,
             occurred_at=NOW + timedelta(minutes=1),
             command_id="committee-vetoed",
+            verdict_evidence_event_ids=veto_evidence,
         )
 
+    wrong_quantity = _approval(quantity=9)
     with pytest.raises(ValueError, match="quantity"):
         gate.record(
-            _approval(quantity=9),
+            wrong_quantity,
             intent=_intent(),
             lineage_id="hammer-follow-through",
             allowed_claim_ids=frozenset({CLAIM}),
@@ -140,11 +171,15 @@ def test_committee_gate_rejects_veto_or_thesis_drift(tmp_path):
             signal_observed_at=NOW,
             occurred_at=NOW + timedelta(minutes=1),
             command_id="committee-wrong-quantity",
+            verdict_evidence_event_ids=_attest(
+                authority, wrong_quantity, "wrong-quantity"
+            ),
         )
 
+    ungrounded = _approval(evidence=["free-form model story"])
     with pytest.raises(ValueError, match="provenance claims"):
         gate.record(
-            _approval(evidence=["free-form model story"]),
+            ungrounded,
             intent=_intent(),
             lineage_id="hammer-follow-through",
             allowed_claim_ids=frozenset({CLAIM}),
@@ -152,4 +187,27 @@ def test_committee_gate_rejects_veto_or_thesis_drift(tmp_path):
             signal_observed_at=NOW,
             occurred_at=NOW + timedelta(minutes=1),
             command_id="committee-ungrounded",
+            verdict_evidence_event_ids=_attest(
+                authority, ungrounded, "ungrounded"
+            ),
+        )
+
+
+def test_committee_gate_rejects_missing_or_reordered_role_evidence(tmp_path):
+    journal = OperationalJournal(tmp_path / "journal.sqlite3")
+    gate, authority = _gate(journal)
+    approval = _approval()
+    evidence = _attest(authority, approval, "ordered")
+
+    with pytest.raises(ValueError, match="authenticated L1-L4 evidence"):
+        gate.record(
+            approval,
+            intent=_intent(),
+            lineage_id="hammer-follow-through",
+            allowed_claim_ids=frozenset({CLAIM}),
+            maximum_holding_sessions=20,
+            signal_observed_at=NOW,
+            occurred_at=NOW + timedelta(minutes=1),
+            command_id="committee-reordered",
+            verdict_evidence_event_ids=(evidence[1], evidence[0], *evidence[2:]),
         )

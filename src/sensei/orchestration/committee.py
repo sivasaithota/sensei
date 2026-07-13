@@ -15,15 +15,9 @@ from sensei.agents.thesis import ApprovalRecord, Direction
 from sensei.operations.journal import EventAppend, JournalEvent, OperationalJournal
 from sensei.portfolio_risk import TradeIntent
 
+from .verdicts import CommitteeVerdictAuthority, EXPECTED_COMMITTEE
+
 _CLAIM_ID = re.compile(r"claim:[0-9a-f]{64}\Z")
-_EXPECTED_COMMITTEE = (
-    ("L1", "risk-officer"),
-    ("L2", "devils-advocate"),
-    ("L3", "compliance"),
-    ("L4", "orchestrator"),
-)
-
-
 @dataclass(frozen=True)
 class CommitteeApproval:
     approval_id: str
@@ -33,13 +27,19 @@ class CommitteeApproval:
     lineage_id: str
     plan_version_id: str
     decision_trace_id: str
+    verdict_evidence_event_ids: tuple[str, ...]
 
 
 class TradeCommitteeGate:
     """Bind the existing specialized-agent verdicts to one exact trade intent."""
 
-    def __init__(self, journal: OperationalJournal) -> None:
+    def __init__(
+        self,
+        journal: OperationalJournal,
+        verdict_authority: CommitteeVerdictAuthority,
+    ) -> None:
         self._journal = journal
+        self._verdict_authority = verdict_authority
 
     def record(
         self,
@@ -52,6 +52,7 @@ class TradeCommitteeGate:
         signal_observed_at: datetime,
         occurred_at: datetime,
         command_id: str,
+        verdict_evidence_event_ids: tuple[str, ...],
     ) -> CommitteeApproval:
         if not isinstance(approval, ApprovalRecord):
             raise TypeError("approval must be an ApprovalRecord")
@@ -73,6 +74,11 @@ class TradeCommitteeGate:
             signal_observed_at=signal_observed_at,
             occurred_at=occurred_at,
         )
+        self._validate_evidence(
+            approval,
+            verdict_evidence_event_ids=verdict_evidence_event_ids,
+            occurred_at=occurred_at,
+        )
 
         thesis_payload = approval.thesis.model_dump(mode="json")
         verdict_payloads = [verdict.model_dump(mode="json") for verdict in approval.verdicts]
@@ -84,13 +90,14 @@ class TradeCommitteeGate:
             "allowed_claim_ids": sorted(allowed_claim_ids),
             "maximum_holding_sessions": maximum_holding_sessions,
             "signal_observed_at": signal_observed_at.isoformat(),
+            "verdict_evidence_event_ids": list(verdict_evidence_event_ids),
         }
         approval_id = "approval:" + _digest(identity)
         payload = {
             "schema_version": "1.0",
             "approval_id": approval_id,
             **identity,
-            "verdict_levels": [level for level, _ in _EXPECTED_COMMITTEE],
+            "verdict_levels": [level for level, _ in EXPECTED_COMMITTEE],
             "authority": "TRADE_ADMISSION_ONLY",
         }
         stream = _stream(intent.intent_id)
@@ -115,6 +122,30 @@ class TradeCommitteeGate:
         )
         return _approval_from_event((event,))
 
+    def _validate_evidence(
+        self,
+        approval: ApprovalRecord,
+        *,
+        verdict_evidence_event_ids: tuple[str, ...],
+        occurred_at: datetime,
+    ) -> None:
+        if (
+            not isinstance(verdict_evidence_event_ids, tuple)
+            or len(verdict_evidence_event_ids) != len(EXPECTED_COMMITTEE)
+            or len(set(verdict_evidence_event_ids)) != len(EXPECTED_COMMITTEE)
+        ):
+            raise ValueError("trade requires authenticated L1-L4 evidence")
+        for verdict, event_id in zip(
+            approval.verdicts, verdict_evidence_event_ids, strict=True
+        ):
+            if not self._verdict_authority.verify(
+                event_id,
+                thesis=approval.thesis,
+                verdict=verdict,
+                no_later_than=occurred_at,
+            ):
+                raise ValueError("trade requires authenticated L1-L4 evidence")
+
     @staticmethod
     def _validate_approval(
         approval: ApprovalRecord,
@@ -129,7 +160,7 @@ class TradeCommitteeGate:
             (verdict.level, verdict.agent) for verdict in approval.verdicts
         )
         if (
-            actual_committee != _EXPECTED_COMMITTEE
+            actual_committee != EXPECTED_COMMITTEE
             or not approval.approved
             or any(not verdict.approved for verdict in approval.verdicts)
         ):
@@ -208,12 +239,15 @@ def _approval_from_event(events: tuple[JournalEvent, ...]) -> CommitteeApproval:
         "allowed_claim_ids": list(payload["allowed_claim_ids"]),
         "maximum_holding_sessions": payload["maximum_holding_sessions"],
         "signal_observed_at": payload["signal_observed_at"],
+        "verdict_evidence_event_ids": list(
+            payload["verdict_evidence_event_ids"]
+        ),
     }
     approval_id = "approval:" + _digest(identity)
     if payload.get("approval_id") != approval_id:
         raise RuntimeError("trade committee approval content identity is invalid")
     if tuple(payload.get("verdict_levels", ())) != tuple(
-        level for level, _ in _EXPECTED_COMMITTEE
+        level for level, _ in EXPECTED_COMMITTEE
     ):
         raise RuntimeError("trade committee verdict levels are invalid")
     intent = payload["intent"]
@@ -226,6 +260,7 @@ def _approval_from_event(events: tuple[JournalEvent, ...]) -> CommitteeApproval:
         lineage_id=str(payload["lineage_id"]),
         plan_version_id=str(intent["strategy_plan_id"]),
         decision_trace_id=str(intent["decision_trace_id"]),
+        verdict_evidence_event_ids=tuple(payload["verdict_evidence_event_ids"]),
     )
 
 

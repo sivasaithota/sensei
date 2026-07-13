@@ -110,7 +110,7 @@ class TradeIntentFactory:
             or trace.reason_codes != ("entry_conditions_satisfied",)
         ):
             raise IntentBuildError(
-                "decision trace semantics do not match the exact plan"
+                "decision trace does not match the exact plan semantics"
             )
         evaluation_date = datetime.fromisoformat(trace.evaluation_session).date()
         if quote.observed_at.date() <= evaluation_date:

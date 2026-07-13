@@ -1,5 +1,7 @@
 """Durable paper-only trading kernel."""
 
+from .admission import KernelAdmissionAuthorization, KernelAdmissionAuthority
+from .broker_authority import BrokerSnapshotAuthority, BrokerSnapshotEvidence
 from .commands import (
     BrokerCommand,
     CancelEntryCommand,
@@ -22,11 +24,15 @@ __all__ = [
     "BrokerPosition",
     "BrokerProtection",
     "BrokerSnapshot",
+    "BrokerSnapshotAuthority",
+    "BrokerSnapshotEvidence",
     "BrokerWorkingOrder",
     "CancelEntryCommand",
     "CommandKind",
     "EntryCommand",
     "GatewayReceipt",
+    "KernelAdmissionAuthorization",
+    "KernelAdmissionAuthority",
     "PaperGateway",
     "ProtectionCommand",
     "RecordingPaperGateway",

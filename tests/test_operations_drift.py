@@ -12,56 +12,100 @@ from sensei.operations.health import (
     HealthState,
     OperationsMonitor,
 )
-from sensei.operations.journal import OperationalJournal
+from sensei.operations import (
+    ComponentState,
+    HmacFactSigner,
+    HmacFactVerifier,
+    OperationalJournal,
+    OperationsControlPlane,
+)
 
 
 NOW = datetime(2026, 7, 13, 9, 15, tzinfo=timezone.utc)
+COMPONENT_AGES = {
+    "market-data": timedelta(minutes=5),
+    "paper-gateway": timedelta(minutes=2),
+    "reconciliation": timedelta(minutes=5),
+}
+COMPONENT_SECRETS = {
+    component: f"{component}-health-test-secret-at-least-32b".encode()
+    for component in COMPONENT_AGES
+}
+MONITOR_SECRET = b"operations-monitor-test-secret-at-least-32b"
+
+
+def _operations(journal, heartbeats):
+    control = OperationsControlPlane(
+        journal, HmacFactVerifier(COMPONENT_SECRETS)
+    )
+    for component, (state, observed_at) in heartbeats.items():
+        control.record_heartbeat(
+            component=component,
+            state=state,
+            occurred_at=observed_at,
+            command_id=f"heartbeat-{component}",
+            detail="fixture",
+            signer=HmacFactSigner(component, COMPONENT_SECRETS[component]),
+        )
+    readiness = control.assess_readiness(
+        required_components=COMPONENT_AGES,
+        now=NOW,
+        command_id="readiness-fixture",
+    )
+    monitor = OperationsMonitor(
+        journal,
+        control_plane=control,
+        required_components=COMPONENT_AGES,
+        maximum_readiness_age=timedelta(minutes=2),
+        signer=HmacFactSigner("operations-monitor", MONITOR_SECRET),
+        verifier=HmacFactVerifier({"operations-monitor": MONITOR_SECRET}),
+    )
+    return monitor, readiness
 
 
 def test_operations_health_fails_closed_and_records_durable_assessment(tmp_path):
     journal = OperationalJournal(tmp_path / "sensei.sqlite3")
-    monitor = OperationsMonitor(journal)
+    monitor, readiness = _operations(
+        journal,
+        {
+            "market-data": (
+                ComponentState.HEALTHY,
+                NOW - timedelta(minutes=20),
+            ),
+            "paper-gateway": (
+                ComponentState.HEALTHY,
+                NOW - timedelta(seconds=30),
+            ),
+            "reconciliation": (
+                ComponentState.HEALTHY,
+                NOW - timedelta(minutes=1),
+            ),
+        },
+    )
     assessment = monitor.assess(
         HealthAssessmentInput(
             now=NOW,
-            market_data_watermark=NOW - timedelta(minutes=20),
-            broker_snapshot_at=NOW - timedelta(seconds=30),
-            last_reconciliation_at=NOW - timedelta(minutes=1),
-            maximum_market_data_age=timedelta(minutes=5),
-            maximum_broker_age=timedelta(minutes=2),
-            maximum_reconciliation_age=timedelta(minutes=5),
-            session_active=True,
-            safety_latched=False,
-            unprotected_quantity=0,
-            unknown_broker_objects=0,
+            readiness=readiness,
         ),
         command_id="health-1",
     )
 
     assert assessment.state is HealthState.HALTED
-    assert "MARKET_DATA_STALE" in assessment.reason_codes
+    assert "MARKET-DATA_STALE" in assessment.reason_codes
     assert assessment.new_entries_allowed is False
     assert assessment.protective_actions_allowed is True
     events = journal.read_stream("operations:health")
     assert events[-1].event_type == "OperationalHealthAssessed"
-    assert events[-1].payload["state"] == "HALTED"
+    assert events[-1].payload["fact"]["state"] == "HALTED"
 
 
 def test_operations_health_is_unknown_when_required_truth_is_missing(tmp_path):
-    monitor = OperationsMonitor(OperationalJournal(tmp_path / "sensei.sqlite3"))
+    journal = OperationalJournal(tmp_path / "sensei.sqlite3")
+    monitor, readiness = _operations(journal, {})
     assessment = monitor.assess(
         HealthAssessmentInput(
             now=NOW,
-            market_data_watermark=None,
-            broker_snapshot_at=None,
-            last_reconciliation_at=None,
-            maximum_market_data_age=timedelta(minutes=5),
-            maximum_broker_age=timedelta(minutes=2),
-            maximum_reconciliation_age=timedelta(minutes=5),
-            session_active=False,
-            safety_latched=False,
-            unprotected_quantity=0,
-            unknown_broker_objects=0,
+            readiness=readiness,
         ),
         command_id="health-missing",
     )

@@ -34,6 +34,7 @@ _DIRECT_ALERT_EVENTS = frozenset(
         "OperationalAlertRaised",
         "QuarantineRaised",
         "SafetyLatched",
+        "DeskCycleFailed",
     }
 )
 
@@ -209,7 +210,13 @@ def _is_alert(event: JournalEvent) -> bool:
     if event.event_type in _DIRECT_ALERT_EVENTS:
         return True
     if event.event_type == "OperationalHealthAssessed":
-        return str(event.payload.get("state", "")).upper() in {"HALTED", "UNKNOWN"}
+        fact = event.payload.get("fact")
+        state = (
+            fact.get("state", "")
+            if isinstance(fact, Mapping)
+            else event.payload.get("state", "")
+        )
+        return str(state).upper() in {"HALTED", "UNKNOWN"}
     if event.event_type == "OperationsReadinessAssessed":
         return event.payload.get("ready") is not True
     if event.event_type == "DriftAssessed":

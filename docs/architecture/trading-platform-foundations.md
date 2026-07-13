@@ -37,9 +37,11 @@ place an order. The current evidence and execution paths do not depend on them.
 | Strategy semantics | `sensei.strategy` | Immutable, content-addressed Strategy Plans and deterministic decision traces | Quantity, capital or orders |
 | Governance | `sensei.governance.lifecycle`, `evidence` | Exact stage path, authority roles and verified, plan-pinned Stage Dossiers | Broker side effects |
 | Durable facts | `sensei.operations.journal` | Event identity, append-only ordering, idempotency, optimistic concurrency and hash-chain verification | Deciding whether a fact is sufficient evidence |
+| Signed facts | `sensei.operations.authority` | Issuer-authenticated local facts with independently configured verification keys | Deciding whether a signed fact is sufficient for trading |
 | Operational truth | `sensei.operations.health`, `control_plane` | Durable health and component-readiness assessments | Strategy or risk judgment |
 | Per-trade committee | `sensei.orchestration.committee` | Exact L1 risk, L2 challenge, L3 compliance and L4 orchestration approval bound to one thesis and derived intent | Lifecycle promotion, sizing or gateway dispatch |
 | Paper admission | `sensei.orchestration.paper`, `intents` | Composition of the exact governed plan, trace, provenance, committee approval, health, content-addressed account snapshot and derived quantity | Gateway dispatch |
+| Multi-agent desk | `sensei.orchestration.desk`, `roles` | Durable routing of Historian, Reporter, Crowd Reader, Analyst, Committee, Trader, Coach and Secretary | Replacing deterministic authority with agent opinion |
 | Portfolio authority | `sensei.portfolio_risk` | Atomic reservations, cash/notional/heat/slot limits, loss and drawdown breakers | Alpha decisions or order transport |
 | Safety authority | `sensei.portfolio_risk.safety` | Durable global entry latch and owner-controlled reset | Blocking protection or entry cancellation |
 | Order state machine | `sensei.kernel` | Typed paper commands, durable outbox, fill/protection ordering and broker reconciliation | Live transport or strategy selection |
@@ -115,22 +117,31 @@ Identity is carried forward instead of reconstructed later:
    only claims that both belong to the plan and resolve in the provenance
    corpus. The content-addressed `TradeCommitteeApproved` event grants admission
    to that one intent only.
-8. Paper admission additionally requires the exact plan version at the `paper`
-   stage, a durable fresh `HEALTHY` assessment and an unlatched safety control.
+8. Paper admission additionally requires a producer-signed decision trace, the
+   exact plan version at the `paper` stage, a signed fresh `HEALTHY` assessment
+   derived from authenticated component heartbeats, and an unlatched safety control.
    Lifecycle promotion never substitutes for the per-trade committee.
 9. Portfolio Risk reserves capacity atomically across held, pending, partially
    filled and not-yet-reconciled exposure. Money and thresholds use integer
    paise or basis points at this boundary.
-10. The kernel persists a typed command before dispatch. A positive partial fill
+10. The coordinator signs an admission capability over the exact intent and its
+    trace, lifecycle, health, provenance, committee and verdict evidence. The
+    kernel rejects an intent without that exact capability. It then persists a
+    typed command before dispatch. A positive partial fill
    is protected before another entry can be sent. Unknown, mismatched or
    under-protected broker state causes quarantine and a safety latch. Broker
-   protection is reconciled against the exact command ID, quantity, stop and
-   target, not quantity alone.
-11. The Trade Episode records immutable planned prices and the complete lineage
+    protection is reconciled against the exact command ID, quantity, stop and
+    target, not quantity alone.
+11. Broker snapshots are content-addressed and gateway-signed. Reconciliation
+    rejects unsigned, stale or future snapshots and signs its outcome. Safety
+    reset needs the latest fresh, clean outcome plus fresh owner-signed reset
+    scope.
+12. The Trade Episode records immutable planned prices and the complete lineage
    through every fill, reconciled costs, review and close. Attribution rejects a
    caller's arithmetic unless quantity, weighted fill values, currency and fees
-   match those durable facts. Outcome learning additionally requires the exact
-   closed episode and review evidence. Recurrence can only propose a
+   match those durable facts. The Coach automatically discovers eligible
+   episodes, but outcome learning still requires the exact close, reconciled
+   attribution and review evidence. Recurrence can only propose a
    `RESEARCH_ONLY` hypothesis; it cannot veto a trade or mutate a plan.
 
 ## Fail-closed behavior
@@ -175,8 +186,10 @@ kernel. Existing legacy data files are not rewritten by the new platform.
 
 ## Current limits and next boundary
 
-The modules are composable and covered by focused tests, but there is not yet a
-single deployed runtime that continuously supplies reconciled account truth,
+`DeskRuntime.run_cycle(...)` now connects all nine roles from the original PRD
+to the governed swing-paper path; see `desk-runtime.md`. The runtime and modules
+are covered by focused tests, but there is not yet a continuously deployed
+service that provisions signing keys and supplies reconciled account truth,
 heartbeats, broker snapshots, session events and alert delivery. Intraday
 directives are deterministic but are not a live/MIS order path. The only kernel
 gateway is an in-memory paper recorder.
