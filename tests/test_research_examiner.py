@@ -38,17 +38,17 @@ def target_trade_bars() -> pd.DataFrame:
 
 
 def capture_synthetic_snapshot(
-    bars_by_symbol: dict[str, pd.DataFrame],
+    bars_by_instrument: dict[str, pd.DataFrame],
     *,
     as_of: date | None = None,
     point_in_time_universe: bool = True,
     source: str = "synthetic",
 ) -> MarketDataSnapshot:
     snapshot_date = as_of or max(
-        frame.index[-1].date() for frame in bars_by_symbol.values()
+        frame.index[-1].date() for frame in bars_by_instrument.values()
     )
-    return MarketDataSnapshot.capture(
-        bars_by_symbol=bars_by_symbol,
+    return MarketDataSnapshot._for_testing(
+        bars_by_instrument=bars_by_instrument,
         as_of=snapshot_date,
         universe_as_of=snapshot_date,
         point_in_time_universe=point_in_time_universe,
@@ -432,7 +432,7 @@ def test_hypothesis_rule_conditions_are_immutable():
 def test_examine_detects_internal_snapshot_content_mutation():
     request = target_trade_request()
     captured_frames = object.__getattribute__(
-        request.snapshot, "_MarketDataSnapshot__bars_by_symbol"
+        request.snapshot, "_MarketDataSnapshot__bars_by_instrument"
     )
     captured_frame = captured_frames["TEST"]
     captured_frame.iloc[0, captured_frame.columns.get_loc("volume")] += 1

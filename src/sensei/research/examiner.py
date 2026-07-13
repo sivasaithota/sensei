@@ -74,7 +74,8 @@ class ResearchExaminer:
 
         signal_fn = compile_spec(request.hypothesis.strategy)
         signals_by_symbol = {
-            symbol: signal_fn(frame) for symbol, frame in valid_frames.items()
+            instrument_id: signal_fn(data.bars)
+            for instrument_id, data in valid_frames.items()
         }
         fold_evidence: list[FoldEvidence] = []
         all_trades: list[ResearchTrade] = []
@@ -83,14 +84,15 @@ class ResearchExaminer:
         for fold in request.protocol.folds:
             fold_trades: list[ResearchTrade] = []
             fold_censored = 0
-            for symbol, frame in valid_frames.items():
+            for instrument_id, data in valid_frames.items():
                 simulation = simulate_fold(
-                    symbol,
-                    frame,
-                    signals_by_symbol[symbol],
+                    instrument_id,
+                    data.bars,
+                    signals_by_symbol[instrument_id],
                     fold,
                     request.hypothesis.strategy,
                     request.protocol.round_trip_cost_pct,
+                    entry_eligibility=data.entry_eligibility,
                 )
                 fold_trades.extend(simulation.trades)
                 fold_censored += simulation.censored_trades

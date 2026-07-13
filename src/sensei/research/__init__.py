@@ -1,7 +1,18 @@
 """Governed strategy research."""
 
+from sensei.research.catalog import (
+    ManifestMarketDataCatalog,
+    MarketDataCatalog,
+    SnapshotRequest,
+)
+from sensei.research.errors import SnapshotIntegrityError
 from sensei.research.examiner import ExaminationRequest, ResearchExaminer
-from sensei.research.market_data import MarketDataSnapshot
+from sensei.research.legacy_yahoo import LegacyYahooCurrentConstituentCatalog
+from sensei.research.market_data import (
+    DataLineage,
+    MarketDataSnapshot,
+    MembershipInterval,
+)
 from sensei.research.models import (
     DossierStatus,
     EvaluationFold,
@@ -15,6 +26,7 @@ from sensei.research.models import (
 
 __all__ = [
     "DossierStatus",
+    "DataLineage",
     "EvaluationFold",
     "ExaminationProtocol",
     "ExaminationRequest",
@@ -22,7 +34,13 @@ __all__ = [
     "EvidenceIssueCode",
     "EvidenceWarningCode",
     "HypothesisVersion",
+    "LegacyYahooCurrentConstituentCatalog",
+    "ManifestMarketDataCatalog",
+    "MarketDataCatalog",
     "MarketDataSnapshot",
+    "MembershipInterval",
     "Recommendation",
     "ResearchExaminer",
+    "SnapshotIntegrityError",
+    "SnapshotRequest",
 ]

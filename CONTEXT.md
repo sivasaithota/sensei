@@ -16,6 +16,16 @@ This glossary is the shared language for the trading system. Terms describe doma
 
 **Market Data Snapshot** — An immutable, point-in-time view of a universe and its market data, including lineage and a data-quality report.
 
+**Stable Instrument** — A listed security identified independently of its current ticker. Symbol changes do not create a new Stable Instrument; a genuinely different security does.
+
+**Membership Interval** — An inclusive-start, exclusive-end period during which a Stable Instrument belongs to a named research universe. Historical membership is evaluated for each session, not inferred from current constituents.
+
+**Entry Eligibility** — The session-level fact that a Strategy Plan may originate a new position in a Stable Instrument. Universe membership governs Entry Eligibility; later removal does not by itself force an existing position to exit.
+
+**Data Lineage** — Immutable provenance connecting a Market Data Snapshot to its source catalog, retrieval date, adjustment policy, and content hashes for membership, price, and corporate-action artifacts.
+
+**Manifest Trust Pin** — An independently configured content identity that authorizes one exact market-data manifest. An issuer name inside a manifest cannot create or change its own trust.
+
 **Examination Protocol** — A versioned set of validation rules, costs, chronological folds, holdout policy, thresholds, and stress tests fixed before a Hypothesis Version is examined.
 
 **Examination** — The deterministic evaluation of one Hypothesis Version against one Market Data Snapshot under one Examination Protocol.

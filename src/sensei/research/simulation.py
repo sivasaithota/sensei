@@ -32,6 +32,8 @@ def simulate_fold(
     fold: EvaluationFold,
     strategy: RuleSpec,
     cost_pct: float,
+    *,
+    entry_eligibility: pd.Series | None = None,
 ) -> FoldSimulation:
     dates = frame.index
     opens = frame["open"].to_numpy(dtype=float)
@@ -39,6 +41,13 @@ def simulate_fold(
     lows = frame["low"].to_numpy(dtype=float)
     closes = frame["close"].to_numpy(dtype=float)
     signal_values = signals.fillna(False).to_numpy(dtype=bool)
+    eligibility_values = (
+        np.ones(len(frame), dtype=bool)
+        if entry_eligibility is None
+        else entry_eligibility.reindex(dates, fill_value=False)
+        .fillna(False)
+        .to_numpy(dtype=bool)
+    )
     trades: list[ResearchTrade] = []
     censored_trades = 0
 
@@ -50,6 +59,9 @@ def simulate_fold(
 
         entry_index = i + 1
         entry_day = dates[entry_index].date()
+        if not eligibility_values[entry_index]:
+            i += 1
+            continue
         if entry_day < fold.start:
             i += 1
             continue
