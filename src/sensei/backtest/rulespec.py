@@ -31,7 +31,7 @@ import re
 from typing import Literal
 
 import pandas as pd
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 _INDICATOR_RE = re.compile(
     r"^(close|open|high|low|volume|sma_\d+|vol_sma_\d+|highest_\d+|"
@@ -40,6 +40,8 @@ _INDICATOR_RE = re.compile(
 
 
 class Condition(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     left: str
     op: Literal[">", "<", ">=", "<="]
     right: str | float
@@ -61,10 +63,12 @@ class Condition(BaseModel):
 
 
 class RuleSpec(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     name: str = Field(pattern=r"^[a-z0-9_]{3,50}$")
     source: str = Field(description="Book/author/URL the principle came from")
     principle: str = Field(description="The principle in the source's own terms")
-    conditions: list[Condition] = Field(min_length=1, max_length=8)
+    conditions: tuple[Condition, ...] = Field(min_length=1, max_length=8)
     stop_pct: float = Field(ge=1.0, le=15.0)
     target_pct: float = Field(ge=2.0, le=40.0)
     max_hold_days: int = Field(ge=3, le=120)

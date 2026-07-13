@@ -1,10 +1,12 @@
 import json
 from dataclasses import replace
 from datetime import date, timedelta
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
+from pydantic import ValidationError
 
 from sensei.backtest.rulespec import Condition, RuleSpec
 from sensei.research import (
@@ -34,6 +36,25 @@ def target_trade_bars() -> pd.DataFrame:
     )
 
 
+def capture_synthetic_snapshot(
+    bars_by_symbol: dict[str, pd.DataFrame],
+    *,
+    as_of: date | None = None,
+    point_in_time_universe: bool = True,
+    source: str = "synthetic",
+) -> MarketDataSnapshot:
+    snapshot_date = as_of or max(
+        frame.index[-1].date() for frame in bars_by_symbol.values()
+    )
+    return MarketDataSnapshot.capture(
+        bars_by_symbol=bars_by_symbol,
+        as_of=snapshot_date,
+        universe_as_of=snapshot_date,
+        point_in_time_universe=point_in_time_universe,
+        source=source,
+    )
+
+
 def target_trade_request() -> ExaminationRequest:
     bars = target_trade_bars()
     index = bars.index
@@ -53,13 +74,7 @@ def target_trade_request() -> ExaminationRequest:
             strategy=rule,
             source_claim_ids=("C-1",),
         ),
-        snapshot=MarketDataSnapshot.capture(
-            bars_by_symbol={"TEST": bars},
-            as_of=index[-1].date(),
-            universe_as_of=index[-1].date(),
-            point_in_time_universe=True,
-            source="synthetic",
-        ),
+        snapshot=capture_synthetic_snapshot({"TEST": bars}),
         protocol=ExaminationProtocol(
             name="foundation",
             version=1,
@@ -112,13 +127,7 @@ def overnight_gap_request() -> ExaminationRequest:
     return replace(
         request,
         hypothesis=replace(request.hypothesis, strategy=gap_rule),
-        snapshot=MarketDataSnapshot.capture(
-            bars_by_symbol={"GAP": bars},
-            as_of=index[-1].date(),
-            universe_as_of=index[-1].date(),
-            point_in_time_universe=True,
-            source="synthetic",
-        ),
+        snapshot=capture_synthetic_snapshot({"GAP": bars}),
         protocol=replace(
             request.protocol,
             folds=(EvaluationFold("gap", index[0].date(), index[-1].date()),),
@@ -137,6 +146,7 @@ def test_examine_returns_quarantined_serializable_dossier_for_target_trade():
     assert dossier.aggregate.trades == 1
     assert dossier.aggregate.expectancy_pct == 9.75
     assert dossier.folds[0].target_exits == 1
+    assert dossier.round_trip_cost_pct == 0.25
     assert dossier.experiment_id.startswith("sha256:")
     serialized = dossier.model_dump_json()
     assert request.snapshot.snapshot_id in serialized
@@ -154,12 +164,9 @@ def test_experiment_identity_covers_hypothesis_snapshot_and_protocol_content():
 
     revised_bars = target_trade_bars()
     revised_bars.iloc[0, revised_bars.columns.get_loc("volume")] += 1
-    revised_snapshot = MarketDataSnapshot.capture(
-        bars_by_symbol={"TEST": revised_bars},
+    revised_snapshot = capture_synthetic_snapshot(
+        {"TEST": revised_bars},
         as_of=request.snapshot.as_of,
-        universe_as_of=request.snapshot.universe_as_of,
-        point_in_time_universe=True,
-        source="synthetic",
     )
     revised_protocol = replace(request.protocol, min_expectancy_pct=2.0)
 
@@ -177,15 +184,12 @@ def test_examine_uses_common_calendar_folds_for_different_listing_histories():
     request = target_trade_request()
     old_index = pd.bdate_range("2020-01-01", "2020-02-14")
     recent_index = pd.bdate_range("2020-01-27", "2020-02-14")
-    snapshot = MarketDataSnapshot.capture(
-        bars_by_symbol={
+    snapshot = capture_synthetic_snapshot(
+        {
             "OLD": single_breakout_bars(old_index, "2020-01-30"),
             "RECENT": single_breakout_bars(recent_index, "2020-02-05"),
         },
         as_of=date(2020, 2, 14),
-        universe_as_of=date(2020, 2, 14),
-        point_in_time_universe=True,
-        source="synthetic",
     )
     protocol = replace(
         request.protocol,
@@ -210,10 +214,9 @@ def test_examine_fills_an_overnight_stop_gap_at_the_worse_open():
 
 def test_examine_fails_closed_for_a_non_point_in_time_universe():
     request = target_trade_request()
-    snapshot = MarketDataSnapshot.capture(
-        bars_by_symbol={"TEST": target_trade_bars()},
+    snapshot = capture_synthetic_snapshot(
+        {"TEST": target_trade_bars()},
         as_of=request.snapshot.as_of,
-        universe_as_of=request.snapshot.universe_as_of,
         point_in_time_universe=False,
         source="current constituents backfilled through history",
     )
@@ -229,12 +232,9 @@ def test_examine_reports_and_excludes_invalid_ohlc_instead_of_silently_using_it(
     request = target_trade_request()
     invalid = target_trade_bars()
     invalid.loc[invalid.index[0], "high"] = invalid.loc[invalid.index[0], "close"] - 1
-    snapshot = MarketDataSnapshot.capture(
-        bars_by_symbol={"GOOD": target_trade_bars(), "BAD": invalid},
+    snapshot = capture_synthetic_snapshot(
+        {"GOOD": target_trade_bars(), "BAD": invalid},
         as_of=request.snapshot.as_of,
-        universe_as_of=request.snapshot.universe_as_of,
-        point_in_time_universe=True,
-        source="synthetic",
     )
 
     dossier = ResearchExaminer().examine(replace(request, snapshot=snapshot))
@@ -255,13 +255,7 @@ def test_examine_censors_a_trade_that_cannot_finish_inside_its_fold():
     long_hold_rule = request.hypothesis.strategy.model_copy(
         update={"stop_pct": 15.0, "target_pct": 40.0, "max_hold_days": 5}
     )
-    snapshot = MarketDataSnapshot.capture(
-        bars_by_symbol={"CENSORED": bars},
-        as_of=index[-1].date(),
-        universe_as_of=index[-1].date(),
-        point_in_time_universe=True,
-        source="synthetic",
-    )
+    snapshot = capture_synthetic_snapshot({"CENSORED": bars})
     protocol = replace(
         request.protocol,
         folds=(EvaluationFold("edge", index[0].date(), index[-1].date()),),
@@ -305,13 +299,7 @@ def test_examine_preserves_pre_fold_bars_for_indicator_warmup():
         target_pct=10,
         max_hold_days=5,
     )
-    snapshot = MarketDataSnapshot.capture(
-        bars_by_symbol={"WARM": bars},
-        as_of=index[-1].date(),
-        universe_as_of=index[-1].date(),
-        point_in_time_universe=True,
-        source="synthetic",
-    )
+    snapshot = capture_synthetic_snapshot({"WARM": bars})
     protocol = replace(
         request.protocol,
         folds=(EvaluationFold("oos", index[5].date(), index[-1].date()),),
@@ -378,12 +366,18 @@ def test_examine_persists_one_immutable_idempotent_artifact_when_configured(tmp_
 
 def test_examine_quarantines_a_reserved_strategy_name_collision():
     request = target_trade_request()
-    examiner = ResearchExaminer(reserved_strategy_names={"two_day_breakout"})
+    unreserved = ResearchExaminer().examine(request)
+    collision_protocol = replace(
+        request.protocol, reserved_strategy_names=("two_day_breakout",)
+    )
 
-    dossier = examiner.examine(request)
+    dossier = ResearchExaminer().examine(
+        replace(request, protocol=collision_protocol)
+    )
 
     assert dossier.recommendation is Recommendation.NEEDS_MORE_EVIDENCE
     assert any(issue.code == "strategy.name_collision" for issue in dossier.issues)
+    assert dossier.experiment_id != unreserved.experiment_id
 
 
 def test_examine_cannot_mutate_playbook_or_studied_rules(tmp_path, monkeypatch):
@@ -410,3 +404,60 @@ def test_examine_rejects_a_protocol_that_reaches_past_the_snapshot_as_of():
 
     with pytest.raises(ValueError, match="snapshot as-of"):
         ResearchExaminer().examine(replace(request, protocol=protocol))
+
+
+def test_hypothesis_rule_definition_is_immutable():
+    request = target_trade_request()
+
+    with pytest.raises(ValidationError, match="frozen"):
+        request.hypothesis.strategy.target_pct = 11
+
+
+def test_hypothesis_rule_conditions_are_immutable():
+    request = target_trade_request()
+
+    with pytest.raises(AttributeError):
+        request.hypothesis.strategy.conditions.append(
+            Condition(left="close", op=">", right="sma_10")
+        )
+
+
+def test_examine_detects_internal_snapshot_content_mutation():
+    request = target_trade_request()
+    captured_frames = object.__getattribute__(
+        request.snapshot, "_MarketDataSnapshot__bars_by_symbol"
+    )
+    captured_frame = captured_frames["TEST"]
+    captured_frame.iloc[0, captured_frame.columns.get_loc("volume")] += 1
+
+    with pytest.raises(ValueError, match="snapshot content"):
+        ResearchExaminer().examine(request)
+
+
+def test_examine_fails_closed_when_a_fold_lacks_minimum_session_coverage():
+    request = target_trade_request()
+    coverage_protocol = replace(request.protocol, min_sessions_per_fold=11)
+
+    dossier = ResearchExaminer().examine(
+        replace(request, protocol=coverage_protocol)
+    )
+
+    assert dossier.recommendation is Recommendation.NEEDS_MORE_EVIDENCE
+    assert any(
+        issue.code == "bars.insufficient_fold_coverage"
+        for issue in dossier.issues
+    )
+
+
+def test_failed_artifact_finalization_leaves_no_valid_looking_dossier(
+    tmp_path, monkeypatch
+):
+    def fail_chmod(self, mode):
+        raise OSError("simulated artifact finalization failure")
+
+    monkeypatch.setattr(Path, "chmod", fail_chmod)
+
+    with pytest.raises(OSError, match="finalization failure"):
+        ResearchExaminer(artifact_dir=tmp_path).examine(target_trade_request())
+
+    assert list(tmp_path.glob("*.json")) == []
