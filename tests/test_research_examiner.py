@@ -18,6 +18,7 @@ from sensei.research import (
     MarketDataSnapshot,
     Recommendation,
     ResearchExaminer,
+    EvidenceWarningCode,
 )
 
 
@@ -147,6 +148,12 @@ def test_examine_returns_quarantined_serializable_dossier_for_target_trade():
     assert dossier.aggregate.expectancy_pct == 9.75
     assert dossier.folds[0].target_exits == 1
     assert dossier.round_trip_cost_pct == 0.25
+    assert {warning.code for warning in dossier.warnings} == {
+        EvidenceWarningCode.NO_PORTFOLIO_SIMULATION,
+        EvidenceWarningCode.REGIME_NOT_EXAMINED,
+        EvidenceWarningCode.MULTIPLE_TESTING_NOT_CORRECTED,
+        EvidenceWarningCode.DAILY_DATA_ONLY,
+    }
     assert dossier.experiment_id.startswith("sha256:")
     serialized = dossier.model_dump_json()
     assert request.snapshot.snapshot_id in serialized
@@ -461,3 +468,37 @@ def test_failed_artifact_finalization_leaves_no_valid_looking_dossier(
         ResearchExaminer(artifact_dir=tmp_path).examine(target_trade_request())
 
     assert list(tmp_path.glob("*.json")) == []
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("round_trip_cost_pct", float("nan")),
+        ("round_trip_cost_pct", float("inf")),
+        ("min_expectancy_pct", float("nan")),
+        ("min_expectancy_pct", float("-inf")),
+    ],
+)
+def test_protocol_rejects_non_finite_numeric_policy(field, value):
+    request = target_trade_request()
+
+    with pytest.raises(ValueError, match="finite"):
+        replace(request.protocol, **{field: value})
+
+
+def test_fold_includes_first_day_entry_from_previous_session_signal():
+    request = target_trade_request()
+    index = pd.bdate_range("2020-06-01", periods=10)
+    bars = single_breakout_bars(index, index[3].strftime("%Y-%m-%d"))
+    snapshot = capture_synthetic_snapshot({"EDGE": bars})
+    protocol = replace(
+        request.protocol,
+        folds=(EvaluationFold("oos", index[4].date(), index[-1].date()),),
+    )
+
+    dossier = ResearchExaminer().examine(
+        replace(request, snapshot=snapshot, protocol=protocol)
+    )
+
+    assert dossier.aggregate.trades == 1
+    assert dossier.aggregate.target_exits == 1

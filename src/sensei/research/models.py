@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
@@ -87,10 +88,17 @@ class ExaminationProtocol:
             raise ValueError("at least one evaluation fold is required")
         if self.min_trades < 1 or self.min_symbols < 1:
             raise ValueError("evidence minimums must be positive")
+        if not math.isfinite(self.round_trip_cost_pct):
+            raise ValueError("round-trip cost must be finite")
         if self.round_trip_cost_pct < 0:
             raise ValueError("round-trip cost must not be negative")
-        if self.min_hit_rate is not None and not 0 <= self.min_hit_rate <= 1:
-            raise ValueError("minimum hit rate must be between zero and one")
+        if not math.isfinite(self.min_expectancy_pct):
+            raise ValueError("minimum expectancy must be finite")
+        if self.min_hit_rate is not None:
+            if not math.isfinite(self.min_hit_rate):
+                raise ValueError("minimum hit rate must be finite")
+            if not 0 <= self.min_hit_rate <= 1:
+                raise ValueError("minimum hit rate must be between zero and one")
         if self.min_sessions_per_fold < 1:
             raise ValueError("minimum sessions per fold must be positive")
         if any(not name.strip() for name in self.reserved_strategy_names):
@@ -151,6 +159,13 @@ class EvidenceIssueCode(str, Enum):
     INSUFFICIENT_FOLD_COVERAGE = "bars.insufficient_fold_coverage"
 
 
+class EvidenceWarningCode(str, Enum):
+    NO_PORTFOLIO_SIMULATION = "evidence.no_portfolio_simulation"
+    REGIME_NOT_EXAMINED = "evidence.regime_not_examined"
+    MULTIPLE_TESTING_NOT_CORRECTED = "evidence.multiple_testing_not_corrected"
+    DAILY_DATA_ONLY = "evidence.daily_data_only"
+
+
 class EvidenceSummary(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -181,6 +196,13 @@ class EvidenceIssue(BaseModel):
     symbol: str | None = None
 
 
+class EvidenceWarning(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    code: EvidenceWarningCode
+    detail: str
+
+
 class EvidenceDossier(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -199,5 +221,5 @@ class EvidenceDossier(BaseModel):
     aggregate: EvidenceSummary
     censored_trades: int
     issues: tuple[EvidenceIssue, ...]
+    warnings: tuple[EvidenceWarning, ...]
     reasons: tuple[str, ...]
-    limitations: tuple[str, ...]

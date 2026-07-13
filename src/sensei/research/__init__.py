@@ -8,6 +8,7 @@ from sensei.research.models import (
     ExaminationProtocol,
     EvidenceDossier,
     EvidenceIssueCode,
+    EvidenceWarningCode,
     HypothesisVersion,
     Recommendation,
 )
@@ -19,6 +20,7 @@ __all__ = [
     "ExaminationRequest",
     "EvidenceDossier",
     "EvidenceIssueCode",
+    "EvidenceWarningCode",
     "HypothesisVersion",
     "MarketDataSnapshot",
     "Recommendation",

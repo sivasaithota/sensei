@@ -44,14 +44,16 @@ def simulate_fold(
 
     i = 0
     while i < len(frame) - 1:
-        signal_day = dates[i].date()
-        if not signal_values[i] or signal_day < fold.start or signal_day > fold.end:
+        if not signal_values[i]:
             i += 1
             continue
 
         entry_index = i + 1
-        if dates[entry_index].date() > fold.end:
-            censored_trades += 1
+        entry_day = dates[entry_index].date()
+        if entry_day < fold.start:
+            i += 1
+            continue
+        if entry_day > fold.end:
             break
         entry = opens[entry_index]
         stop = entry * (1 - strategy.stop_pct / 100)

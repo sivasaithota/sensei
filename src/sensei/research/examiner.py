@@ -15,6 +15,8 @@ from sensei.research.models import (
     EvidenceIssue,
     EvidenceIssueCode,
     EvidenceSummary,
+    EvidenceWarning,
+    EvidenceWarningCode,
     ExaminationProtocol,
     FoldEvidence,
     HypothesisVersion,
@@ -122,13 +124,31 @@ class ResearchExaminer:
             aggregate=aggregate,
             censored_trades=total_censored,
             issues=tuple(issues),
-            reasons=reasons,
-            limitations=(
-                "Portfolio cash, concurrency, drawdown, and correlation were not simulated.",
-                "Regime dependence was not examined.",
-                "Multiple-hypothesis and parameter-selection bias were not corrected.",
-                "Daily bars do not validate an intraday strategy.",
+            warnings=(
+                EvidenceWarning(
+                    code=EvidenceWarningCode.NO_PORTFOLIO_SIMULATION,
+                    detail=(
+                        "Portfolio cash, concurrency, drawdown, and correlation "
+                        "were not simulated."
+                    ),
+                ),
+                EvidenceWarning(
+                    code=EvidenceWarningCode.REGIME_NOT_EXAMINED,
+                    detail="Regime dependence was not examined.",
+                ),
+                EvidenceWarning(
+                    code=EvidenceWarningCode.MULTIPLE_TESTING_NOT_CORRECTED,
+                    detail=(
+                        "Multiple-hypothesis and parameter-selection bias were "
+                        "not corrected."
+                    ),
+                ),
+                EvidenceWarning(
+                    code=EvidenceWarningCode.DAILY_DATA_ONLY,
+                    detail="Daily bars do not validate an intraday strategy.",
+                ),
             ),
+            reasons=reasons,
         )
         if self._store is not None:
             self._store.record(dossier)
