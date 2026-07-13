@@ -8,6 +8,8 @@ two risk writers race.
 from __future__ import annotations
 
 import hashlib
+import json
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime
 
@@ -47,11 +49,13 @@ class PortfolioRisk:
                 raise RiskRejected("reservation identity conflicts with durable content")
             return existing
 
+        self._validate_snapshot(account_snapshot, now)
+        if not account_snapshot.has_valid_identity():
+            raise RiskRejected("account snapshot content identity is invalid")
         if intent.account_snapshot_id != account_snapshot.snapshot_id:
             raise RiskRejected(
                 "intent account snapshot does not match reservation evidence"
             )
-        self._validate_snapshot(account_snapshot, now)
         existing_items = tuple(current.values())
         included = set(account_snapshot.included_reservation_ids)
         encumbered = sum(
@@ -186,18 +190,31 @@ class PortfolioRisk:
         return self._by_id(reservation_id)
 
     def release(
-        self, reservation_id: str, *, occurred_at: datetime
+        self,
+        reservation_id: str,
+        *,
+        terminal_evidence_event_id: str,
+        occurred_at: datetime,
     ) -> RiskReservation:
         require_timestamp(occurred_at, "occurred_at")
         reservation = self._by_id(reservation_id)
         if reservation.state in {ReservationState.FILLED, ReservationState.RELEASED}:
             return reservation
+        cancel_command_id = self._verify_terminal_cancel(
+            reservation,
+            terminal_evidence_event_id=terminal_evidence_event_id,
+            occurred_at=occurred_at,
+        )
         events = self._journal.read_stream(_STREAM)
         self._journal.append(
             EventAppend(
                 stream_id=_STREAM,
                 event_type="RiskReleased",
-                payload={"reservation_id": reservation_id},
+                payload={
+                    "reservation_id": reservation_id,
+                    "terminal_evidence_event_id": terminal_evidence_event_id,
+                    "cancel_command_id": cancel_command_id,
+                },
                 idempotency_key=(
                     "risk-release:"
                     f"{reservation_id.removeprefix('reservation:')}"
@@ -205,9 +222,195 @@ class PortfolioRisk:
                 expected_version=len(events),
                 occurred_at=occurred_at,
                 correlation_id=reservation.intent.intent_id,
+                causation_id=terminal_evidence_event_id,
             )
         )
         return self._by_id(reservation_id)
+
+    def _verify_terminal_cancel(
+        self,
+        reservation: RiskReservation,
+        *,
+        terminal_evidence_event_id: str,
+        occurred_at: datetime,
+    ) -> str:
+        if not self._journal.verify().ok:
+            raise RiskRejected("terminal evidence journal integrity check failed")
+        kernel_events = self._journal.read_stream("kernel:paper")
+        completed = next(
+            (
+                event
+                for event in kernel_events
+                if event.event_id == terminal_evidence_event_id
+            ),
+            None,
+        )
+        if completed is None or completed.event_type != "BrokerCommandCompleted":
+            raise RiskRejected(
+                "terminal evidence must be a durable completed broker command"
+            )
+        if occurred_at < completed.occurred_at:
+            raise RiskRejected("release cannot precede its terminal evidence")
+        receipt = completed.payload.get("receipt")
+        receipt_fields = {
+            "command_id",
+            "accepted",
+            "broker_reference",
+            "cumulative_fill_quantity",
+            "average_fill_price_paise",
+        }
+        if (
+            not isinstance(receipt, Mapping)
+            or set(receipt) != receipt_fields
+            or receipt.get("accepted") is not True
+        ):
+            raise RiskRejected("terminal evidence receipt was not accepted")
+        command_id = str(receipt.get("command_id", ""))
+        prepared = next(
+            (
+                event
+                for event in kernel_events
+                if event.global_sequence < completed.global_sequence
+                and event.event_type == "BrokerCommandPrepared"
+                and str(event.payload["command"].get("command_id", ""))
+                == command_id
+            ),
+            None,
+        )
+        if prepared is None:
+            raise RiskRejected(
+                "terminal evidence has no prior typed command preparation"
+            )
+        command = prepared.payload["command"]
+        expected_fields = {
+            "kind",
+            "intent_id",
+            "instrument_id",
+            "entry_command_id",
+            "remaining_quantity",
+            "command_id",
+        }
+        if set(command) != expected_fields:
+            raise RiskRejected("terminal evidence cancellation schema is invalid")
+        if command.get("kind") != "CANCEL_ENTRY":
+            raise RiskRejected("terminal evidence is not a typed CANCEL_ENTRY")
+        if command.get("intent_id") != reservation.intent.intent_id:
+            raise RiskRejected("terminal evidence belongs to another intent")
+        if command.get("instrument_id") != reservation.intent.instrument_id:
+            raise RiskRejected("terminal evidence belongs to another instrument")
+        entry_command_id = command.get("entry_command_id")
+        if not isinstance(entry_command_id, str) or not entry_command_id.startswith(
+            "command:"
+        ):
+            raise RiskRejected("terminal evidence entry command identity is invalid")
+        remaining_quantity = command.get("remaining_quantity")
+        if (
+            isinstance(remaining_quantity, bool)
+            or not isinstance(remaining_quantity, int)
+            or remaining_quantity <= 0
+        ):
+            raise RiskRejected("terminal evidence remaining quantity is invalid")
+        if remaining_quantity != reservation.remaining_quantity:
+            raise RiskRejected(
+                "terminal evidence does not match the reserved remainder"
+            )
+        expected_command_id = _command_id(command, expected_fields)
+        if command_id != expected_command_id:
+            raise RiskRejected("terminal evidence command content address is invalid")
+        if prepared.correlation_id != reservation.intent.intent_id:
+            raise RiskRejected("terminal evidence preparation has wrong correlation")
+        if completed.causation_id != command_id:
+            raise RiskRejected("terminal evidence causation does not match cancellation")
+        if completed.correlation_id != reservation.intent.intent_id:
+            raise RiskRejected("terminal evidence correlation does not match intent")
+
+        entry_prepared = next(
+            (
+                event
+                for event in kernel_events
+                if event.global_sequence < prepared.global_sequence
+                and event.event_type == "BrokerCommandPrepared"
+                and str(event.payload["command"].get("command_id", ""))
+                == entry_command_id
+            ),
+            None,
+        )
+        if entry_prepared is None:
+            raise RiskRejected(
+                "terminal evidence references no prior entry preparation"
+            )
+        entry = entry_prepared.payload["command"]
+        entry_fields = {
+            "kind",
+            "intent_id",
+            "instrument_id",
+            "quantity",
+            "limit_price_paise",
+            "command_id",
+        }
+        if set(entry) != entry_fields or entry.get("kind") != "ENTRY":
+            raise RiskRejected("referenced entry command schema is invalid")
+        if entry.get("intent_id") != reservation.intent.intent_id:
+            raise RiskRejected("referenced entry belongs to another intent")
+        if entry.get("instrument_id") != reservation.intent.instrument_id:
+            raise RiskRejected("referenced entry belongs to another instrument")
+        if (
+            entry.get("quantity") != reservation.intent.quantity
+            or entry.get("limit_price_paise")
+            != reservation.intent.limit_price_paise
+        ):
+            raise RiskRejected("referenced entry does not match the reserved trade")
+        if entry.get("command_id") != _command_id(entry, entry_fields):
+            raise RiskRejected("referenced entry content address is invalid")
+        if entry_prepared.correlation_id != reservation.intent.intent_id:
+            raise RiskRejected("referenced entry preparation has wrong correlation")
+
+        entry_completed = next(
+            (
+                event
+                for event in kernel_events
+                if entry_prepared.global_sequence < event.global_sequence
+                < prepared.global_sequence
+                and event.event_type == "BrokerCommandCompleted"
+                and str(event.payload.get("receipt", {}).get("command_id", ""))
+                == entry_command_id
+            ),
+            None,
+        )
+        if entry_completed is None:
+            raise RiskRejected(
+                "referenced entry has no accepted broker completion"
+            )
+        entry_receipt = entry_completed.payload.get("receipt")
+        if (
+            not isinstance(entry_receipt, Mapping)
+            or set(entry_receipt) != receipt_fields
+            or entry_receipt.get("accepted") is not True
+            or entry_completed.causation_id != entry_command_id
+            or entry_completed.correlation_id != reservation.intent.intent_id
+        ):
+            raise RiskRejected("referenced entry completion is invalid")
+
+        intent_accepted = next(
+            (
+                event
+                for event in kernel_events
+                if event.global_sequence < entry_prepared.global_sequence
+                and event.event_type == "TradeIntentAccepted"
+                and str(event.payload.get("intent", {}).get("intent_id", ""))
+                == reservation.intent.intent_id
+            ),
+            None,
+        )
+        if intent_accepted is None:
+            raise RiskRejected("referenced entry has no accepted trade intent")
+        try:
+            accepted_intent = TradeIntent.from_payload(intent_accepted.payload["intent"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise RiskRejected("accepted trade intent evidence is invalid") from exc
+        if accepted_intent != reservation.intent:
+            raise RiskRejected("accepted trade intent differs from the reservation")
+        return command_id
 
     def reservations(self) -> tuple[RiskReservation, ...]:
         reservations: dict[str, RiskReservation] = {}
@@ -323,3 +526,18 @@ class PortfolioRisk:
         )
         unit_filled_risk = max(0, fill_price - reservation.intent.stop_price_paise)
         return reservation.filled_quantity * unit_filled_risk + remaining_risk
+
+
+def _command_id(command: object, expected_fields: set[str]) -> str:
+    if not isinstance(command, Mapping) or set(command) != expected_fields:
+        raise RiskRejected("broker command schema is invalid")
+    material = json.dumps(
+        {
+            key: command[key]
+            for key in expected_fields
+            if key != "command_id"
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return "command:" + hashlib.sha256(material.encode("utf-8")).hexdigest()

@@ -84,6 +84,8 @@ class TradeIntentFactory:
             raise IntentBuildError("quote timestamp is in the future")
         if quote_age > self._maximum_quote_age:
             raise IntentBuildError("executable quote is stale")
+        if not account_snapshot.has_valid_identity():
+            raise IntentBuildError("account snapshot content identity is invalid")
         if not account_snapshot.reconciled:
             raise IntentBuildError("account snapshot is not reconciled")
         account_age = now - account_snapshot.captured_at

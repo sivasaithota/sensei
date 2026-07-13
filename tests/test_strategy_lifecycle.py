@@ -15,6 +15,7 @@ from sensei.governance.lifecycle import (
     StrategyLifecycle,
     TerminalLifecycleState,
     TransitionRequest,
+    UnauthorizedTransition,
     UntrustedReadinessEvidence,
 )
 from sensei.operations.journal import JournalConflict, OperationalJournal
@@ -29,6 +30,12 @@ OWNER = Authority(
     approval_ref="approval:owner-console-100",
 )
 SAFETY = Authority(actor_id="risk-daemon-1", role=AuthorityRole.SAFETY)
+TRUSTED_ACTOR_ROLES = {
+    PROPOSER.actor_id: frozenset({AuthorityRole.PROPOSER}),
+    GOVERNOR.actor_id: frozenset({AuthorityRole.GOVERNOR}),
+    OWNER.actor_id: frozenset({AuthorityRole.OWNER}),
+    SAFETY.actor_id: frozenset({AuthorityRole.SAFETY}),
+}
 
 
 def evidence(kind: EvidenceKind, suffix: str) -> EvidenceRef:
@@ -126,7 +133,9 @@ def active_evidence() -> tuple[EvidenceRef, ...]:
 def test_lifecycle_requires_every_stage_owner_authority_and_readiness(tmp_path):
     path = tmp_path / "sensei.sqlite3"
     lifecycle = StrategyLifecycle(
-        OperationalJournal(path), evidence_verifier=lambda _request: True
+        OperationalJournal(path),
+        evidence_verifier=lambda _request: True,
+        trusted_actor_roles=TRUSTED_ACTOR_ROLES,
     )
     revision = 0
 
@@ -219,6 +228,7 @@ def test_lifecycle_rejects_skips_and_stale_expected_revisions(tmp_path):
     lifecycle = StrategyLifecycle(
         OperationalJournal(tmp_path / "sensei.sqlite3"),
         evidence_verifier=lambda _request: True,
+        trusted_actor_roles=TRUSTED_ACTOR_ROLES,
     )
     lifecycle.transition(
         request(
@@ -258,6 +268,7 @@ def test_lineage_allows_only_one_active_version_and_rollback_is_terminal(tmp_pat
     lifecycle = StrategyLifecycle(
         OperationalJournal(tmp_path / "sensei.sqlite3"),
         evidence_verifier=lambda _request: True,
+        trusted_actor_roles=TRUSTED_ACTOR_ROLES,
     )
     revision = progress_to_canary(lifecycle)
     v1_active = lifecycle.transition(
@@ -328,6 +339,7 @@ def test_quarantine_fails_closed_and_cannot_be_reopened(tmp_path):
     lifecycle = StrategyLifecycle(
         OperationalJournal(tmp_path / "sensei.sqlite3"),
         evidence_verifier=lambda _request: True,
+        trusted_actor_roles=TRUSTED_ACTOR_ROLES,
     )
     lifecycle.transition(
         request(
@@ -368,6 +380,7 @@ def test_shadow_requires_conformance_and_locked_confirmation_dossiers(tmp_path):
     lifecycle = StrategyLifecycle(
         OperationalJournal(tmp_path / "sensei.sqlite3"),
         evidence_verifier=lambda _request: True,
+        trusted_actor_roles=TRUSTED_ACTOR_ROLES,
     )
     lifecycle.transition(
         request(
@@ -417,6 +430,7 @@ def test_evidence_bearing_stages_fail_closed_without_verified_dossiers(
     lifecycle = StrategyLifecycle(
         OperationalJournal(tmp_path / "sensei.sqlite3"),
         evidence_verifier=verifier,
+        trusted_actor_roles=TRUSTED_ACTOR_ROLES,
     )
     proposed = lifecycle.transition(
         request(
@@ -440,6 +454,69 @@ def test_evidence_bearing_stages_fail_closed_without_verified_dossiers(
                         EvidenceKind.EXAMINATION_DOSSIER,
                         "caller-typed-default-fail",
                     ),
+                ),
+            )
+        )
+
+
+def test_authority_roles_are_resolved_from_trusted_configuration(tmp_path):
+    journal = OperationalJournal(tmp_path / "sensei.sqlite3")
+    unconfigured = StrategyLifecycle(journal)
+    with pytest.raises(UnauthorizedTransition, match="trusted"):
+        unconfigured.transition(
+            request(
+                LifecycleStage.PROPOSED,
+                revision=0,
+                command="untrusted-proposer",
+                authority=PROPOSER,
+            )
+        )
+
+    configured = StrategyLifecycle(
+        journal,
+        trusted_actor_roles=TRUSTED_ACTOR_ROLES,
+    )
+    relabeled = Authority(PROPOSER.actor_id, AuthorityRole.GOVERNOR)
+    with pytest.raises(UnauthorizedTransition, match="role"):
+        configured.transition(
+            request(
+                LifecycleStage.PROPOSED,
+                revision=0,
+                command="caller-relabeled-role",
+                authority=relabeled,
+            )
+        )
+
+
+def test_plan_proposer_cannot_promote_the_same_plan(tmp_path):
+    self_promoter = Authority(PROPOSER.actor_id, AuthorityRole.GOVERNOR)
+    lifecycle = StrategyLifecycle(
+        OperationalJournal(tmp_path / "sensei.sqlite3"),
+        evidence_verifier=lambda _request: True,
+        trusted_actor_roles={
+            PROPOSER.actor_id: frozenset(
+                {AuthorityRole.PROPOSER, AuthorityRole.GOVERNOR}
+            )
+        },
+    )
+    proposed = lifecycle.transition(
+        request(
+            LifecycleStage.PROPOSED,
+            revision=0,
+            command="self-proposed",
+            authority=PROPOSER,
+        )
+    )
+
+    with pytest.raises(UnauthorizedTransition, match="proposer"):
+        lifecycle.transition(
+            request(
+                LifecycleStage.EXAMINED,
+                revision=proposed.lineage_revision,
+                command="self-promoted",
+                authority=self_promoter,
+                evidence_refs=(
+                    evidence(EvidenceKind.EXAMINATION_DOSSIER, "self-promotion"),
                 ),
             )
         )

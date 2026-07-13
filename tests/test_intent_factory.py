@@ -32,7 +32,6 @@ def inputs():
         observed_at=quote_time,
     )
     account = AccountSnapshot(
-        snapshot_id="snapshot:account-1",
         available_cash_paise=10_000_000,
         marked_equity_paise=10_000_000,
         high_water_mark_paise=10_000_000,
@@ -131,5 +130,16 @@ def test_intent_factory_fails_closed_on_stale_quote_or_non_entry_trace():
             trace=no_action,
             quote=quote,
             account_snapshot=account,
+            now=quote.observed_at,
+        )
+
+    forged = replace(account, day_pnl_paise=1)
+    object.__setattr__(forged, "snapshot_id", account.snapshot_id)
+    with pytest.raises(IntentBuildError, match="content identity"):
+        factory.build(
+            plan=plan,
+            trace=trace,
+            quote=quote,
+            account_snapshot=forged,
             now=quote.observed_at,
         )

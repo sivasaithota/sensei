@@ -340,9 +340,12 @@ class IntradaySessionEngine:
         self._watermarks: dict[str, datetime] = {}
         self._volume_by_bar: dict[tuple[str, datetime], int] = {}
         self._latest_watermark: datetime | None = None
+        self._latest_market_data_received_at: datetime | None = None
         self._entry_halts: set[str] = set()
         self._disconnected_feeds: set[str] = set()
         self._awaiting_reset: set[str] = set()
+        self._reconnected_at: dict[str, datetime] = {}
+        self._reconnect_watermark_baseline: dict[str, datetime | None] = {}
         self._flatten_emitted = False
         self._opening_auction_emitted = False
         self._closing_auction_emitted = False
@@ -390,7 +393,7 @@ class IntradaySessionEngine:
             )
 
         if isinstance(event, MarketDataEvent):
-            self._record_market_data(event)
+            self._record_market_data(event, received_at)
         elif isinstance(event, FeedDisconnectEvent):
             self._disconnect(event, event_time, received_at, directives)
         elif isinstance(event, FeedReconnectEvent):
@@ -446,6 +449,7 @@ class IntradaySessionEngine:
         self._watermarks.clear()
         self._volume_by_bar.clear()
         self._latest_watermark = None
+        self._latest_market_data_received_at = None
         self._flatten_emitted = False
         self._opening_auction_emitted = False
         self._closing_auction_emitted = False
@@ -524,7 +528,9 @@ class IntradaySessionEngine:
             )
             self._closing_auction_emitted = True
 
-    def _record_market_data(self, event: MarketDataEvent) -> None:
+    def _record_market_data(
+        self, event: MarketDataEvent, received_at: datetime
+    ) -> None:
         prior = self._watermarks.get(event.instrument_id)
         if prior is not None and event.watermark < prior:
             raise ValueError("market-data watermark must not move backwards")
@@ -533,6 +539,7 @@ class IntradaySessionEngine:
             self._volume_by_bar[(event.instrument_id, event.watermark)] = event.bar_volume
         if self._latest_watermark is None or event.watermark > self._latest_watermark:
             self._latest_watermark = event.watermark
+        self._latest_market_data_received_at = received_at
 
     def _disconnect(
         self,
@@ -543,6 +550,8 @@ class IntradaySessionEngine:
     ) -> None:
         self._disconnected_feeds.add(event.feed_id)
         self._awaiting_reset.discard(event.feed_id)
+        self._reconnected_at.pop(event.feed_id, None)
+        self._reconnect_watermark_baseline.pop(event.feed_id, None)
         self._latch(
             "FEED_DISCONNECTED",
             event,
@@ -562,6 +571,11 @@ class IntradaySessionEngine:
             raise ValueError("feed reconnect requires a prior disconnect")
         self._disconnected_feeds.remove(event.feed_id)
         self._awaiting_reset.add(event.feed_id)
+        self._reconnected_at[event.feed_id] = received_at
+        # MarketDataEvent is currently a single-feed/global-watermark contract.
+        # Pin the best watermark seen before recovery so replayed data cannot
+        # masquerade as post-reconnect progress.
+        self._reconnect_watermark_baseline[event.feed_id] = self._latest_watermark
         self._entry_halts.add("FEED_RESET_REQUIRED")
         directives.append(
             self._directive(
@@ -588,6 +602,7 @@ class IntradaySessionEngine:
             raise ValueError("feed reset requires a latched feed or data halt")
         if self._latest_watermark is None:
             raise ValueError("feed reset requires fresh market data")
+        self._require_post_reconnect_data(event.feed_id)
         age = received_at - self._latest_watermark
         if age < timedelta(0) or age > self._config.maximum_feed_age:
             raise ValueError("feed reset requires fresh market data")
@@ -595,6 +610,8 @@ class IntradaySessionEngine:
             raise ValueError("late reset event cannot clear an entry halt")
 
         self._awaiting_reset.discard(event.feed_id)
+        self._reconnected_at.pop(event.feed_id, None)
+        self._reconnect_watermark_baseline.pop(event.feed_id, None)
         if not self._disconnected_feeds and not self._awaiting_reset:
             self._entry_halts.difference_update(self._DATA_HALT_REASONS)
         directives.append(
@@ -877,11 +894,33 @@ class IntradaySessionEngine:
                 raise ValueError("feed reset requires a latched feed or data halt")
             if self._latest_watermark is None:
                 raise ValueError("feed reset requires fresh market data")
+            self._require_post_reconnect_data(event.feed_id)
             age = received_at - self._latest_watermark
             if age < timedelta(0) or age > self._config.maximum_feed_age:
                 raise ValueError("feed reset requires fresh market data")
             if received_at - event_time > self._config.maximum_event_latency:
                 raise ValueError("late reset event cannot clear an entry halt")
+
+    def _require_post_reconnect_data(self, feed_id: str) -> None:
+        reconnected_at = self._reconnected_at.get(feed_id)
+        if reconnected_at is None:
+            return
+        if (
+            self._latest_market_data_received_at is None
+            or self._latest_market_data_received_at <= reconnected_at
+        ):
+            raise ValueError("feed reset requires market data received after reconnect")
+        baseline = self._reconnect_watermark_baseline.get(feed_id)
+        if (
+            baseline is not None
+            and (
+                self._latest_watermark is None
+                or self._latest_watermark <= baseline
+            )
+        ):
+            raise ValueError(
+                "feed reset requires a watermark advance after reconnect"
+            )
 
     def _directive(
         self,

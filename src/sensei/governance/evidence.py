@@ -20,6 +20,7 @@ from sensei.operations.journal import EventAppend, JournalEvent, OperationalJour
 
 _EVENT_ID = re.compile(r"event:[0-9a-f]{64}\Z")
 _DOSSIER_ID = re.compile(r"dossier:[0-9a-f]{64}\Z")
+_ARTIFACT_CONTENT_ID = re.compile(r"sha256:[0-9a-f]{64}\Z")
 _SCHEMA_VERSION = "1.0"
 _PAYLOAD_KEYS = frozenset(
     {
@@ -35,12 +36,61 @@ _PAYLOAD_KEYS = frozenset(
         "outcome",
     }
 )
+_SUPPORT_PAYLOAD_KEYS = frozenset(
+    {
+        "schema_version",
+        "lineage_id",
+        "plan_version_id",
+        "evidence_kind",
+        "producer_id",
+        "outcome",
+        "artifact_content_id",
+    }
+)
 
 
 class DossierOutcome(str, Enum):
     PASSED = "passed"
     FAILED = "failed"
     INCONCLUSIVE = "inconclusive"
+
+
+@dataclass(frozen=True)
+class StageEvidenceEnvelope:
+    """Typed content contract for evidence that may support a stage dossier."""
+
+    lineage_id: str
+    plan_version_id: str
+    evidence_kind: EvidenceKind
+    producer_id: str
+    outcome: DossierOutcome
+    artifact_content_id: str
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("lineage_id", self.lineage_id),
+            ("plan_version_id", self.plan_version_id),
+            ("producer_id", self.producer_id),
+        ):
+            if not value.strip():
+                raise ValueError(f"{label} must not be empty")
+        if not isinstance(self.evidence_kind, EvidenceKind):
+            raise ValueError("evidence_kind must be an EvidenceKind")
+        if not isinstance(self.outcome, DossierOutcome):
+            raise ValueError("outcome must be a DossierOutcome")
+        if _ARTIFACT_CONTENT_ID.fullmatch(self.artifact_content_id) is None:
+            raise ValueError("artifact_content_id must be a lowercase sha256 identity")
+
+    def to_payload(self) -> dict[str, str]:
+        return {
+            "schema_version": _SCHEMA_VERSION,
+            "lineage_id": self.lineage_id,
+            "plan_version_id": self.plan_version_id,
+            "evidence_kind": self.evidence_kind.value,
+            "producer_id": self.producer_id,
+            "outcome": self.outcome.value,
+            "artifact_content_id": self.artifact_content_id,
+        }
 
 
 class DossierError(RuntimeError):
@@ -79,6 +129,8 @@ class StageDossierIssue:
             raise ValueError("evidence_kind must be an EvidenceKind")
         if not isinstance(self.outcome, DossierOutcome):
             raise ValueError("outcome must be a DossierOutcome")
+        if self.issuer_id == self.producer_id:
+            raise ValueError("dossier issuer and producer must be independent")
         if self.issued_at.tzinfo is None or self.issued_at.utcoffset() is None:
             raise ValueError("issued_at must be timezone-aware")
         event_ids = tuple(self.supporting_event_ids)
@@ -126,10 +178,44 @@ class StageDossier:
 class StageDossierRegistry:
     """Issue and verify immutable evidence dossiers for lifecycle transitions."""
 
-    def __init__(self, journal: OperationalJournal) -> None:
+    def __init__(
+        self,
+        journal: OperationalJournal,
+        *,
+        trusted_issuer_ids: frozenset[str],
+        trusted_producers_by_kind: Mapping[EvidenceKind, frozenset[str]],
+    ) -> None:
         self._journal = journal
+        if not trusted_issuer_ids or any(
+            not isinstance(actor_id, str) or not actor_id.strip()
+            for actor_id in trusted_issuer_ids
+        ):
+            raise ValueError("trusted_issuer_ids must contain named actors")
+        normalized: dict[EvidenceKind, frozenset[str]] = {}
+        for kind, producer_ids in trusted_producers_by_kind.items():
+            if not isinstance(kind, EvidenceKind):
+                raise ValueError("trusted producer keys must be EvidenceKind values")
+            producers = frozenset(producer_ids)
+            if not producers or any(
+                not isinstance(actor_id, str) or not actor_id.strip()
+                for actor_id in producers
+            ):
+                raise ValueError(
+                    "trusted producer sets must contain named actors"
+                )
+            normalized[kind] = producers
+        all_producers = (
+            frozenset().union(*normalized.values())
+            if normalized
+            else frozenset()
+        )
+        if trusted_issuer_ids & all_producers:
+            raise ValueError("dossier issuers and evidence producers must be disjoint")
+        self._trusted_issuer_ids = frozenset(trusted_issuer_ids)
+        self._trusted_producers_by_kind = normalized
 
     def issue(self, request: StageDossierIssue) -> StageDossier:
+        self._require_trusted_issue(request)
         events = self._clean_events()
         events_by_id = {event.event_id: event for event in events}
         missing = tuple(
@@ -141,6 +227,8 @@ class StageDossierRegistry:
             raise MissingSupportingEvent(
                 "supporting journal event not found: " + ", ".join(missing)
             )
+        for support_id in request.supporting_event_ids:
+            _validate_support_event(events_by_id[support_id], request)
 
         identity = request.identity_payload()
         dossier_id = _content_id(identity)
@@ -158,7 +246,9 @@ class StageDossierRegistry:
             )
         )
         events_by_id[event.event_id] = event
-        return _dossier_from_event(event, events_by_id)
+        dossier = _dossier_from_event(event, events_by_id)
+        self._require_trusted_dossier(dossier)
+        return dossier
 
     def get(self, dossier_id: str) -> StageDossier | None:
         if _DOSSIER_ID.fullmatch(dossier_id) is None:
@@ -173,7 +263,11 @@ class StageDossierRegistry:
         )
         if len(matches) > 1:
             raise DossierIntegrityError("duplicate stage dossier identity")
-        return _dossier_from_event(matches[0], events_by_id) if matches else None
+        if not matches:
+            return None
+        dossier = _dossier_from_event(matches[0], events_by_id)
+        self._require_trusted_dossier(dossier)
+        return dossier
 
     def verify_transition(self, request: TransitionRequest) -> bool:
         """Return literal trust for the exact plan, kinds, and passed dossiers."""
@@ -196,6 +290,7 @@ class StageDossierRegistry:
             if event.event_type != "StageDossierIssued":
                 continue
             dossier = _dossier_from_event(event, events_by_id)
+            self._require_trusted_dossier(dossier)
             if dossier.dossier_id in dossiers:
                 return False
             dossiers[dossier.dossier_id] = dossier
@@ -209,9 +304,35 @@ class StageDossierRegistry:
                 or dossier.plan_version_id != request.plan_version_id
                 or dossier.evidence_kind is not ref.kind
                 or dossier.outcome is not DossierOutcome.PASSED
+                or dossier.producer_id == request.authority.actor_id
             ):
                 return False
         return True
+
+    def _require_trusted_issue(self, issue: StageDossierIssue) -> None:
+        if issue.issuer_id not in self._trusted_issuer_ids:
+            raise DossierError(f"untrusted dossier issuer {issue.issuer_id!r}")
+        allowed = self._trusted_producers_by_kind.get(
+            issue.evidence_kind, frozenset()
+        )
+        if issue.producer_id not in allowed:
+            raise DossierError(
+                f"untrusted producer {issue.producer_id!r} "
+                f"for {issue.evidence_kind.value}"
+            )
+
+    def _require_trusted_dossier(self, dossier: StageDossier) -> None:
+        if dossier.issuer_id not in self._trusted_issuer_ids:
+            raise DossierIntegrityError(
+                f"dossier names untrusted issuer {dossier.issuer_id!r}"
+            )
+        allowed = self._trusted_producers_by_kind.get(
+            dossier.evidence_kind, frozenset()
+        )
+        if dossier.producer_id not in allowed:
+            raise DossierIntegrityError(
+                f"dossier names untrusted producer {dossier.producer_id!r}"
+            )
 
     def _clean_events(self) -> tuple[JournalEvent, ...]:
         verification = self._journal.verify()
@@ -264,6 +385,7 @@ def _dossier_from_event(
             raise DossierIntegrityError(
                 "supporting events must precede stage dossier issuance"
             )
+        _validate_support_event(support, issue)
     return StageDossier(
         dossier_id=dossier_id,
         lineage_id=issue.lineage_id,
@@ -276,6 +398,50 @@ def _dossier_from_event(
         outcome=issue.outcome,
         journal_event_id=event.event_id,
         journal_global_sequence=event.global_sequence,
+    )
+
+
+def _validate_support_event(
+    event: JournalEvent,
+    dossier: StageDossierIssue,
+) -> None:
+    try:
+        evidence = _stage_evidence_from_event(event)
+    except (TypeError, ValueError, KeyError) as exc:
+        raise DossierIntegrityError(
+            "supporting event does not satisfy the StageEvidenceProduced contract"
+        ) from exc
+    if (
+        evidence.lineage_id != dossier.lineage_id
+        or evidence.plan_version_id != dossier.plan_version_id
+        or evidence.evidence_kind is not dossier.evidence_kind
+        or evidence.producer_id != dossier.producer_id
+        or evidence.outcome is not dossier.outcome
+    ):
+        raise DossierIntegrityError(
+            "supporting evidence does not match the dossier's exact contract"
+        )
+    if event.occurred_at > dossier.issued_at:
+        raise DossierIntegrityError(
+            "supporting evidence must precede dossier issuance"
+        )
+
+
+def _stage_evidence_from_event(event: JournalEvent) -> StageEvidenceEnvelope:
+    if event.event_type != "StageEvidenceProduced":
+        raise ValueError("supporting event has the wrong type")
+    payload = event.payload
+    if frozenset(payload) != _SUPPORT_PAYLOAD_KEYS:
+        raise ValueError("supporting event payload shape is invalid")
+    if payload["schema_version"] != _SCHEMA_VERSION:
+        raise ValueError("supporting event schema is unsupported")
+    return StageEvidenceEnvelope(
+        lineage_id=str(payload["lineage_id"]),
+        plan_version_id=str(payload["plan_version_id"]),
+        evidence_kind=EvidenceKind(str(payload["evidence_kind"])),
+        producer_id=str(payload["producer_id"]),
+        outcome=DossierOutcome(str(payload["outcome"])),
+        artifact_content_id=str(payload["artifact_content_id"]),
     )
 
 

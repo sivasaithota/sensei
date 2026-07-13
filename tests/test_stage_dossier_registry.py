@@ -1,13 +1,16 @@
 import sqlite3
+import hashlib
 from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
 
 from sensei.governance.evidence import (
+    DossierError,
     DossierIntegrityError,
     DossierOutcome,
     MissingSupportingEvent,
+    StageEvidenceEnvelope,
     StageDossierIssue,
     StageDossierRegistry,
 )
@@ -29,14 +32,86 @@ PLAN = "plan:hammer:v1"
 GOVERNOR = Authority("governor-1", AuthorityRole.GOVERNOR)
 OWNER = Authority("owner-1", AuthorityRole.OWNER, "approval:owner-1")
 PROPOSER = Authority("researcher-1", AuthorityRole.PROPOSER)
+TRUSTED_ACTOR_ROLES = {
+    PROPOSER.actor_id: frozenset({AuthorityRole.PROPOSER}),
+    GOVERNOR.actor_id: frozenset({AuthorityRole.GOVERNOR}),
+    OWNER.actor_id: frozenset({AuthorityRole.OWNER}),
+}
+TRUSTED_ISSUERS = frozenset({"governance-service-1"})
+TRUSTED_PRODUCERS_BY_KIND = {
+    EvidenceKind.EXAMINATION_DOSSIER: frozenset(
+        {
+            "research-examiner-1",
+            "examiner-contract-1",
+            "producer:passed-exam",
+            "producer:failed-exam",
+            "producer:examined-integration",
+            "governor-1",
+            "examiner-1",
+        }
+    ),
+    EvidenceKind.SHADOW_READINESS: frozenset(
+        {"producer:shadow-shadow_readiness"}
+    ),
+    EvidenceKind.CONFORMANCE_DOSSIER: frozenset(
+        {
+            "producer:only-conformance",
+            "producer:shadow-conformance_dossier",
+        }
+    ),
+    EvidenceKind.LOCKED_CONFIRMATION: frozenset(
+        {"producer:shadow-locked_confirmation"}
+    ),
+    EvidenceKind.SHADOW_TRIAL: frozenset({"producer:paper-integration"}),
+    EvidenceKind.PAPER_TRIAL: frozenset({"producer:canary-paper_trial"}),
+    EvidenceKind.RISK_READINESS: frozenset(
+        {"producer:canary-risk_readiness", "producer:active-risk_readiness"}
+    ),
+    EvidenceKind.OPERATIONS_READINESS: frozenset(
+        {
+            "producer:canary-operations_readiness",
+            "producer:active-operations_readiness",
+        }
+    ),
+    EvidenceKind.CANARY_TRIAL: frozenset({"producer:active-canary_trial"}),
+}
 
 
-def supporting_event(journal: OperationalJournal, name: str):
+def trusted_registry(journal: OperationalJournal) -> StageDossierRegistry:
+    return StageDossierRegistry(
+        journal,
+        trusted_issuer_ids=TRUSTED_ISSUERS,
+        trusted_producers_by_kind=TRUSTED_PRODUCERS_BY_KIND,
+    )
+
+
+def supporting_event(
+    journal: OperationalJournal,
+    name: str,
+    *,
+    kind: EvidenceKind = EvidenceKind.EXAMINATION_DOSSIER,
+    producer_id: str | None = None,
+    outcome: DossierOutcome = DossierOutcome.PASSED,
+    lineage_id: str = LINEAGE,
+    plan_version_id: str = PLAN,
+    event_type: str = "StageEvidenceProduced",
+):
+    producer = producer_id or f"producer:{name}"
+    envelope = StageEvidenceEnvelope(
+        lineage_id=lineage_id,
+        plan_version_id=plan_version_id,
+        evidence_kind=kind,
+        producer_id=producer,
+        outcome=outcome,
+        artifact_content_id=(
+            "sha256:" + hashlib.sha256(name.encode("utf-8")).hexdigest()
+        ),
+    )
     return journal.append(
         EventAppend(
             stream_id=f"support:{name}",
-            event_type="StageEvidenceProduced",
-            payload={"artifact": name},
+            event_type=event_type,
+            payload=envelope.to_payload(),
             idempotency_key=f"support-{name}",
             expected_version=0,
             occurred_at=NOW,
@@ -54,7 +129,16 @@ def issue_dossier(
     plan_version_id: str = PLAN,
     outcome: DossierOutcome = DossierOutcome.PASSED,
 ):
-    support = supporting_event(journal, name)
+    producer_id = f"producer:{name}"
+    support = supporting_event(
+        journal,
+        name,
+        kind=kind,
+        producer_id=producer_id,
+        outcome=outcome,
+        lineage_id=lineage_id,
+        plan_version_id=plan_version_id,
+    )
     return registry.issue(
         StageDossierIssue(
             lineage_id=lineage_id,
@@ -62,7 +146,7 @@ def issue_dossier(
             evidence_kind=kind,
             supporting_event_ids=(support.event_id,),
             issuer_id="governance-service-1",
-            producer_id=f"producer:{name}",
+            producer_id=producer_id,
             issued_at=NOW,
             outcome=outcome,
         )
@@ -89,8 +173,13 @@ def transition_request(
 
 def test_stage_dossier_is_content_addressed_durable_and_idempotent(tmp_path):
     journal = OperationalJournal(tmp_path / "sensei.sqlite3")
-    registry = StageDossierRegistry(journal)
-    support = supporting_event(journal, "examined")
+    registry = trusted_registry(journal)
+    support = supporting_event(
+        journal,
+        "examined",
+        kind=EvidenceKind.EXAMINATION_DOSSIER,
+        producer_id="research-examiner-1",
+    )
     issue = StageDossierIssue(
         lineage_id=LINEAGE,
         plan_version_id=PLAN,
@@ -103,7 +192,7 @@ def test_stage_dossier_is_content_addressed_durable_and_idempotent(tmp_path):
     )
 
     first = registry.issue(issue)
-    repeated = StageDossierRegistry(journal).issue(issue)
+    repeated = trusted_registry(journal).issue(issue)
 
     assert first == repeated
     assert first.dossier_id.startswith("dossier:")
@@ -121,10 +210,112 @@ def test_stage_dossier_is_content_addressed_durable_and_idempotent(tmp_path):
             )
         )
 
+    with pytest.raises(ValueError, match="independent"):
+        StageDossierIssue(
+            lineage_id=LINEAGE,
+            plan_version_id=PLAN,
+            evidence_kind=EvidenceKind.EXAMINATION_DOSSIER,
+            supporting_event_ids=(support.event_id,),
+            issuer_id="same-actor",
+            producer_id="same-actor",
+            issued_at=NOW,
+            outcome=DossierOutcome.PASSED,
+        )
+
+
+def test_dossier_authorities_are_explicitly_trusted_and_role_stable(tmp_path):
+    journal = OperationalJournal(tmp_path / "sensei.sqlite3")
+    registry = trusted_registry(journal)
+    support = supporting_event(
+        journal,
+        "authority-contract",
+        producer_id="research-examiner-1",
+    )
+    base = StageDossierIssue(
+        lineage_id=LINEAGE,
+        plan_version_id=PLAN,
+        evidence_kind=EvidenceKind.EXAMINATION_DOSSIER,
+        supporting_event_ids=(support.event_id,),
+        issuer_id="governance-service-1",
+        producer_id="research-examiner-1",
+        issued_at=NOW,
+        outcome=DossierOutcome.PASSED,
+    )
+
+    with pytest.raises(DossierError, match="untrusted dossier issuer"):
+        registry.issue(replace(base, issuer_id="invented-issuer"))
+    with pytest.raises(DossierError, match="untrusted producer"):
+        registry.issue(replace(base, producer_id="invented-producer"))
+    with pytest.raises(DossierError, match="untrusted dossier issuer"):
+        registry.issue(
+            replace(
+                base,
+                issuer_id="research-examiner-1",
+                producer_id="examiner-contract-1",
+            )
+        )
+    with pytest.raises(ValueError, match="disjoint"):
+        StageDossierRegistry(
+            journal,
+            trusted_issuer_ids=TRUSTED_ISSUERS,
+            trusted_producers_by_kind={
+                EvidenceKind.EXAMINATION_DOSSIER: TRUSTED_ISSUERS
+            },
+        )
+
+
+@pytest.mark.parametrize(
+    "mismatch",
+    ("event_type", "lineage", "plan", "kind", "producer", "outcome"),
+)
+def test_dossier_rejects_support_that_does_not_match_its_typed_contract(
+    tmp_path, mismatch
+):
+    journal = OperationalJournal(tmp_path / "sensei.sqlite3")
+    registry = trusted_registry(journal)
+    expected_producer = "examiner-contract-1"
+    support = supporting_event(
+        journal,
+        f"mismatch-{mismatch}",
+        event_type=(
+            "UntypedArtifactRecorded"
+            if mismatch == "event_type"
+            else "StageEvidenceProduced"
+        ),
+        lineage_id="other-lineage" if mismatch == "lineage" else LINEAGE,
+        plan_version_id="plan:other" if mismatch == "plan" else PLAN,
+        kind=(
+            EvidenceKind.SHADOW_TRIAL
+            if mismatch == "kind"
+            else EvidenceKind.EXAMINATION_DOSSIER
+        ),
+        producer_id=(
+            "other-producer" if mismatch == "producer" else expected_producer
+        ),
+        outcome=(
+            DossierOutcome.FAILED
+            if mismatch == "outcome"
+            else DossierOutcome.PASSED
+        ),
+    )
+    issue = StageDossierIssue(
+        lineage_id=LINEAGE,
+        plan_version_id=PLAN,
+        evidence_kind=EvidenceKind.EXAMINATION_DOSSIER,
+        supporting_event_ids=(support.event_id,),
+        issuer_id="governance-service-1",
+        producer_id=expected_producer,
+        issued_at=NOW,
+        outcome=DossierOutcome.PASSED,
+    )
+
+    with pytest.raises(DossierIntegrityError, match="support"):
+        registry.issue(issue)
+
 
 def test_verifier_rejects_wrong_plan_kind_missing_failed_and_tampered_refs(tmp_path):
     journal = OperationalJournal(tmp_path / "sensei.sqlite3")
-    registry = StageDossierRegistry(journal)
+    registry = trusted_registry(journal)
     passed = issue_dossier(
         registry, journal, EvidenceKind.EXAMINATION_DOSSIER, "passed-exam"
     )
@@ -172,7 +363,12 @@ def test_verifier_rejects_wrong_plan_kind_missing_failed_and_tampered_refs(tmp_p
         replace(request, evidence_refs=(failed.evidence_ref,))
     ) is False
 
-    support = supporting_event(journal, "forged-support")
+    support = supporting_event(
+        journal,
+        "forged-support",
+        kind=EvidenceKind.EXAMINATION_DOSSIER,
+        producer_id="forged-producer",
+    )
     forged_id = "dossier:" + "f" * 64
     journal.append(
         EventAppend(
@@ -218,14 +414,47 @@ def test_verifier_rejects_wrong_plan_kind_missing_failed_and_tampered_refs(tmp_p
     assert registry.verify_transition(incomplete_shadow) is False
 
 
+def test_transition_authority_cannot_be_the_dossier_producer(tmp_path):
+    journal = OperationalJournal(tmp_path / "sensei.sqlite3")
+    registry = trusted_registry(journal)
+    support = supporting_event(
+        journal,
+        "governor-produced",
+        kind=EvidenceKind.EXAMINATION_DOSSIER,
+        producer_id=GOVERNOR.actor_id,
+    )
+    dossier = registry.issue(
+        StageDossierIssue(
+            lineage_id=LINEAGE,
+            plan_version_id=PLAN,
+            evidence_kind=EvidenceKind.EXAMINATION_DOSSIER,
+            supporting_event_ids=(support.event_id,),
+            issuer_id="governance-service-1",
+            producer_id=GOVERNOR.actor_id,
+            issued_at=NOW,
+            outcome=DossierOutcome.PASSED,
+        )
+    )
+
+    assert registry.verify_transition(
+        transition_request(
+            LifecycleStage.EXAMINED,
+            1,
+            (dossier.evidence_ref,),
+            GOVERNOR,
+        )
+    ) is False
+
+
 def test_lifecycle_reaches_paper_and_capital_stages_through_durable_dossiers(
     tmp_path,
 ):
     journal = OperationalJournal(tmp_path / "sensei.sqlite3")
-    registry = StageDossierRegistry(journal)
+    registry = trusted_registry(journal)
     lifecycle = StrategyLifecycle(
         journal,
         evidence_verifier=registry.verify_transition,
+        trusted_actor_roles=TRUSTED_ACTOR_ROLES,
     )
     proposed = lifecycle.transition(
         transition_request(LifecycleStage.PROPOSED, 0, (), PROPOSER)
@@ -314,7 +543,12 @@ def test_lifecycle_reaches_paper_and_capital_stages_through_durable_dossiers(
 def test_dossier_issuance_fails_when_journal_integrity_is_broken(tmp_path):
     path = tmp_path / "sensei.sqlite3"
     journal = OperationalJournal(path)
-    support = supporting_event(journal, "will-be-tampered")
+    support = supporting_event(
+        journal,
+        "will-be-tampered",
+        kind=EvidenceKind.EXAMINATION_DOSSIER,
+        producer_id="examiner-1",
+    )
     with sqlite3.connect(path) as connection:
         connection.execute("DROP TRIGGER journal_events_no_update")
         connection.execute(
@@ -322,7 +556,7 @@ def test_dossier_issuance_fails_when_journal_integrity_is_broken(tmp_path):
             ('{"artifact":"tampered"}', support.event_id),
         )
 
-    registry = StageDossierRegistry(journal)
+    registry = trusted_registry(journal)
     with pytest.raises(DossierIntegrityError, match="integrity"):
         registry.issue(
             StageDossierIssue(

@@ -28,11 +28,12 @@ NOW = datetime(2026, 7, 13, 4, 0, tzinfo=timezone.utc)
 
 
 def _intent(symbol: str = "INFY", quantity: int = 10) -> TradeIntent:
+    account = _account()
     return TradeIntent(
         strategy_plan_id="plan:hammer-v1",
         decision_trace_id=f"trace:{symbol.lower()}",
         market_snapshot_id="snapshot:market-1",
-        account_snapshot_id="snapshot:risk-1",
+        account_snapshot_id=account.snapshot_id,
         instrument_id=symbol,
         quantity=quantity,
         limit_price_paise=150_000,
@@ -44,7 +45,6 @@ def _intent(symbol: str = "INFY", quantity: int = 10) -> TradeIntent:
 
 def _account() -> AccountSnapshot:
     return AccountSnapshot(
-        snapshot_id="snapshot:risk-1",
         available_cash_paise=10_000_000,
         marked_equity_paise=10_000_000,
         high_water_mark_paise=10_000_000,
@@ -130,6 +130,7 @@ def test_partial_entry_fill_is_protected_before_another_entry(tmp_path):
 def test_cancel_entry_is_typed_and_allowed_while_safety_is_latched(tmp_path):
     kernel, gateway, safety, _ = _kernel(tmp_path)
     intent = kernel.accept(_intent(), occurred_at=NOW)
+    kernel.run_once(_account(), now=NOW)
     safety.latch(
         reason_code="OWNER_HALT",
         detail="manual stop",
@@ -140,7 +141,7 @@ def test_cancel_entry_is_typed_and_allowed_while_safety_is_latched(tmp_path):
 
     kernel.run_once(_account(), now=NOW)
 
-    assert all(command.kind is not CommandKind.ENTRY for command in gateway.commands)
+    assert sum(command.kind is CommandKind.ENTRY for command in gateway.commands) == 1
     assert any(command.kind is CommandKind.CANCEL_ENTRY for command in gateway.commands)
 
 
@@ -151,7 +152,15 @@ def test_reconciliation_quarantines_unknown_or_unprotected_exposure(tmp_path):
             snapshot_id="broker:1",
             captured_at=NOW,
             positions=(BrokerPosition("UNKNOWN", 3), BrokerPosition("INFY", 4)),
-            protections=(BrokerProtection("INFY", 2),),
+            protections=(
+                BrokerProtection(
+                    "INFY",
+                    2,
+                    stop_price_paise=145_000,
+                    target_price_paise=160_000,
+                    client_command_id=None,
+                ),
+            ),
         ),
         now=NOW,
     )
@@ -270,3 +279,188 @@ def test_reconciliation_quarantines_unknown_working_broker_order(tmp_path):
     assert report.clean is False
     assert any("unknown broker order" in issue.lower() for issue in report.issues)
     assert safety.state().latched is True
+
+
+def test_latched_enforcement_protects_then_cancels_only_dispatched_remainder(tmp_path):
+    class SimulatedProcessCrash(RuntimeError):
+        pass
+
+    def crash_after_entry_completion(command, receipt):
+        if isinstance(command, EntryCommand):
+            raise SimulatedProcessCrash("durable entry completion")
+
+    gateway = RecordingPaperGateway()
+    gateway.queue_entry_fill(cumulative_quantity=4, average_price_paise=149_500)
+    kernel, gateway, safety, _ = _kernel(
+        tmp_path,
+        gateway,
+        after_command_completed=crash_after_entry_completion,
+    )
+    kernel.accept(_intent("INFY", 10), occurred_at=NOW)
+    kernel.accept(_intent("TCS", 5), occurred_at=NOW)
+    with pytest.raises(SimulatedProcessCrash):
+        kernel.run_once(_account(), now=NOW)
+    safety.latch(
+        reason_code="OWNER_HALT",
+        detail="halt after uncertain partial fill",
+        occurred_at=NOW,
+        idempotency_key="halt-after-entry-completion",
+    )
+
+    restarted, gateway, _, journal = _kernel(tmp_path, gateway)
+    restarted.run_once(_account(), now=NOW)
+
+    assert [command.kind for command in gateway.commands] == [
+        CommandKind.ENTRY,
+        CommandKind.PROTECTION,
+        CommandKind.CANCEL_ENTRY,
+    ]
+    cancellation = gateway.commands[-1]
+    assert isinstance(cancellation, CancelEntryCommand)
+    assert cancellation.instrument_id == "INFY"
+    assert cancellation.remaining_quantity == 6
+    assert not any(
+        isinstance(command, EntryCommand) and command.instrument_id == "TCS"
+        for command in gateway.commands
+    )
+    released = [
+        event
+        for event in journal.read_stream("risk:portfolio")
+        if event.event_type == "RiskReleased"
+    ]
+    assert len(released) == 1
+    assert str(released[0].payload["terminal_evidence_event_id"]).startswith(
+        "event:"
+    )
+
+
+@pytest.mark.parametrize(
+    ("broker_stop_paise", "broker_target_paise"),
+    [(144_000, 160_000), (145_000, 161_000)],
+)
+def test_reconciliation_quarantines_wrong_protective_prices(
+    tmp_path, broker_stop_paise, broker_target_paise
+):
+    gateway = RecordingPaperGateway()
+    gateway.queue_entry_fill(cumulative_quantity=4, average_price_paise=149_500)
+    kernel, gateway, safety, _ = _kernel(tmp_path, gateway)
+    kernel.accept(_intent("INFY", 10), occurred_at=NOW)
+    kernel.run_once(_account(), now=NOW)
+    protection = next(
+        command
+        for command in gateway.commands
+        if isinstance(command, ProtectionCommand)
+    )
+
+    report = kernel.reconcile(
+        BrokerSnapshot(
+            snapshot_id="broker:wrong-protection-level",
+            captured_at=NOW,
+            positions=(BrokerPosition("INFY", 4),),
+            protections=(
+                BrokerProtection(
+                    "INFY",
+                    4,
+                    stop_price_paise=broker_stop_paise,
+                    target_price_paise=broker_target_paise,
+                    client_command_id=protection.command_id,
+                ),
+            ),
+            working_orders=(
+                BrokerWorkingOrder(
+                    broker_order_id="protection-1",
+                    client_command_id=protection.command_id,
+                    instrument_id="INFY",
+                    kind=CommandKind.PROTECTION.value,
+                    quantity=4,
+                    stop_price_paise=broker_stop_paise,
+                    target_price_paise=broker_target_paise,
+                ),
+            ),
+        ),
+        now=NOW,
+    )
+
+    assert report.clean is False
+    assert any("protective level" in issue.lower() for issue in report.issues)
+    assert safety.state().latched is True
+
+
+def test_reconciliation_checks_working_protection_levels_independently(tmp_path):
+    gateway = RecordingPaperGateway()
+    gateway.queue_entry_fill(cumulative_quantity=4, average_price_paise=149_500)
+    kernel, gateway, _, _ = _kernel(tmp_path, gateway)
+    kernel.accept(_intent("INFY", 10), occurred_at=NOW)
+    kernel.run_once(_account(), now=NOW)
+    protection = next(
+        command
+        for command in gateway.commands
+        if isinstance(command, ProtectionCommand)
+    )
+
+    report = kernel.reconcile(
+        BrokerSnapshot(
+            snapshot_id="broker:wrong-working-protection-level",
+            captured_at=NOW,
+            positions=(BrokerPosition("INFY", 4),),
+            protections=(
+                BrokerProtection(
+                    "INFY",
+                    4,
+                    stop_price_paise=145_000,
+                    target_price_paise=160_000,
+                    client_command_id=protection.command_id,
+                ),
+            ),
+            working_orders=(
+                BrokerWorkingOrder(
+                    broker_order_id="protection-working-1",
+                    client_command_id=protection.command_id,
+                    instrument_id="INFY",
+                    kind=CommandKind.PROTECTION.value,
+                    quantity=4,
+                    stop_price_paise=145_000,
+                    target_price_paise=161_000,
+                ),
+            ),
+        ),
+        now=NOW,
+    )
+
+    assert any(
+        "working protective level" in issue.lower() for issue in report.issues
+    )
+
+
+def test_latched_enforcement_attempts_every_working_cancel_after_one_failure(tmp_path):
+    class FailFirstCancellationGateway(RecordingPaperGateway):
+        def __init__(self):
+            super().__init__()
+            self.failed = False
+
+        def execute(self, command):
+            if isinstance(command, CancelEntryCommand) and not self.failed:
+                self.failed = True
+                raise RuntimeError("first cancellation rejected")
+            return super().execute(command)
+
+    gateway = FailFirstCancellationGateway()
+    kernel, gateway, safety, _ = _kernel(tmp_path, gateway)
+    kernel.accept(_intent("INFY", 10), occurred_at=NOW)
+    kernel.accept(_intent("TCS", 5), occurred_at=NOW)
+    kernel.run_once(_account(), now=NOW)
+    safety.latch(
+        reason_code="OWNER_HALT",
+        detail="cancel all working entries",
+        occurred_at=NOW,
+        idempotency_key="halt-two-working-entries",
+    )
+
+    with pytest.raises(RuntimeError, match="first cancellation rejected"):
+        kernel.enforce(now=NOW)
+
+    assert any(
+        isinstance(command, CancelEntryCommand)
+        and command.instrument_id == "TCS"
+        for command in gateway.commands
+    )

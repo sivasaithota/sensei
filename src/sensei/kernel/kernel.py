@@ -45,6 +45,7 @@ class _KernelState:
     command_order: list[str] = field(default_factory=list)
     completed: set[str] = field(default_factory=set)
     receipts: dict[str, GatewayReceipt] = field(default_factory=dict)
+    completion_event_ids: dict[str, str] = field(default_factory=dict)
     fills: dict[str, tuple[int, int]] = field(default_factory=dict)
 
     @property
@@ -118,8 +119,11 @@ class TradingKernel:
         intent = state.intents.get(intent_id)
         if intent is None:
             raise ValueError(f"unknown intent {intent_id!r}")
-        entry = state.entry_for(intent_id) or self._entry_command(intent)
-        filled, _ = state.fills.get(intent_id, (0, 0))
+        entry = state.entry_for(intent_id)
+        if entry is None or entry.command_id not in state.completed:
+            return
+        durable_fill = state.receipts[entry.command_id].cumulative_fill_quantity
+        filled, _ = state.fills.get(intent_id, (durable_fill, 0))
         remaining = intent.quantity - filled
         if remaining <= 0:
             return
@@ -139,7 +143,7 @@ class TradingKernel:
         average_price_paise: int,
         occurred_at: datetime,
     ) -> None:
-        """Record a broker fill update; protection is installed by run_once."""
+        """Record a broker fill update and install protection before returning."""
         require_timestamp(occurred_at, "occurred_at")
         state = self._state()
         intent = state.intents.get(intent_id)
@@ -183,12 +187,9 @@ class TradingKernel:
 
     def run_once(self, account_snapshot: AccountSnapshot, *, now: datetime) -> None:
         require_timestamp(now, "now")
-
-        self._recover_completed_entry_fills(now)
-        # Existing exposure gaps always outrank new entries.
-        self._protect_all_gaps(now)
-        self._sync_risk_fills(now)
-        self._dispatch_pending_non_entries(now)
+        self.enforce(now=now)
+        if self._safety.state().latched:
+            return
 
         state = self._state()
         for intent_id in state.intent_order:
@@ -224,6 +225,29 @@ class TradingKernel:
             # next accepted intent.
             self._protect_gap(intent_id, now)
 
+    def enforce(self, *, now: datetime) -> None:
+        """Enforce protection and cancellation without admitting a new entry."""
+        require_timestamp(now, "now")
+        protection_errors: list[Exception] = []
+        protection_errors.extend(self._recover_completed_entry_fills(now))
+        # Existing exposure gaps always outrank cancellation. Each gap is
+        # attempted independently so one failed protection cannot hide another.
+        protection_errors.extend(self._protect_all_gaps(now))
+        try:
+            self._sync_risk_fills(now)
+        except Exception as exc:
+            protection_errors.append(exc)
+
+        cancellation_errors = self._dispatch_pending_cancels(now)
+        if self._safety.state().latched:
+            cancellation_errors.extend(
+                self._cancel_all_working_remainders(now)
+            )
+        if protection_errors:
+            raise protection_errors[0]
+        if cancellation_errors:
+            raise cancellation_errors[0]
+
     def reconcile(
         self, snapshot: BrokerSnapshot, *, now: datetime
     ) -> ReconciliationReport:
@@ -235,10 +259,40 @@ class TradingKernel:
             known_by_instrument[instrument] = (
                 known_by_instrument.get(instrument, 0) + quantity
             )
-        protected = {
-            item.instrument_id: item.quantity for item in snapshot.protections
-        }
         issues: list[str] = []
+        protected: dict[str, int] = {}
+        for broker_protection in snapshot.protections:
+            command = state.commands.get(
+                broker_protection.client_command_id or ""
+            )
+            if not isinstance(command, ProtectionCommand):
+                issues.append(
+                    f"unknown broker protection for "
+                    f"{broker_protection.instrument_id}"
+                )
+                continue
+            if (
+                command.instrument_id != broker_protection.instrument_id
+                or command.quantity != broker_protection.quantity
+            ):
+                issues.append(
+                    f"broker protection mismatch for "
+                    f"{broker_protection.instrument_id}"
+                )
+                continue
+            if (
+                command.stop_price_paise != broker_protection.stop_price_paise
+                or command.target_price_paise
+                != broker_protection.target_price_paise
+            ):
+                issues.append(
+                    f"protective level mismatch for "
+                    f"{broker_protection.instrument_id}"
+                )
+                continue
+            protected[broker_protection.instrument_id] = (
+                broker_protection.quantity
+            )
         broker_by_instrument = {
             position.instrument_id: position.quantity
             for position in snapshot.positions
@@ -286,6 +340,15 @@ class TradingKernel:
                     f"broker order mismatch {working_order.broker_order_id} for "
                     f"known command {command.command_id}"
                 )
+                continue
+            if isinstance(command, ProtectionCommand) and (
+                command.stop_price_paise != working_order.stop_price_paise
+                or command.target_price_paise != working_order.target_price_paise
+            ):
+                issues.append(
+                    f"working protective level mismatch "
+                    f"{working_order.broker_order_id}"
+                )
 
         identity = self._snapshot_digest(snapshot, issues)
         if issues:
@@ -314,10 +377,15 @@ class TradingKernel:
             issues=tuple(issues),
         )
 
-    def _protect_all_gaps(self, now: datetime) -> None:
+    def _protect_all_gaps(self, now: datetime) -> list[Exception]:
         state = self._state()
+        errors: list[Exception] = []
         for intent_id in state.intent_order:
-            self._protect_gap(intent_id, now)
+            try:
+                self._protect_gap(intent_id, now)
+            except Exception as exc:
+                errors.append(exc)
+        return errors
 
     def _protect_gap(self, intent_id: str, now: datetime) -> None:
         state = self._state()
@@ -356,22 +424,39 @@ class TradingKernel:
                 self._cancel_unfilled_remainder(intent, filled, now)
                 raise
 
-    def _dispatch_pending_non_entries(self, now: datetime) -> None:
+    def _dispatch_pending_cancels(self, now: datetime) -> list[Exception]:
         state = self._state()
+        errors: list[Exception] = []
         for command_id in state.command_order:
             command = state.commands[command_id]
-            if command_id in state.completed or isinstance(command, EntryCommand):
+            if command_id in state.completed or not isinstance(
+                command, CancelEntryCommand
+            ):
                 continue
-            self._dispatch(command, now)
-            if isinstance(command, CancelEntryCommand):
-                reservation_id = (
-                    f"reservation:{command.intent_id.removeprefix('intent:')}"
+            try:
+                self._dispatch(command, now)
+                self._release_after_cancel(command, now)
+            except Exception as exc:
+                errors.append(exc)
+        return errors
+
+    def _cancel_all_working_remainders(self, now: datetime) -> list[Exception]:
+        state = self._state()
+        errors: list[Exception] = []
+        for command_id in state.command_order:
+            command = state.commands[command_id]
+            if not isinstance(command, EntryCommand):
+                continue
+            if command_id not in state.completed:
+                continue
+            filled, _ = state.fills.get(command.intent_id, (0, 0))
+            try:
+                self._cancel_unfilled_remainder(
+                    state.intents[command.intent_id], filled, now
                 )
-                if any(
-                    item.reservation_id == reservation_id
-                    for item in self._risk.reservations()
-                ):
-                    self._risk.release(reservation_id, occurred_at=now)
+            except Exception as exc:
+                errors.append(exc)
+        return errors
 
     def _cancel_unfilled_remainder(
         self, intent: TradeIntent, filled_quantity: int, now: datetime
@@ -380,27 +465,54 @@ class TradingKernel:
         if remaining <= 0:
             return
         state = self._state()
-        entry = state.entry_for(intent.intent_id) or self._entry_command(intent)
-        command = CancelEntryCommand(
-            intent_id=intent.intent_id,
-            instrument_id=intent.instrument_id,
-            entry_command_id=entry.command_id,
-            remaining_quantity=remaining,
+        entry = state.entry_for(intent.intent_id)
+        if entry is None or entry.command_id not in state.completed:
+            return
+        existing = [
+            command
+            for command in state.commands.values()
+            if isinstance(command, CancelEntryCommand)
+            and command.intent_id == intent.intent_id
+        ]
+        command = (
+            existing[-1]
+            if existing
+            else CancelEntryCommand(
+                intent_id=intent.intent_id,
+                instrument_id=intent.instrument_id,
+                entry_command_id=entry.command_id,
+                remaining_quantity=remaining,
+            )
         )
-        self._prepare(command, now)
+        if not existing:
+            self._prepare(command, now)
         if command.command_id not in self._state().completed:
             self._dispatch(command, now)
+        self._release_after_cancel(command, now)
+
+    def _release_after_cancel(
+        self, command: CancelEntryCommand, now: datetime
+    ) -> None:
         reservation_id = (
-            f"reservation:{intent.intent_id.removeprefix('intent:')}"
+            f"reservation:{command.intent_id.removeprefix('intent:')}"
         )
         if any(
             item.reservation_id == reservation_id
             for item in self._risk.reservations()
         ):
-            self._risk.release(reservation_id, occurred_at=now)
+            state = self._state()
+            terminal_event_id = state.completion_event_ids.get(command.command_id)
+            if terminal_event_id is None:
+                raise RuntimeError("completed cancellation lacks durable event identity")
+            self._risk.release(
+                reservation_id,
+                terminal_evidence_event_id=terminal_event_id,
+                occurred_at=now,
+            )
 
-    def _recover_completed_entry_fills(self, now: datetime) -> None:
+    def _recover_completed_entry_fills(self, now: datetime) -> list[Exception]:
         state = self._state()
+        errors: list[Exception] = []
         for command_id in state.command_order:
             command = state.commands[command_id]
             receipt = state.receipts.get(command_id)
@@ -417,13 +529,20 @@ class TradingKernel:
                     now=now,
                     identity=command_id,
                 )
-                raise RuntimeError("durable entry fill receipt omitted average price")
-            self.observe_fill(
-                command.intent_id,
-                cumulative_quantity=durable_quantity,
-                average_price_paise=receipt.average_fill_price_paise,
-                occurred_at=now,
-            )
+                errors.append(
+                    RuntimeError("durable entry fill receipt omitted average price")
+                )
+                continue
+            try:
+                self.observe_fill(
+                    command.intent_id,
+                    cumulative_quantity=durable_quantity,
+                    average_price_paise=receipt.average_fill_price_paise,
+                    occurred_at=now,
+                )
+            except Exception as exc:
+                errors.append(exc)
+        return errors
 
     def _sync_risk_fills(self, now: datetime) -> None:
         """Bring conservative reservation accounting up to kernel fill truth."""
@@ -570,6 +689,7 @@ class TradingKernel:
                 )
                 state.completed.add(receipt.command_id)
                 state.receipts[receipt.command_id] = receipt
+                state.completion_event_ids[receipt.command_id] = event.event_id
             elif event.event_type == "EntryFillObserved":
                 state.fills[str(event.payload["intent_id"])] = (
                     int(event.payload["cumulative_quantity"]),
@@ -600,7 +720,13 @@ class TradingKernel:
                     [item.instrument_id, item.quantity] for item in snapshot.positions
                 ],
                 "protections": [
-                    [item.instrument_id, item.quantity]
+                    [
+                        item.instrument_id,
+                        item.quantity,
+                        item.stop_price_paise,
+                        item.target_price_paise,
+                        item.client_command_id,
+                    ]
                     for item in snapshot.protections
                 ],
                 "working_orders": [
@@ -610,6 +736,8 @@ class TradingKernel:
                         item.instrument_id,
                         item.kind,
                         item.quantity,
+                        item.stop_price_paise,
+                        item.target_price_paise,
                     ]
                     for item in snapshot.working_orders
                 ],

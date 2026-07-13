@@ -164,7 +164,6 @@ class AccountPosition:
 
 @dataclass(frozen=True)
 class AccountSnapshot:
-    snapshot_id: str
     available_cash_paise: int
     marked_equity_paise: int
     high_water_mark_paise: int
@@ -174,16 +173,30 @@ class AccountSnapshot:
     included_reservation_ids: tuple[str, ...]
     reconciled: bool
     captured_at: datetime
+    snapshot_id: str = field(init=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "positions", tuple(self.positions))
+        positions = tuple(self.positions)
+        if not all(isinstance(position, AccountPosition) for position in positions):
+            raise TypeError("positions must contain AccountPosition values")
+        object.__setattr__(
+            self,
+            "positions",
+            tuple(sorted(positions, key=lambda item: item.instrument_id)),
+        )
+        reservation_ids = tuple(self.included_reservation_ids)
+        if not all(
+            isinstance(value, str) and value.startswith("reservation:")
+            for value in reservation_ids
+        ):
+            raise ValueError(
+                "included_reservation_ids must be reservation content addresses"
+            )
         object.__setattr__(
             self,
             "included_reservation_ids",
-            tuple(self.included_reservation_ids),
+            tuple(sorted(reservation_ids)),
         )
-        if not self.snapshot_id.strip():
-            raise ValueError("snapshot_id must not be blank")
         require_nonnegative_integer(
             self.available_cash_paise, "available_cash_paise"
         )
@@ -195,6 +208,8 @@ class AccountSnapshot:
             raise ValueError("high_water_mark_paise must cover marked equity")
         require_integer(self.day_pnl_paise, "day_pnl_paise")
         require_integer(self.week_pnl_paise, "week_pnl_paise")
+        if not isinstance(self.reconciled, bool):
+            raise TypeError("reconciled must be a boolean")
         require_timestamp(self.captured_at, "captured_at")
         if len({position.instrument_id for position in self.positions}) != len(
             self.positions
@@ -204,6 +219,42 @@ class AccountSnapshot:
             self.included_reservation_ids
         ):
             raise ValueError("included_reservation_ids must be unique")
+        object.__setattr__(self, "snapshot_id", self.derived_snapshot_id())
+
+    def derived_snapshot_id(self) -> str:
+        """Recompute the content address without trusting stored identity."""
+        material = json.dumps(
+            {
+                "schema": "account-snapshot-v1",
+                "available_cash_paise": self.available_cash_paise,
+                "marked_equity_paise": self.marked_equity_paise,
+                "high_water_mark_paise": self.high_water_mark_paise,
+                "day_pnl_paise": self.day_pnl_paise,
+                "week_pnl_paise": self.week_pnl_paise,
+                "positions": [
+                    {
+                        "instrument_id": position.instrument_id,
+                        "quantity": position.quantity,
+                        "notional_paise": position.notional_paise,
+                        "risk_to_stop_paise": position.risk_to_stop_paise,
+                    }
+                    for position in self.positions
+                ],
+                "included_reservation_ids": list(
+                    self.included_reservation_ids
+                ),
+                "reconciled": self.reconciled,
+                "captured_at": self.captured_at.astimezone(timezone.utc).isoformat(),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        digest = hashlib.sha256(material.encode("utf-8")).hexdigest()
+        return f"snapshot:{digest}"
+
+    def has_valid_identity(self) -> bool:
+        return self.snapshot_id == self.derived_snapshot_id()
 
     @property
     def held_notional_paise(self) -> int:

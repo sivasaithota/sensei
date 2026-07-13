@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
@@ -13,6 +14,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 from sensei.backtest.rulespec import RuleSpec
+
+_CLAIM_ID = re.compile(r"claim:[0-9a-f]{64}\Z")
 
 
 def content_id(payload: object) -> str:
@@ -36,6 +39,11 @@ class HypothesisVersion:
             raise ValueError("hypothesis version must be positive")
         if not self.source_claim_ids:
             raise ValueError("at least one source claim is required")
+        if any(
+            _CLAIM_ID.fullmatch(claim_id) is None
+            for claim_id in self.source_claim_ids
+        ):
+            raise ValueError("source claims must use content-addressed claim IDs")
 
     def identity_payload(self) -> dict:
         return {

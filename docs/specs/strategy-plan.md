@@ -21,6 +21,11 @@ Every configurable value or indivisible condition is classified as one of:
 Free-text provenance is not enough. A legacy `RuleSpec` therefore remains
 nonconformant even when it has positive historical statistics.
 
+For governed paper admission, every `SOURCE_CLAIM` identity used anywhere in the
+plan must also resolve and verify in the immutable Provenance Corpus. Syntax
+validation alone is insufficient. Corpus claims remain `RESEARCH_ONLY`; they
+explain plan semantics but cannot promote a plan or approve a trade.
+
 ## Foundation execution contract
 
 The first contract is intentionally narrow: long-only, one completed daily bar

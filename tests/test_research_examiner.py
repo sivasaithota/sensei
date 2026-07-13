@@ -21,6 +21,9 @@ from sensei.research import (
     EvidenceWarningCode,
 )
 
+CLAIM_1 = "claim:" + "1" * 64
+CLAIM_2 = "claim:" + "2" * 64
+
 
 def target_trade_bars() -> pd.DataFrame:
     index = pd.bdate_range("2020-01-01", periods=10)
@@ -73,7 +76,7 @@ def target_trade_request() -> ExaminationRequest:
             hypothesis_id="H-1",
             version=1,
             strategy=rule,
-            source_claim_ids=("C-1",),
+            source_claim_ids=(CLAIM_1,),
         ),
         snapshot=capture_synthetic_snapshot({"TEST": bars}),
         protocol=ExaminationProtocol(
@@ -319,7 +322,7 @@ def test_examine_preserves_pre_fold_bars_for_indicator_warmup():
                 hypothesis_id="H-2",
                 version=1,
                 strategy=warmup_rule,
-                source_claim_ids=("C-2",),
+                source_claim_ids=(CLAIM_2,),
             ),
             snapshot=snapshot,
             protocol=protocol,

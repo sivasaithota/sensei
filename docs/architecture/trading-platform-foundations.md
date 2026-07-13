@@ -30,6 +30,7 @@ place an order. The current evidence and execution paths do not depend on them.
 
 | Area | Module | Owns | Does not own |
 | --- | --- | --- | --- |
+| Research provenance | `sensei.provenance` | Immutable source bytes, adapter manifests, precise character/time citations and content-addressed research claims | Retrieval ranking, strategy approval or trading authority |
 | Point-in-time data | `sensei.research.market_data`, `catalog` | Snapshot identity, membership intervals, lineage and artifact verification | Strategy approval or execution |
 | Research examination | `sensei.research.examiner`, `models` | Protocol-bound, fold-level evidence dossiers | Lifecycle promotion |
 | Experiment control | `sensei.research.registry` | Preregistration, campaign trial count, locked confirmation access and multiplicity correction | Trading permission |
@@ -37,7 +38,8 @@ place an order. The current evidence and execution paths do not depend on them.
 | Governance | `sensei.governance.lifecycle`, `evidence` | Exact stage path, authority roles and verified, plan-pinned Stage Dossiers | Broker side effects |
 | Durable facts | `sensei.operations.journal` | Event identity, append-only ordering, idempotency, optimistic concurrency and hash-chain verification | Deciding whether a fact is sufficient evidence |
 | Operational truth | `sensei.operations.health`, `control_plane` | Durable health and component-readiness assessments | Strategy or risk judgment |
-| Paper admission | `sensei.orchestration.paper`, `intents` | Composition of the exact governed plan, trace, health, account snapshot and derived quantity | Gateway dispatch |
+| Per-trade committee | `sensei.orchestration.committee` | Exact L1 risk, L2 challenge, L3 compliance and L4 orchestration approval bound to one thesis and derived intent | Lifecycle promotion, sizing or gateway dispatch |
+| Paper admission | `sensei.orchestration.paper`, `intents` | Composition of the exact governed plan, trace, provenance, committee approval, health, content-addressed account snapshot and derived quantity | Gateway dispatch |
 | Portfolio authority | `sensei.portfolio_risk` | Atomic reservations, cash/notional/heat/slot limits, loss and drawdown breakers | Alpha decisions or order transport |
 | Safety authority | `sensei.portfolio_risk.safety` | Durable global entry latch and owner-controlled reset | Blocking protection or entry cancellation |
 | Order state machine | `sensei.kernel` | Typed paper commands, durable outbox, fill/protection ordering and broker reconciliation | Live transport or strategy selection |
@@ -50,13 +52,19 @@ place an order. The current evidence and execution paths do not depend on them.
 
 ```mermaid
 flowchart LR
+    sources["Books, documents, articles and transcripts"] --> corpus["Immutable provenance corpus"]
+    corpus --> claims["Precisely cited research-only claims"]
     data["Point-in-time data"] --> research["Preregistered research"]
-    claims["Claims and explicit assumptions"] --> plan["Immutable Strategy Plan"]
+    claims --> plan["Immutable Strategy Plan"]
     plan --> trace["Decision trace"]
     research --> dossier["Verified Stage Dossiers"]
     plan --> dossier
     dossier --> lifecycle["Lifecycle: shadow then paper"]
-    trace --> admission["Governed paper admission"]
+    trace --> candidate["Derived candidate intent"]
+    account["Content-addressed reconciled account snapshot"] --> candidate
+    candidate --> committee["Exact L1-L4 Trade Thesis committee"]
+    corpus --> committee
+    committee --> admission["Governed paper admission"]
     lifecycle --> admission
     health["Durable health and safety"] --> admission
     admission --> intent["Content-addressed Trade Intent"]
@@ -77,27 +85,48 @@ authority and outcome.
 
 Identity is carried forward instead of reconstructed later:
 
-1. A Strategy Plan ID covers every decision-changing semantic and each field's
-   source claim, research assumption, or safety-override authority.
-2. The mode-independent engine emits a content-addressed decision trace. An
+1. Source adapters retain immutable bytes and deterministic extraction
+   manifests. Every source-backed field begins with a content-addressed Claim
+   whose citation resolves to an exact retained character span or transcript
+   time range. Claims are permanently `RESEARCH_ONLY`.
+2. A Strategy Plan ID covers every decision-changing semantic and each field's
+   source claim, research assumption, or safety-override authority. A governed
+   admission resolves all cited claims in the real provenance corpus; a
+   well-formed but absent claim ID is not enough.
+3. The mode-independent engine emits a content-addressed decision trace. An
    actionable trace has exit and risk-budget intent but no quantity.
-3. Confirmation evidence comes from a preregistered campaign and a one-use,
+4. Confirmation evidence comes from a preregistered campaign and a one-use,
    resolver-owned holdout. A caller cannot substitute its own confirmation data.
-4. A Stage Dossier pins the exact lineage, plan version, evidence kind and
-   supporting journal event IDs. The lifecycle fails closed if any required
-   dossier is absent, mismatched, failed, tampered or unverifiable.
-5. Paper admission requires that exact plan version at the `paper` stage, a
-   durable fresh `HEALTHY` assessment, an unlatched safety control, the exact
-   decision trace, quote and reconciled account snapshot.
+5. A Stage Dossier pins the exact lineage, plan version, evidence kind and
+   supporting journal event IDs. Issuers are independently allowlisted,
+   producers are allowlisted per evidence kind, and the two actor sets must be
+   disjoint. The lifecycle fails closed if an identity is invented or
+   relabelled, or if any required dossier is absent, mismatched, failed,
+   tampered or unverifiable.
 6. Quantity is derived by `TradeIntentFactory`; it is not accepted from a
-   caller. The resulting intent pins plan, trace, market and account identities.
-7. Portfolio Risk reserves capacity atomically across held, pending, partially
+   caller. The resulting candidate pins plan, trace, market and account
+   identities. The Account Snapshot ID is itself derived from all material
+   account content, including positions, reservations, P&L and capture time;
+   callers cannot reuse a label for changed account truth.
+7. Every governed paper trade requires one exact, unanimous L1-L4
+   `ApprovalRecord`: `risk-officer`, `devils-advocate`, `compliance`, then
+   `orchestrator`. The Trade Thesis must match the derived quantity, instrument,
+   entry, stop, target and plan horizon, cite the exact plan version, and use
+   only claims that both belong to the plan and resolve in the provenance
+   corpus. The content-addressed `TradeCommitteeApproved` event grants admission
+   to that one intent only.
+8. Paper admission additionally requires the exact plan version at the `paper`
+   stage, a durable fresh `HEALTHY` assessment and an unlatched safety control.
+   Lifecycle promotion never substitutes for the per-trade committee.
+9. Portfolio Risk reserves capacity atomically across held, pending, partially
    filled and not-yet-reconciled exposure. Money and thresholds use integer
    paise or basis points at this boundary.
-8. The kernel persists a typed command before dispatch. A positive partial fill
+10. The kernel persists a typed command before dispatch. A positive partial fill
    is protected before another entry can be sent. Unknown, mismatched or
-   under-protected broker state causes quarantine and a safety latch.
-9. The Trade Episode records immutable planned prices and the complete lineage
+   under-protected broker state causes quarantine and a safety latch. Broker
+   protection is reconciled against the exact command ID, quantity, stop and
+   target, not quantity alone.
+11. The Trade Episode records immutable planned prices and the complete lineage
    through every fill, reconciled costs, review and close. Attribution rejects a
    caller's arithmetic unless quantity, weighted fill values, currency and fees
    match those durable facts. Outcome learning additionally requires the exact
@@ -111,7 +140,14 @@ Identity is carried forward instead of reconstructed later:
 - Unknown earnings or exchange surveillance status blocks the legacy approval
   path rather than assuming safety.
 - A latched safety control blocks every new entry, while protection and
-  entry-cancellation actions remain allowed.
+  entry-cancellation actions remain allowed. Kernel enforcement repairs every
+  known protection gap first, then cancels only an unfilled remainder whose
+  entry has a durable completed broker receipt. It never invents a broker cancel
+  for an accepted-only or merely prepared entry.
+- Reconnect is not a fresh-feed signal. A feed reset requires market data whose
+  receipt time is strictly later than the reconnect receipt, a fresh watermark,
+  and explicit reset authorization; a pre-disconnect watermark cannot clear the
+  latch.
 - Risk considers held exposure and all durable reservations together. Filled
   exposure is not freed until a later reconciled account snapshot includes it.
 - A broker receipt recorded immediately before a process crash can be replayed;

@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from enum import Enum
 from typing import Annotated, Generic, Literal, TypeVar
 
@@ -22,6 +23,8 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+
+_CLAIM_ID = re.compile(r"claim:[0-9a-f]{64}\Z")
 
 
 class _FrozenModel(BaseModel):
@@ -49,6 +52,8 @@ class FieldAttribution(_FrozenModel):
         normalized = tuple(sorted({value.strip() for value in values if value.strip()}))
         if len(normalized) != len(values):
             raise ValueError("claim IDs must be non-empty and unique")
+        if any(_CLAIM_ID.fullmatch(value) is None for value in normalized):
+            raise ValueError("claim IDs must be content-addressed provenance claims")
         return normalized
 
     @field_validator("rationale")
@@ -240,6 +245,25 @@ class StrategyPlan(_FrozenModel):
             allow_nan=False,
         ).encode("utf-8")
         return f"sha256:{hashlib.sha256(canonical).hexdigest()}"
+
+    @property
+    def source_claim_ids(self) -> tuple[str, ...]:
+        """Return the exact provenance claims carried by executable semantics."""
+
+        claims: set[str] = set()
+
+        def collect(value: object) -> None:
+            if isinstance(value, dict):
+                if value.get("authority") == FieldAuthority.SOURCE_CLAIM.value:
+                    claims.update(str(item) for item in value.get("claim_ids", ()))
+                for child in value.values():
+                    collect(child)
+            elif isinstance(value, (list, tuple)):
+                for child in value:
+                    collect(child)
+
+        collect(self.identity_payload())
+        return tuple(sorted(claims))
 
 
 class DecisionAction(str, Enum):

@@ -1,6 +1,8 @@
 # Original PRD Gap Analysis
 
-Status: accepted direction with amendments, reviewed 2026-07-13.
+Status: accepted historical baseline with amendments, reviewed 2026-07-13. The
+implemented foundation and its current limits are documented in
+`trading-platform-foundations.md`.
 
 The July 2026 PRD correctly describes the desired product: a deliberate trading organization that researches, debates, executes, and learns. The current repository is a useful P0/P1 paper prototype, but it compresses several independent responsibilities into mutable JSON workflows. This document distinguishes what should be preserved from what must be deepened before live trading.
 
@@ -34,8 +36,9 @@ The July 2026 PRD correctly describes the desired product: a deliberate trading 
 5. A trade outcome creates an Observation, not a global mistake rule. Only validated Mistake Hypotheses can alter a guard or Strategy Plan.
 6. Remove the target of at least one strategy change per month; it rewards churn and repeated testing. Track evidence quality, false discoveries, calibration, live-versus-simulated drift, and rollback instead.
 7. A vector index is a retrieval projection, never the authoritative Playbook, Mistake Ledger, approval record, or trade record.
-8. A kill action must distinguish entry orders from protective exits. Blindly cancelling every order can create naked positions.
+8. A kill action must protect known fills first, then cancel only broker-confirmed working entry remainders. Blindly cancelling every order can create naked positions, while inventing cancellation for an order never confirmed by the broker creates false operational truth.
 9. Swing and intraday are distinct products. Build and validate swing first; do not stretch daily-bar semantics into intraday trading.
+10. Lifecycle stage `paper` makes a plan eligible for a trial but does not approve a trade. Every governed paper intent needs the exact unanimous L1 risk, L2 challenge, L3 compliance, and L4 orchestration verdict chain bound to its Trade Thesis.
 
 ## Build order
 
@@ -49,4 +52,8 @@ The July 2026 PRD correctly describes the desired product: a deliberate trading 
 8. Durable trading kernel, reconciliation, protection invariant, and operational controls before micro-live.
 9. Intraday as a separate research and execution track.
 
-RAG, Obsidian, Hermes, additional agents, and more strategy sources should plug into these modules after their evidence and authority limits exist. They are not substitutes for the modules.
+RAG, Obsidian, and Hermes are excluded from the implemented foundation. They are
+not required for governed research or paper admission and cannot substitute for
+the immutable Provenance Corpus, precise citations, deterministic evidence gates,
+or the per-trade committee. Any future retrieval or note-taking integration must
+remain a rebuildable research projection with no trading authority.

@@ -231,13 +231,51 @@ def test_disconnect_reconnect_requires_fresh_data_and_explicit_reset():
     )
     assert reconnected.state is SessionState.HALTED
     assert reconnected.directives[0].type is SessionDirectiveType.FEED_RECONNECTED_AWAITING_RESET
+
+    # A still-fresh pre-disconnect watermark is not recovery evidence.
+    with pytest.raises(ValueError, match="after reconnect"):
+        engine.advance(
+            FeedResetEvent(
+                feed_id="primary",
+                authorization_ref="owner:reset-too-early",
+                occurred_at=at(9, 17) + timedelta(seconds=1),
+                received_at=at(9, 17) + timedelta(seconds=1),
+                sequence=5,
+            )
+        )
+    replayed = engine.advance(
+        MarketDataEvent(
+            instrument_id="NSE:INFY",
+            occurred_at=at(9, 17) + timedelta(seconds=2),
+            received_at=at(9, 17) + timedelta(seconds=2),
+            sequence=5,
+            watermark=at(9, 15),
+            price=Decimal("1501"),
+            bar_volume=20_000,
+        )
+    )
+    assert replayed.state is SessionState.HALTED
+    assert replayed.new_entries_allowed is False
+
+    # Receipt after reconnect is insufficient if it only replays the old mark.
+    with pytest.raises(ValueError, match="watermark advance"):
+        engine.advance(
+            FeedResetEvent(
+                feed_id="primary",
+                authorization_ref="owner:reset-replayed",
+                occurred_at=at(9, 17) + timedelta(seconds=3),
+                received_at=at(9, 17) + timedelta(seconds=3),
+                sequence=6,
+            )
+        )
+
     fresh = engine.advance(
         MarketDataEvent(
             instrument_id="NSE:INFY",
-            occurred_at=at(9, 17),
-            received_at=at(9, 17),
-            sequence=5,
-            watermark=at(9, 17),
+            occurred_at=at(9, 17) + timedelta(seconds=4),
+            received_at=at(9, 17) + timedelta(seconds=4),
+            sequence=6,
+            watermark=at(9, 17) + timedelta(seconds=4),
             price=Decimal("1501"),
             bar_volume=20_000,
         )
@@ -251,7 +289,7 @@ def test_disconnect_reconnect_requires_fresh_data_and_explicit_reset():
             authorization_ref="owner:reset-7",
             occurred_at=at(9, 18),
             received_at=at(9, 18),
-            sequence=6,
+            sequence=7,
         )
     )
     assert reset.state is SessionState.OPEN

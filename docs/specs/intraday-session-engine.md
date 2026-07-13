@@ -35,8 +35,10 @@ A disconnect immediately latches new entries. Reconnect changes connectivity
 state but does not clear the latch. Even fresh market data after reconnect leaves
 the engine halted. `FeedResetEvent` must be explicit, carry an authorization
 reference, arrive within the latency budget, and follow a fresh watermark before
-the latch can clear. Protective exits and session flattening remain available
-while entries are halted.
+the latch can clear. For a reconnect, that watermark must come from a market-data
+event whose `received_at` is strictly later than the reconnect's `received_at`;
+a cached or pre-disconnect watermark is never reset evidence. Protective exits
+and session flattening remain available while entries are halted.
 
 Missing, stale, or over-latency data also latches entry admission. Invalid
 state-dependent feed commands are rejected before their sequence is consumed,

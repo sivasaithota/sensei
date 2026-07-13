@@ -1,11 +1,20 @@
+import hashlib
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from sensei.agents.thesis import (
+    ApprovalRecord,
+    Direction,
+    PlaybookCitation,
+    TradeThesis,
+    Verdict,
+)
 from sensei.governance.evidence import (
     DossierOutcome,
     StageDossierIssue,
     StageDossierRegistry,
+    StageEvidenceEnvelope,
 )
 from sensei.governance.lifecycle import (
     Authority,
@@ -19,6 +28,7 @@ from sensei.kernel import RecordingPaperGateway, TradingKernel
 from sensei.learning.episodes import TradeEpisodeJournal
 from sensei.operations.health import HealthAssessmentInput, OperationsMonitor
 from sensei.operations.journal import EventAppend, OperationalJournal
+from sensei.orchestration.committee import TradeCommitteeGate
 from sensei.orchestration.intents import ExecutableQuote, TradeIntentFactory
 from sensei.orchestration.paper import (
     GovernedPaperCoordinator,
@@ -29,6 +39,14 @@ from sensei.portfolio_risk import (
     PortfolioRisk,
     RiskLimits,
     SafetyControl,
+)
+from sensei.provenance import (
+    ClaimProposal,
+    PlainTextAdapter,
+    ProvenanceCorpus,
+    SourceCitation,
+    SourceKind,
+    SourceMetadata,
 )
 from sensei.strategy import PlanEvaluationRequest, StrategyPlanEngine
 from tests.test_strategy_plan import hammer_bars, hammer_follow_through_plan
@@ -42,7 +60,49 @@ LINEAGE = "hammer-follow-through"
 
 def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER):
     journal = OperationalJournal(tmp_path / "sensei.sqlite3")
-    plan = hammer_follow_through_plan()
+    provenance = ProvenanceCorpus(journal, tmp_path / "provenance")
+    research_text = "A hammer followed by strength can define a bounded swing setup."
+    research_path = tmp_path / "hammer-research.txt"
+    research_path.write_text(research_text, encoding="utf-8")
+    source = provenance.ingest(
+        PlainTextAdapter().adapt(
+            research_path,
+            SourceMetadata(
+                title="Hammer follow-through research fixture",
+                canonical_uri="fixture://hammer-follow-through",
+                source_kind=SourceKind.TEXT_DOCUMENT,
+                edition="1",
+                usage_rights="test fixture",
+                retrieved_at=SIGNAL_TIME - timedelta(days=10),
+            ),
+        ),
+        occurred_at=SIGNAL_TIME - timedelta(days=9),
+        command_id="ingest-hammer-research",
+    )
+    segment = source.segments[0]
+    claim = provenance.record_claim(
+        ClaimProposal(
+            statement="Hammer follow-through is a research hypothesis.",
+            citations=(
+                SourceCitation(
+                    source_id=source.source_id,
+                    segment_id=segment.segment_id,
+                    locator_kind=segment.locator_kind,
+                    start=0,
+                    end=len(segment.text),
+                    quote_sha256=(
+                        "sha256:"
+                        + hashlib.sha256(segment.text.encode("utf-8")).hexdigest()
+                    ),
+                ),
+            ),
+            producer_id="researcher-1",
+            extraction_method_id="fixture-manual:v1",
+        ),
+        occurred_at=SIGNAL_TIME - timedelta(days=8),
+        command_id="claim-hammer-research",
+    )
+    plan = hammer_follow_through_plan(source_claim_id=claim.claim_id)
     bars = hammer_bars()
     trace = StrategyPlanEngine().evaluate(
         PlanEvaluationRequest(
@@ -52,10 +112,20 @@ def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER)
             evaluation_session=bars.index[-1].date(),
         )
     )
-    dossiers = StageDossierRegistry(journal)
+    dossiers = StageDossierRegistry(
+        journal,
+        trusted_issuer_ids=frozenset({"governance-service-1"}),
+        trusted_producers_by_kind={
+            kind: frozenset({f"fixture:{kind.value}"}) for kind in EvidenceKind
+        },
+    )
     lifecycle = StrategyLifecycle(
         journal,
         evidence_verifier=dossiers.verify_transition,
+        trusted_actor_roles={
+            "researcher-1": frozenset({AuthorityRole.PROPOSER}),
+            "governor-1": frozenset({AuthorityRole.GOVERNOR}),
+        },
     )
     governor = Authority("governor-1", AuthorityRole.GOVERNOR)
     proposer = Authority("researcher-1", AuthorityRole.PROPOSER)
@@ -86,11 +156,25 @@ def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER)
         transition_time = SIGNAL_TIME - timedelta(days=4 - revision)
         refs = []
         for kind in kinds:
+            producer_id = f"fixture:{kind.value}"
+            evidence = StageEvidenceEnvelope(
+                lineage_id=LINEAGE,
+                plan_version_id=plan.plan_id,
+                evidence_kind=kind,
+                producer_id=producer_id,
+                outcome=DossierOutcome.PASSED,
+                artifact_content_id=(
+                    "sha256:"
+                    + hashlib.sha256(
+                        f"{plan.plan_id}:{kind.value}".encode("utf-8")
+                    ).hexdigest()
+                ),
+            )
             support = journal.append(
                 EventAppend(
                     stream_id=f"support:paper-fixture:{kind.value}",
                     event_type="StageEvidenceProduced",
-                    payload={"kind": kind.value, "passed": True},
+                    payload=evidence.to_payload(),
                     idempotency_key=f"support-paper-fixture-{kind.value}",
                     expected_version=0,
                     occurred_at=transition_time - timedelta(minutes=2),
@@ -104,7 +188,7 @@ def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER)
                         evidence_kind=kind,
                         supporting_event_ids=(support.event_id,),
                         issuer_id="governance-service-1",
-                        producer_id=f"fixture:{kind.value}",
+                        producer_id=producer_id,
                         issued_at=transition_time - timedelta(minutes=1),
                         outcome=DossierOutcome.PASSED,
                     )
@@ -157,15 +241,18 @@ def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER)
     safety = SafetyControl(journal)
     gateway = RecordingPaperGateway()
     kernel = TradingKernel(journal, risk, safety, gateway)
+    intent_factory = TradeIntentFactory(
+        limits, maximum_quote_age=timedelta(minutes=1)
+    )
     coordinator = GovernedPaperCoordinator(
         journal=journal,
         lifecycle=lifecycle,
-        intent_factory=TradeIntentFactory(
-            limits, maximum_quote_age=timedelta(minutes=1)
-        ),
+        intent_factory=intent_factory,
         episodes=TradeEpisodeJournal(journal),
         kernel=kernel,
         safety=safety,
+        committee_gate=TradeCommitteeGate(journal),
+        provenance=provenance,
     )
     quote = ExecutableQuote(
         instrument_id="NSE:TEST",
@@ -174,7 +261,6 @@ def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER)
         observed_at=QUOTE_TIME,
     )
     account = AccountSnapshot(
-        snapshot_id="snapshot:account-1",
         available_cash_paise=10_000_000,
         marked_equity_paise=10_000_000,
         high_water_mark_paise=10_000_000,
@@ -185,11 +271,73 @@ def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER)
         reconciled=True,
         captured_at=QUOTE_TIME,
     )
-    return coordinator, plan, trace, quote, account, health, gateway, journal
+    sizing = intent_factory.build(
+        plan=plan,
+        trace=trace,
+        quote=quote,
+        account_snapshot=account,
+        now=QUOTE_TIME + timedelta(seconds=10),
+    )
+    assert trace.exit_intent is not None
+    intent = sizing.intent
+    approval = ApprovalRecord(
+        thesis=TradeThesis(
+            id="TH-PAPER-FIXTURE-1",
+            created_at=QUOTE_TIME + timedelta(seconds=1),
+            symbol=intent.instrument_id,
+            direction=Direction.BUY,
+            entry_zone_low=intent.limit_price_paise / 100,
+            entry_zone_high=intent.limit_price_paise / 100,
+            quantity=intent.quantity,
+            stop_loss=intent.stop_price_paise / 100,
+            targets=[intent.target_price_paise / 100],
+            time_horizon_days=trace.exit_intent.max_hold_sessions,
+            invalidation="The exact plan invalidates or the stop is reached.",
+            evidence=[claim.claim_id],
+            playbook_citations=[
+                PlaybookCitation(
+                    strategy=plan.plan_id,
+                    oos_expectancy_pct=1.0,
+                    oos_hit_rate=0.45,
+                    oos_trades=100,
+                )
+            ],
+            narrative="Follow-through plan with bounded downside.",
+        ),
+        verdicts=[
+            Verdict(
+                level=level,
+                agent=agent,
+                approved=True,
+                reasoning="The exact intent passed this independent gate.",
+                checked_at=QUOTE_TIME + timedelta(seconds=index),
+            )
+            for index, (level, agent) in enumerate(
+                (
+                    ("L1", "risk-officer"),
+                    ("L2", "devils-advocate"),
+                    ("L3", "compliance"),
+                    ("L4", "orchestrator"),
+                ),
+                start=2,
+            )
+        ],
+    )
+    return (
+        coordinator,
+        plan,
+        trace,
+        quote,
+        account,
+        health,
+        approval,
+        gateway,
+        journal,
+    )
 
 
 def test_governed_paper_admission_connects_lifecycle_trace_episode_and_kernel(tmp_path):
-    coordinator, plan, trace, quote, account, health, gateway, journal = (
+    coordinator, plan, trace, quote, account, health, approval, gateway, journal = (
         governed_system(tmp_path)
     )
     arguments = dict(
@@ -202,6 +350,7 @@ def test_governed_paper_admission_connects_lifecycle_trace_episode_and_kernel(tm
         signal_observed_at=SIGNAL_TIME,
         now=QUOTE_TIME + timedelta(seconds=10),
         command_id="paper-admit-1",
+        approval_record=approval,
     )
 
     accepted = coordinator.accept(**arguments)
@@ -211,6 +360,8 @@ def test_governed_paper_admission_connects_lifecycle_trace_episode_and_kernel(tm
     assert accepted.intent.strategy_plan_id == plan.plan_id
     assert accepted.episode.plan_version_id == plan.plan_id
     assert accepted.episode.intent_id == accepted.intent.intent_id
+    assert accepted.committee_approval_id.startswith("approval:")
+    assert accepted.thesis_id == approval.thesis.id
     assert len(accepted.episode.linked_event_ids) >= 1
     assert gateway.commands == ()  # acceptance has no broker side effect
     assert any(
@@ -220,7 +371,7 @@ def test_governed_paper_admission_connects_lifecycle_trace_episode_and_kernel(tm
 
 
 def test_governed_paper_admission_rejects_shadow_only_plan(tmp_path):
-    coordinator, plan, trace, quote, account, health, _, _ = governed_system(
+    coordinator, plan, trace, quote, account, health, approval, _, _ = governed_system(
         tmp_path, stop_at=LifecycleStage.SHADOW
     )
     with pytest.raises(PaperAdmissionRejected, match="paper stage"):
@@ -234,4 +385,36 @@ def test_governed_paper_admission_rejects_shadow_only_plan(tmp_path):
             signal_observed_at=SIGNAL_TIME,
             now=QUOTE_TIME,
             command_id="paper-admit-too-early",
+            approval_record=approval,
         )
+
+
+def test_governed_paper_admission_rejects_any_committee_veto(tmp_path):
+    coordinator, plan, trace, quote, account, health, approval, gateway, journal = (
+        governed_system(tmp_path)
+    )
+    vetoed_verdicts = list(approval.verdicts)
+    vetoed_verdicts[1] = vetoed_verdicts[1].model_copy(
+        update={"approved": False, "reasoning": "Risk/reward is not acceptable."}
+    )
+    vetoed = approval.model_copy(update={"verdicts": vetoed_verdicts})
+
+    with pytest.raises(PaperAdmissionRejected, match="four approved"):
+        coordinator.accept(
+            lineage_id=LINEAGE,
+            plan=plan,
+            trace=trace,
+            quote=quote,
+            account_snapshot=account,
+            operational_health=health,
+            signal_observed_at=SIGNAL_TIME,
+            now=QUOTE_TIME + timedelta(seconds=10),
+            command_id="paper-admit-vetoed",
+            approval_record=vetoed,
+        )
+
+    assert gateway.commands == ()
+    assert not any(
+        event.event_type == "TradeIntentAccepted"
+        for event in journal.read_stream("kernel:paper")
+    )

@@ -1,5 +1,6 @@
 """Safe composition seams between governed decisions and paper execution."""
 
+from .committee import CommitteeApproval, TradeCommitteeGate
 from .intents import (
     ExecutableQuote,
     IntentBuildError,
@@ -9,6 +10,7 @@ from .intents import (
 from .paper import GovernedPaperCoordinator, PaperAcceptance, PaperAdmissionRejected
 
 __all__ = [
+    "CommitteeApproval",
     "ExecutableQuote",
     "IntentBuildError",
     "IntentBuildResult",
@@ -16,4 +18,5 @@ __all__ = [
     "GovernedPaperCoordinator",
     "PaperAcceptance",
     "PaperAdmissionRejected",
+    "TradeCommitteeGate",
 ]

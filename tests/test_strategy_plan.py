@@ -25,6 +25,8 @@ from sensei.strategy import (
     TimingPolicy,
 )
 
+CLAIM_HAMMER = "claim:" + "a" * 64
+
 
 def source(*claim_ids: str) -> FieldAttribution:
     return FieldAttribution(
@@ -51,10 +53,12 @@ def value(raw, attribution: FieldAttribution | None = None):
     return AttributedValue(value=raw, attribution=attribution or assumption())
 
 
-def hammer_follow_through_plan(**updates) -> StrategyPlan:
+def hammer_follow_through_plan(
+    *, source_claim_id: str = CLAIM_HAMMER, **updates
+) -> StrategyPlan:
     fields = dict(
         name="hammer follow-through",
-        strategy_family=value("candlestick_reversal", source("CLAIM-HAMMER-1")),
+        strategy_family=value("candlestick_reversal", source(source_claim_id)),
         entry=EntryPolicy(
             conditions=(
                 EntryCondition(
@@ -65,7 +69,7 @@ def hammer_follow_through_plan(**updates) -> StrategyPlan:
                     ),
                     operator=ComparisonOperator.GT,
                     right=0.5,
-                    attribution=source("CLAIM-HAMMER-1"),
+                    attribution=source(source_claim_id),
                 ),
                 EntryCondition(
                     condition_id="follow-through-above-hammer-high",
@@ -78,7 +82,7 @@ def hammer_follow_through_plan(**updates) -> StrategyPlan:
                         field=ObservableField.HIGH,
                         sessions_ago=1,
                     ),
-                    attribution=source("CLAIM-HAMMER-1"),
+                    attribution=source(source_claim_id),
                 ),
             )
         ),
@@ -88,7 +92,7 @@ def hammer_follow_through_plan(**updates) -> StrategyPlan:
             max_hold_sessions=value(20, assumption("Daily swing horizon")),
         ),
         timing=TimingPolicy(
-            decision_point=value("session_close", source("CLAIM-HAMMER-1")),
+            decision_point=value("session_close", source(source_claim_id)),
             entry_point=value("next_session_open", assumption("Avoid same-close fill")),
         ),
         sizing=SizingPolicy(
@@ -154,6 +158,7 @@ def test_plan_identity_covers_semantics_but_not_display_name():
     )
 
     assert plan.plan_id.startswith("sha256:")
+    assert plan.source_claim_ids == (CLAIM_HAMMER,)
     assert renamed.plan_id == plan.plan_id
     assert revised_exit.plan_id != plan.plan_id
     assert revised_temporal_reference.plan_id != plan.plan_id

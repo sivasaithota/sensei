@@ -24,6 +24,8 @@ from sensei.research import (
 )
 from sensei.research.local_artifacts import materialize_daily_bars, read_regular_file
 
+CLAIM_FIXTURE = "claim:" + "f" * 64
+
 
 def _sha256(path) -> str:
     return f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
@@ -148,7 +150,7 @@ def _examine_always_true(snapshot, index):
             hypothesis_id="H-MEMBERSHIP",
             version=1,
             strategy=strategy,
-            source_claim_ids=("fixture",),
+            source_claim_ids=(CLAIM_FIXTURE,),
         ),
         snapshot=snapshot,
         protocol=ExaminationProtocol(
@@ -491,7 +493,7 @@ def test_snapshot_rejects_protocol_fold_with_no_universe_membership():
                 hypothesis_id="H-FOLD-COVERAGE",
                 version=1,
                 strategy=strategy,
-                source_claim_ids=("fixture",),
+                source_claim_ids=(CLAIM_FIXTURE,),
             ),
             snapshot=snapshot,
             protocol=ExaminationProtocol(

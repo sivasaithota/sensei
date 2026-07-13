@@ -10,6 +10,8 @@ This glossary is the shared language for the trading system. Terms describe doma
 
 **Claim** — A provenance-backed statement extracted from one or more Source Artifacts. A Claim is not yet a trading rule.
 
+**Provenance Corpus** — The durable, immutable store of source bytes, deterministic extraction manifests, precise citations, and content-addressed Claims. Its authority is research-only; RAG, Obsidian, and Hermes are not alternate authorities.
+
 **Hypothesis Version** — An immutable, testable proposition derived from claims, trade observations, or human research. A revision creates a new version rather than changing prior evidence.
 
 **Strategy Plan** — A source-faithful, executable description of entry, exit, timing, sizing, and applicability rules used consistently by research and trading simulations.
@@ -62,7 +64,11 @@ This glossary is the shared language for the trading system. Terms describe doma
 
 **Trade Thesis** — A structured proposal containing instrument, direction, entry, size, stop, target, horizon, executable invalidation, and cited evidence.
 
+**Per-Trade Committee Approval** — The content-addressed, unanimous and ordered decision of L1 risk-officer, L2 devil's advocate, L3 compliance, and L4 orchestrator on one exact Trade Thesis and derived Trade Intent. Lifecycle eligibility never substitutes for it.
+
 **Trade Intent** — A fully approved, immutable request to trade. It is not an order and carries no broker side effect by itself.
+
+**Account Snapshot** — Immutable reconciled account truth whose content-derived identity covers cash, marked equity, high-water mark, P&L, positions, included reservations, reconciliation state, and capture time. A caller label cannot preserve identity after content changes.
 
 **Trade Episode** — The complete immutable history from signal snapshot through thesis, approvals, orders, fills, protection, exit, attribution, and post-mortem.
 
@@ -74,4 +80,6 @@ This glossary is the shared language for the trading system. Terms describe doma
 
 **Risk Reservation** — Capital and risk capacity atomically held for an approved Trade Intent until it is rejected, cancelled, expired, or reconciled with fills.
 
-**Kill Switch** — A latched safety action that blocks new exposure and cancels entry orders while preserving or strengthening protective exits unless an explicit flatten policy applies.
+**Kill Switch** — A latched safety action that blocks new exposure, repairs known protection gaps first, and then cancels only broker-confirmed working entry remainders unless an explicit flatten policy applies. It never treats an accepted-only or merely prepared entry as a broker order.
+
+**Post-Reconnect Feed Watermark** — Market data received strictly after a feed reconnect. A fresh Post-Reconnect Feed Watermark plus explicit authorization is required to reset a feed latch; cached pre-disconnect data never qualifies.

@@ -6,6 +6,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from sensei.agents.thesis import ApprovalRecord
 from sensei.governance.lifecycle import LifecycleStage, StrategyLifecycle
 from sensei.kernel import TradingKernel
 from sensei.learning.episodes import (
@@ -23,8 +24,10 @@ from sensei.portfolio_risk import (
     SafetyControl,
     TradeIntent,
 )
+from sensei.provenance import ProvenanceCorpus
 from sensei.strategy import PlanDecisionTrace, StrategyPlan, assess_strategy_conformance
 
+from .committee import TradeCommitteeGate
 from .intents import (
     ExecutableQuote,
     IntentBuildError,
@@ -44,6 +47,9 @@ class PaperAcceptance:
     episode: TradeEpisode
     lifecycle_event_id: str
     health_event_id: str
+    committee_event_id: str
+    committee_approval_id: str
+    thesis_id: str
 
 
 class GovernedPaperCoordinator:
@@ -62,6 +68,8 @@ class GovernedPaperCoordinator:
         episodes: TradeEpisodeJournal,
         kernel: TradingKernel,
         safety: SafetyControl,
+        committee_gate: TradeCommitteeGate,
+        provenance: ProvenanceCorpus,
         maximum_health_age: timedelta = timedelta(minutes=2),
     ) -> None:
         if maximum_health_age <= timedelta(0):
@@ -72,6 +80,8 @@ class GovernedPaperCoordinator:
         self._episodes = episodes
         self._kernel = kernel
         self._safety = safety
+        self._committee_gate = committee_gate
+        self._provenance = provenance
         self._maximum_health_age = maximum_health_age
 
     def accept(
@@ -86,6 +96,7 @@ class GovernedPaperCoordinator:
         signal_observed_at: datetime,
         now: datetime,
         command_id: str,
+        approval_record: ApprovalRecord,
     ) -> PaperAcceptance:
         _aware("signal_observed_at", signal_observed_at)
         _aware("now", now)
@@ -124,9 +135,36 @@ class GovernedPaperCoordinator:
             raise PaperAdmissionRejected(str(exc)) from exc
 
         intent = sizing.intent
+        claim_ids = frozenset(plan.source_claim_ids)
+        if not claim_ids:
+            raise PaperAdmissionRejected(
+                "paper admission requires provenance-backed plan claims"
+            )
+        if any(not self._provenance.has_claim(claim_id) for claim_id in claim_ids):
+            raise PaperAdmissionRejected(
+                "every plan source claim must exist in the verified provenance corpus"
+            )
+        if trace.exit_intent is None:
+            raise PaperAdmissionRejected("entry trace is missing its exit intent")
+        command_digest = hashlib.sha256(command_id.encode("utf-8")).hexdigest()
+        try:
+            committee = self._committee_gate.record(
+                approval_record,
+                intent=intent,
+                lineage_id=lineage_id,
+                allowed_claim_ids=claim_ids,
+                maximum_holding_sessions=trace.exit_intent.max_hold_sessions,
+                signal_observed_at=signal_observed_at,
+                occurred_at=now,
+                command_id=f"paper-committee:{command_digest}",
+            )
+        except (TypeError, ValueError, RuntimeError) as exc:
+            raise PaperAdmissionRejected(
+                f"trade committee approval rejected: {exc}"
+            ) from exc
+
         suffix = intent.intent_id.removeprefix("intent:")
         episode_id = f"EP-{suffix}"
-        command_digest = hashlib.sha256(command_id.encode("utf-8")).hexdigest()
         self._episodes.start(
             episode_id=episode_id,
             strategy_lineage_id=lineage_id,
@@ -148,7 +186,10 @@ class GovernedPaperCoordinator:
                 event_type=EpisodeEventType.APPROVAL_RECORDED,
                 payload={
                     "approved": True,
-                    "authority": "STRATEGY_LIFECYCLE",
+                    "authority": "L1_L4_TRADE_COMMITTEE",
+                    "committee_event_id": committee.event_id,
+                    "committee_approval_id": committee.approval_id,
+                    "thesis_id": committee.thesis_id,
                     "lifecycle_event_id": plan_state.last_record.event_id,
                     "health_event_id": operational_health.event_id,
                 },
@@ -172,6 +213,9 @@ class GovernedPaperCoordinator:
             episode=self._episodes.get(episode_id),
             lifecycle_event_id=plan_state.last_record.event_id,
             health_event_id=operational_health.event_id,
+            committee_event_id=committee.event_id,
+            committee_approval_id=committee.approval_id,
+            thesis_id=committee.thesis_id,
         )
 
     def _validate_health(

@@ -47,6 +47,13 @@ configured threshold. Drawdown thresholds are integer basis points, avoiding
 binary floating-point comparisons. Strategy sizing uses marked equity rather than
 reconstructing equity from cash and position notional.
 
+The account snapshot identity is also a SHA-256 content address, not a caller
+label. It covers every cash, equity, P&L, position quantity/notional/stop-risk,
+included-reservation, reconciliation, and capture-time field. Position and
+reservation collections are canonically ordered. Changing any material value
+therefore produces a new snapshot identity and invalidates an intent pinned to the
+old truth.
+
 Admission and reservation are one journal append guarded by the risk stream's
 expected version. Concurrent writers therefore cannot both consume the same view
 of capacity. Exact intent retries return the same reservation. Reusing a journal
@@ -57,6 +64,12 @@ unfilled amount reserved. Releasing the remainder after a partial fill leaves th
 filled exposure encumbered until a later reconciled broker snapshot explicitly
 includes that reservation. This prevents a lagging snapshot from silently freeing
 capital or a position slot.
+
+Reservation release cannot be requested with a reservation ID and timestamp
+alone. It requires the exact Operational Journal event for a completed typed
+`CANCEL_ENTRY`. Portfolio Risk verifies that the command was durably prepared
+first, accepted, causally linked, belongs to the same intent, and covers the
+outstanding remainder. The evidence identity is retained on `RiskReleased`.
 
 ## Latched safety control
 
@@ -94,13 +107,22 @@ cumulative fill: if the process stops after that completion append but before th
 separate fill event, restart reconstructs the fill from the receipt and installs
 protection before continuing.
 
+`TradingKernel.enforce` is the non-admission safety path and runs at the beginning
+of every kernel cycle. It protects all durable fills first. When safety is latched,
+it then cancels every unfilled remainder whose entry has a durable completed broker
+receipt. Accepted-only or merely prepared entries are not claimed to exist at the
+broker and never receive synthetic cancellation commands.
+
 ## Reconciliation and quarantine
 
 Broker reconciliation compares held quantities to kernel-observed fills,
 broker-native protective quantities, and every working broker order to a known
 content-addressed client command. Unknown exposure, unknown working orders, order
 content mismatches, position quantity mismatch, or under-protection appends a
-quarantine fact and latches safety. A clean snapshot is also recorded, but does not
+quarantine fact and latches safety. Broker protections and working protective
+orders include their actual stop and target prices; quantity alone is not accepted
+as proof of protection, and either level differing from the typed protection
+command is quarantined. A clean snapshot is also recorded, but does not
 automatically reset a prior latch.
 
 ## Deliberate limits

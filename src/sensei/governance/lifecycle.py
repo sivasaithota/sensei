@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from types import MappingProxyType
 
 from sensei.operations.journal import (
     EventAppend,
@@ -187,6 +188,16 @@ _TERMINAL_STAGES = frozenset(
     }
 )
 
+_PROMOTION_STAGES = frozenset(
+    {
+        LifecycleStage.EXAMINED,
+        LifecycleStage.SHADOW,
+        LifecycleStage.PAPER,
+        LifecycleStage.CANARY,
+        LifecycleStage.ACTIVE,
+    }
+)
+
 _NEXT_STAGE: Mapping[LifecycleStage, LifecycleStage] = {
     LifecycleStage.PROPOSED: LifecycleStage.EXAMINED,
     LifecycleStage.EXAMINED: LifecycleStage.SHADOW,
@@ -235,15 +246,18 @@ class StrategyLifecycle:
         journal: OperationalJournal,
         *,
         evidence_verifier: Callable[[TransitionRequest], bool] | None = None,
+        trusted_actor_roles: Mapping[str, Collection[AuthorityRole]] | None = None,
     ) -> None:
         self._journal = journal
         self._evidence_verifier = evidence_verifier
+        self._trusted_actor_roles = _freeze_trusted_actor_roles(trusted_actor_roles)
 
     def transition(self, request: TransitionRequest) -> LifecycleRecord:
         events = self._events(request.lineage_id)
         repeated = _repeated_command(events, request)
         if repeated is not None:
             return repeated
+        self._verify_trusted_authority(request.authority)
         view = _view_from_events(request.lineage_id, events)
         current = next(
             (
@@ -254,6 +268,7 @@ class StrategyLifecycle:
             None,
         )
         _validate_path(current, request.target_stage)
+        _validate_promoter_independence(events, request)
         _validate_authority(request.target_stage, request.authority)
         _validate_evidence(request.target_stage, request.evidence_refs)
         if (
@@ -287,6 +302,18 @@ class StrategyLifecycle:
 
     def _events(self, lineage_id: str) -> tuple[JournalEvent, ...]:
         return self._journal.read_stream(_lineage_stream(lineage_id))
+
+    def _verify_trusted_authority(self, authority: Authority) -> None:
+        if self._trusted_actor_roles is None:
+            raise UnauthorizedTransition(
+                "a trusted actor-role registry is required for lifecycle transitions"
+            )
+        roles = self._trusted_actor_roles.get(authority.actor_id, frozenset())
+        if authority.role not in roles:
+            raise UnauthorizedTransition(
+                f"actor {authority.actor_id!r} is not trusted for role "
+                f"{authority.role.value}"
+            )
 
     def _verify_required_evidence(self, request: TransitionRequest) -> None:
         if self._evidence_verifier is None:
@@ -339,6 +366,33 @@ def _validate_path(
     if target is not expected:
         raise InvalidLifecycleTransition(
             f"invalid lifecycle transition from {current.value} to {target.value}"
+        )
+
+
+def _validate_promoter_independence(
+    events: tuple[JournalEvent, ...],
+    request: TransitionRequest,
+) -> None:
+    if request.target_stage not in _PROMOTION_STAGES:
+        return
+    proposer_id = next(
+        (
+            record.authority.actor_id
+            for event in events
+            if event.event_type == "StrategyLifecycleTransitioned"
+            for record in (_record_from_event(event),)
+            if record.plan_version_id == request.plan_version_id
+            and record.stage is LifecycleStage.PROPOSED
+        ),
+        None,
+    )
+    if proposer_id is None:
+        raise JournalIntegrityError(
+            "strategy plan has no durable proposer identity"
+        )
+    if proposer_id == request.authority.actor_id:
+        raise UnauthorizedTransition(
+            "the plan proposer cannot authorize a later promotion for the same plan"
         )
 
 
@@ -495,3 +549,21 @@ def _lineage_stream(lineage_id: str) -> str:
 
 def _command_key(command_id: str) -> str:
     return "command:" + hashlib.sha256(command_id.encode("utf-8")).hexdigest()
+
+
+def _freeze_trusted_actor_roles(
+    configured: Mapping[str, Collection[AuthorityRole]] | None,
+) -> Mapping[str, frozenset[AuthorityRole]] | None:
+    if configured is None:
+        return None
+    frozen: dict[str, frozenset[AuthorityRole]] = {}
+    for actor_id, configured_roles in configured.items():
+        if not isinstance(actor_id, str) or not actor_id.strip():
+            raise ValueError("trusted actor IDs must be non-empty strings")
+        if isinstance(configured_roles, (str, bytes, AuthorityRole)):
+            raise ValueError("trusted actor roles must be a collection")
+        roles = frozenset(configured_roles)
+        if any(not isinstance(role, AuthorityRole) for role in roles):
+            raise ValueError("trusted actor roles must contain AuthorityRole values")
+        frozen[actor_id] = roles
+    return MappingProxyType(frozen)

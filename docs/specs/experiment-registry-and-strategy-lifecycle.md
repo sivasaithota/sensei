@@ -75,6 +75,14 @@ No stage may be skipped. Each transition records the exact plan version, previou
 and target stages, typed evidence references, actor authority, approval reference,
 expected lineage revision, and immutable journal event identity.
 
+An `Authority` carried by a request is a claim, not a credential. Every new
+transition, including `proposed`, must resolve the actor and claimed role through a
+trusted actor-to-roles configuration supplied by the composition root. Missing
+configuration, an unknown actor, or caller-side role relabeling fails closed. The
+actor recorded on the first `proposed` event is the durable proposer for that exact
+plan version and cannot authorize any later promotion of the same plan, even when
+the trusted configuration grants that actor another role.
+
 Typed references are only routing keys. Except for `proposed`, every transition
 with required evidence must pass a `StageDossierRegistry` verifier. A lifecycle
 constructed without a verifier fails closed at `examined`, and therefore cannot
@@ -98,6 +106,13 @@ appended. Only one plan version per strategy lineage may be active. An existing
 active version must be retired or rolled back before another version can become
 active.
 
+Lifecycle eligibility is not per-trade approval. Even at stage `paper`, every
+individual governed paper intent requires a separate, content-addressed Trade
+Thesis decision from the exact unanimous L1-L4 committee. That committee binds
+the plan, trace, corpus-backed claims, derived quantity, entry, stop, target and
+horizon to one intent and has only `TRADE_ADMISSION_ONLY` authority. See
+`per-trade-committee.md`.
+
 ## Stage dossiers
 
 A Stage Dossier is an immutable, content-addressed attestation for one evidence
@@ -111,16 +126,30 @@ kind. Its identity pins:
 - dossier schema version.
 
 Issuance first verifies the complete journal hash chains and confirms every support
-event exists. Support events must precede dossier issuance. The dossier is then
-appended on its own stream; exact retries return the same immutable dossier.
+event exists. Existence alone is insufficient: each support must be a
+`StageEvidenceProduced` event with the exact schema and fields for lineage, plan
+version, evidence kind, producer, outcome, and a SHA-256 artifact content identity.
+Every field must match the dossier, and the event timestamp and journal sequence
+must precede issuance. The dossier is then appended on its own stream; exact retries
+return the same immutable dossier.
+
+The registry requires an independently configured issuer allowlist and an
+explicit producer allowlist for each `EvidenceKind`; missing configuration and
+unknown identities fail closed. Issuer and producer allowlists must be disjoint,
+so a caller cannot gain authority by relabelling the same actor. The dossier
+issuer and evidence producer must also be different identities. During a
+transition, the producer must differ from the transition authority. Together,
+these checks prevent invented identities or self-attestation from promoting a
+plan.
 
 `StageDossierRegistry.verify_transition` returns true only when every required kind
 is present, every reference resolves to a valid content-addressed dossier, all
 dossiers pin the request's exact lineage and plan version, all outcomes passed, all
 supporting events still exist, and journal integrity remains clean. A wrong-plan,
-wrong-kind, missing, failed, duplicate, malformed, or tampered dossier makes the
-complete transition untrusted. This is the durable path into paper and remains an
-additional gate beneath owner authority for canary and active.
+wrong-kind, wrong-producer, wrong-outcome, missing, failed, duplicate, malformed,
+or tampered dossier or supporting event makes the complete transition untrusted.
+This is the durable path into paper and remains an additional gate beneath owner
+authority for canary and active.
 
 `quarantined`, `rejected`, `retired`, and `rolled_back` are terminal in this
 foundation. Quarantine and rollback require safety/owner authority plus an exact

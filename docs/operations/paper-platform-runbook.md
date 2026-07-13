@@ -17,6 +17,12 @@ a live-trading runbook. Do not connect the governed kernel to real capital.
    Continue only protective actions and cancellation of unfilled entries.
 5. Do not promote a plan or tune paper-soak thresholds after seeing its result.
    Register the plan, protocol, sample and pass criteria first.
+6. Lifecycle stage `paper` is eligibility, not permission for an individual
+   trade. Require the exact unanimous L1-L4 Trade Thesis approval for every
+   intent; never reuse an approval across intents.
+7. Treat source material and extracted claims as research-only. Governed plans
+   must resolve their claims in the immutable Provenance Corpus. RAG, Obsidian,
+   Hermes, a URL, or free-text provenance cannot replace that verification.
 
 ## Before a paper session
 
@@ -27,10 +33,15 @@ Complete every check; a failed or unknown item means no new entries.
   not recovery.
 - Run full journal verification and create a verified backup to a new path.
 - Confirm the exact content-addressed Strategy Plan is at lifecycle stage
-  `paper`. The transition must be backed by verified dossiers, including the
+  `paper`. The transition must be backed by verified dossiers from a configured
+  issuer and an allowlisted producer for each evidence kind, including the
   completed shadow trial.
 - Confirm the plan and decision trace pass canonical conformance. Do not use a
   legacy `RuleSpec` or legacy playbook adoption as authorization.
+- Verify every source Claim used by the exact plan resolves through the intended
+  Provenance Corpus to retained immutable bytes, a deterministic extraction
+  manifest, and a precise character or transcript-time citation. A
+  syntactically valid but missing Claim ID blocks the session.
 - Confirm `SafetyControl.state().latched` is false.
 - Record fresh component heartbeats for the operator-selected required set. At
   minimum the current tests model `market-data`, `paper-gateway`, and
@@ -40,7 +51,9 @@ Complete every check; a failed or unknown item means no new entries.
   allow new entries, and be within the coordinator's configured maximum age.
 - Supply a recent, explicitly reconciled Account Snapshot matching the snapshot
   pinned by the intent. Check marked equity, high-water mark, day/week P&L,
-  positions and risk-to-stop values.
+  positions and risk-to-stop values. Its `snapshot_id` must be the identity
+  derived from all snapshot content, reservations, reconciliation state and
+  capture time; do not accept or copy a caller-selected label.
 - Confirm the Point-in-Time Market Data snapshot, executable quote and exchange
   session calendar are the intended versions. Missing earnings or surveillance
   status must remain blocked.
@@ -111,34 +124,52 @@ allowing another entry.
 2. Evaluate the immutable plan to obtain its decision trace. The same engine and
    plan must be used for research, shadow and paper; mode-specific strategy
    branches are not allowed.
-3. Call `GovernedPaperCoordinator.accept`. It validates the exact plan at the
-   `paper` stage, durable health and safety, derives quantity, starts the linked
-   Trade Episode, records approval, and appends `TradeIntentAccepted`. It does
-   not call the gateway.
-4. Call `TradingKernel.run_once` with the matching fresh reconciled Account
+3. Use the side-effect-free `TradeIntentFactory` with the exact quote and Account
+   Snapshot to prepare the candidate derived intent, then prepare its structured
+   Trade Thesis. The instrument, long direction, derived quantity, entry zone,
+   exact stop, first target and holding horizon must match the plan and intent.
+   Its evidence must be nonempty, content-addressed Claims from that exact plan,
+   and it must cite the exact plan version.
+4. Obtain exactly four approved verdicts, in order: `L1/risk-officer`,
+   `L2/devils-advocate`, `L3/compliance`, and `L4/orchestrator`. Each verdict
+   needs nonblank reasoning and an aware, non-regressing timestamp. Any veto,
+   missing/extra/reordered verdict, identity mismatch or future time means no
+   admission.
+5. Call `GovernedPaperCoordinator.accept` with that `ApprovalRecord`. It
+   validates the exact plan at `paper`, resolves all plan claims in the real
+   corpus, checks durable health and safety, re-derives quantity, and requires
+   the thesis to match the resulting intent. It durably records
+   `TradeCommitteeApproved`, starts the linked Trade Episode, records the exact
+   committee/lifecycle/health evidence, and appends `TradeIntentAccepted`. It
+   does not call the gateway.
+6. Call `TradingKernel.run_once` with the matching fresh reconciled Account
    Snapshot. The kernel recovers fill/protection gaps first, atomically reserves
    portfolio capacity, persists a typed command, dispatches it by stable command
    ID, records its receipt, and protects any positive fill before another entry.
-5. Ingest cumulative fills monotonically. Never decrease cumulative quantity or
+7. Ingest cumulative fills monotonically. Never decrease cumulative quantity or
    replace an average fill price for the same cumulative quantity.
-6. Reconcile a complete `BrokerSnapshot`, including positions, protection and
-   every working paper order. A clean result is recorded as `ReconciliationClean`;
-   any unknown, mismatched or under-protected object is quarantined and latches
-   safety.
-7. Append the linked episode facts through protection, exit and close, then
+8. Reconcile a complete `BrokerSnapshot`, including positions, protection and
+   every working paper order. Every protective object must match its known
+   content-addressed client command on instrument, quantity, stop and target; a
+   quantity match with different levels is not clean. A clean result is recorded
+   as `ReconciliationClean`; any unknown, mismatched or under-protected object is
+   quarantined and latches safety.
+9. Append the linked episode facts through protection, exit and close, then
    append one reconciled cost record and the advisory review. Record outcome
    attribution only against every entry/exit fill and that episode's exact cost
    evidence; planned prices are pinned when the episode starts.
-8. Produce daily/weekly Operational Reports. Treat P&L as trusted only when it
+10. Produce daily/weekly Operational Reports. Treat P&L as trusted only when it
    comes from a reconciled `OutcomeAttributed` event. If journal verification
    fails, the report intentionally withholds P&L totals.
-9. At session end, verify the journal again, take a new verified backup, and
+11. At session end, verify the journal again, take a new verified backup, and
    retain the readiness, health, reconciliation and report outputs with the soak
    evidence.
 
 For intraday paper, feed event time and receipt time separately and preserve
-sequence ordering. Reconnect alone never clears a feed halt: fresh data and an
-explicit authorized feed reset are required. The engine continues to emit
+sequence ordering. Reconnect alone never clears a feed halt: the engine must
+receive market data strictly after the reconnect receipt, that watermark must
+still be fresh, and an explicit authorized feed reset is required. Cached or
+pre-disconnect data cannot be reset evidence. The engine continues to emit
 flatten/protective directives after entries close or halt.
 
 ## Halt and incident response
@@ -149,6 +180,8 @@ Halt new entries immediately on any of the following:
 - `UNKNOWN`, `HALTED`, stale or otherwise non-entry-capable health;
 - failed component readiness;
 - a safety latch or portfolio loss/drawdown breaker;
+- a missing/unverifiable provenance claim or any absent, vetoed or mismatched
+  L1-L4 per-trade approval;
 - stale/future/out-of-order market truth or excessive receipt latency;
 - feed disconnect, unprotected quantity, unknown broker objects or a failed
   protection command;
@@ -158,7 +191,11 @@ Then follow this order:
 
 1. Preserve the journal and record the UTC and exchange-local incident times,
    reason, last known healthy event ID, plan/trace/intent IDs and operator.
-2. Stop admission and entry dispatch. Do not block protection or cancellation.
+2. Stop admission and entry dispatch. Run kernel enforcement protect-first:
+   recover completed entry fills and repair every durable protection gap before
+   attempting cancellation. Then cancel only the unfilled remainder of an entry
+   with a durable completed broker receipt. Never synthesize a broker cancel for
+   an accepted-only or merely prepared entry.
 3. Capture a complete paper broker snapshot: positions, protections, cumulative
    fills and all working orders with client command IDs.
 4. Run kernel reconciliation. Save the returned issues and the resulting
@@ -181,7 +218,7 @@ Then follow this order:
 | Crash after gateway receipt | Journal replay recovers the cumulative fill; protection is completed; later broker snapshot reconciles cleanly |
 | Protection command failure | Safety remains latched; unfilled entry remainder is cancelled; filled quantity is fully protected or the paper position is flattened under an approved procedure |
 | Unknown position/order or quantity mismatch | Full broker inventory captured; unknown object resolved; subsequent reconciliation is clean |
-| Feed disconnect or late receipt | Feed reconnect, fresh watermark, explicit authorized feed reset and fresh health assessment |
+| Feed disconnect or late receipt | Feed reconnect, market data received strictly after that reconnect, fresh watermark, explicit authorized feed reset and fresh health assessment |
 | Journal integrity failure | Failed files preserved; backup digest matches inventory; restore to a new path verifies; broker/account truth is reconciled again |
 | Daily/weekly loss or drawdown limit | New reservation remains rejected; no journal or account field is edited to bypass the breaker; resume criteria are an explicit owner risk decision backed by fresh account truth |
 
@@ -209,19 +246,24 @@ Define the soak duration, episode count, regimes and numerical thresholds before
 the soak starts. The code intentionally does not invent those business limits.
 The soak is eligible for a paper-trial dossier only when all agreed gates pass:
 
-- **Identity and conformance:** every admitted trade resolves to the exact plan,
-  trace, market snapshot, account snapshot, intent and lifecycle evidence; zero
-  legacy-authorized trades.
+- **Identity and conformance:** every admitted trade resolves to the exact
+  immutable source/citation Claims, plan, trace, market snapshot,
+  content-addressed account snapshot, intent, unanimous exact L1-L4 committee
+  decision and lifecycle evidence; zero legacy-authorized trades.
 - **Journal integrity:** every start/end verification passes; backup and restore
   drills reproduce the event history without integrity errors.
 - **Risk:** no reservation bypass; held, pending, partial-fill and unreconciled
   exposure agrees with account truth; loss, drawdown, heat and capacity breakers
   behave as preregistered.
-- **Order safety:** every positive fill is protected before another entry; zero
-  unresolved unknown orders, exposure mismatches or under-protection incidents.
+- **Order safety:** every positive fill is protected before another entry; every
+  protective order reconciles its exact client command, quantity, stop and
+  target; zero unresolved unknown orders, exposure mismatches or
+  under-protection incidents. Kill-switch drills demonstrate protect-first
+  enforcement and cancellation only for broker-confirmed working entries.
 - **Operations:** all active-session required components remain within their age
   budgets; every halt, reconnect, reset and special-session boundary is exercised
-  and produces the expected durable evidence.
+  and produces the expected durable evidence. A reconnect drill proves that
+  pre-disconnect data cannot clear the latch.
 - **Recovery:** restart after prepared command, restart after completed receipt,
   protection failure, stale data, disconnect and corrupted-copy restore drills
   all pass without duplicate commands or unprotected continuation.

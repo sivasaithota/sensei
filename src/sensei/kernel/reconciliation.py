@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from sensei.portfolio_risk.models import require_timestamp
+from sensei.portfolio_risk.models import require_positive_integer, require_timestamp
 
 from .commands import CommandKind
 
@@ -28,6 +28,9 @@ class BrokerPosition:
 class BrokerProtection:
     instrument_id: str
     quantity: int
+    stop_price_paise: int
+    target_price_paise: int
+    client_command_id: str | None = None
 
     def __post_init__(self) -> None:
         if not self.instrument_id.strip():
@@ -36,6 +39,14 @@ class BrokerProtection:
             raise TypeError("broker protection quantity must be an integer")
         if self.quantity <= 0:
             raise ValueError("broker protection quantity must be positive")
+        require_positive_integer(self.stop_price_paise, "stop_price_paise")
+        require_positive_integer(self.target_price_paise, "target_price_paise")
+        if self.stop_price_paise >= self.target_price_paise:
+            raise ValueError("protective stop must be below target")
+        if self.client_command_id is not None and not self.client_command_id.startswith(
+            "command:"
+        ):
+            raise ValueError("client_command_id must be a command content address")
 
 
 @dataclass(frozen=True)
@@ -45,6 +56,8 @@ class BrokerWorkingOrder:
     instrument_id: str
     kind: str
     quantity: int
+    stop_price_paise: int | None = None
+    target_price_paise: int | None = None
 
     def __post_init__(self) -> None:
         if not self.broker_order_id.strip():
@@ -60,6 +73,13 @@ class BrokerWorkingOrder:
             raise TypeError("working-order quantity must be an integer")
         if self.quantity <= 0:
             raise ValueError("working-order quantity must be positive")
+        if self.kind == CommandKind.PROTECTION.value:
+            require_positive_integer(self.stop_price_paise, "stop_price_paise")
+            require_positive_integer(self.target_price_paise, "target_price_paise")
+            if self.stop_price_paise >= self.target_price_paise:  # type: ignore[operator]
+                raise ValueError("protective stop must be below target")
+        elif self.stop_price_paise is not None or self.target_price_paise is not None:
+            raise ValueError("only protection orders may carry stop and target levels")
 
 
 @dataclass(frozen=True)
