@@ -30,6 +30,7 @@ def test_paper_sessions_execute_open_and_pass_only_adopted_entries_to_eod():
             {"name": "eligible", "adopted": True},
             {"name": "rejected", "adopted": False},
         ]},
+        authorized_strategy_names=lambda: {"eligible"},
     )
 
     entry = sessions.entry(task(SchedulerTaskKind.ENTRY_SESSION), NOW)
@@ -50,4 +51,4 @@ def test_paper_eod_halts_without_backtest_adoption():
     outcome = sessions.eod(task(SchedulerTaskKind.END_OF_DAY_SESSION), NOW)
 
     assert outcome.state is TaskOutcomeState.HALTED
-    assert outcome.reason_codes == ("NO_BACKTEST_ADOPTED_STRATEGIES",)
+    assert outcome.reason_codes == ("NO_GOVERNED_PAPER_STRATEGIES",)

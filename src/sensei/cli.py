@@ -55,9 +55,79 @@ def main() -> None:
     scheduler_bootstrap_p = sub.add_parser("scheduler-bootstrap")
     scheduler_bootstrap_p.add_argument("--journal", default="data/operations.sqlite3")
     scheduler_bootstrap_p.add_argument("--config", default="config/scheduler.json")
+    scheduler_migrate_p = sub.add_parser("scheduler-migrate-governance")
+    scheduler_migrate_p.add_argument("--journal", default="data/operations.sqlite3")
+    scheduler_migrate_p.add_argument("--config", default="config/scheduler.json")
+    scheduler_migrate_p.add_argument("--playbook", default="data/playbook/current.json")
+    scheduler_migrate_p.add_argument("--rules", default="data/studied_rules.json")
+    scheduler_migrate_p.add_argument("--positions", default="data/paper/positions.json")
     ui_p = sub.add_parser("ui")
     ui_p.add_argument("--port", type=int, default=8642)
     args = parser.parse_args()
+
+    if args.cmd == "scheduler-migrate-governance":
+        from pathlib import Path
+        from sensei.automation import GovernedSchedulerApplication
+        from sensei.automation.migration import (
+            adopt_legacy_positions,
+            migrate_adopted_strategies,
+            publish_pre_shadow_evidence,
+        )
+        from sensei.governance.lifecycle import EvidenceKind
+
+        journal_path = Path(args.journal)
+        if not journal_path.is_file():
+            parser.error(f"governed journal does not exist: {journal_path}")
+        app = GovernedSchedulerApplication.open(
+            journal_path, config_path=Path(args.config)
+        )
+        now = datetime.now(timezone.utc)
+        provenance_root = journal_path.parent / "provenance"
+        result = migrate_adopted_strategies(
+            app.journal,
+            playbook_path=Path(args.playbook),
+            rules_path=Path(args.rules),
+            artifact_root=provenance_root,
+            occurred_at=now,
+        )
+        publish_pre_shadow_evidence(
+            app.journal,
+            app.dossiers,
+            records=result.registered,
+            playbook_path=Path(args.playbook),
+            provenance_root=provenance_root,
+            artifact_root=journal_path.parent / "governance-artifacts",
+            issuer_id=app.config.dossier_issuer_id,
+            producer_ids_by_kind={
+                kind: next(iter(app.config.producers_by_kind[kind]))
+                for kind in (
+                    EvidenceKind.EXAMINATION_DOSSIER,
+                    EvidenceKind.CONFORMANCE_DOSSIER,
+                    EvidenceKind.SHADOW_READINESS,
+                    EvidenceKind.LOCKED_CONFIRMATION,
+                )
+            },
+            occurred_at=now,
+        )
+        positions = adopt_legacy_positions(
+            app.journal,
+            positions_path=Path(args.positions),
+            occurred_at=now,
+        )
+        reports = [
+            app.autopilot.reconcile(now=now, command_id=f"governance-migration:{index}")
+            for index in range(3)
+        ]
+        print(json.dumps({
+            "registered_plans": [item.plan_id for item in result.registered],
+            "skipped_rules": list(result.skipped_names),
+            "adopted_positions": [item.symbol for item in positions],
+            "stages": [
+                {item.plan_id: item.stage.value for item in report.results}
+                for report in reports
+            ],
+        }, indent=2))
+        return
 
     if args.cmd == "scheduler-bootstrap":
         from pathlib import Path

@@ -49,6 +49,21 @@ def test_gap_outside_zone_drops_order(monkeypatch):
     assert oe.load_pending() == []  # dropped, not retained
 
 
+def test_governed_executor_drops_order_without_paper_strategy_authorization(monkeypatch):
+    import sensei.loop.openexec as oe
+    oe.queue_order(make_record())
+    monkeypatch.setattr(oe, "live_price", lambda s: 100.0)
+
+    res = oe.execute_pending(
+        today=date(2026, 7, 6),
+        allowed_strategy_names=frozenset(),
+    )
+
+    assert res["filled"] == []
+    assert "not authorized at governed PAPER" in res["skipped"][0]["reason"]
+    assert oe.load_pending() == []
+
+
 def test_no_quote_retains_order(monkeypatch):
     import sensei.loop.openexec as oe
     oe.queue_order(make_record())

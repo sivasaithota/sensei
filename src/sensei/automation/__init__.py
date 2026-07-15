@@ -35,6 +35,15 @@ from .runner import (
     UnattendedSchedulerRunner,
 )
 from .paper_sessions import LegacyPaperSessions
+from .migration import (
+    AdoptedLegacyPosition,
+    StrategyMigrationResult,
+    adopt_legacy_positions,
+    migrate_adopted_strategies,
+    migration_policy,
+    publish_pre_shadow_evidence,
+)
+from .shadow_session import DailyCanonicalShadowSession
 
 from .scheduling import (
     INDIA_TIMEZONE,
@@ -64,6 +73,7 @@ from .shadow import (
 )
 
 __all__ = [
+    "AdoptedLegacyPosition",
     "ArtifactIntegrityError",
     "ArtifactStoreError",
     "CanonicalShadowRunner",
@@ -76,6 +86,7 @@ __all__ = [
     "ImmutableJsonArtifactStore",
     "LifecycleEvidenceProvider",
     "LegacyPaperSessions",
+    "DailyCanonicalShadowSession",
     "PlanStaticEvidenceProducer",
     "PublishedStageEvidence",
     "ScheduleDecision",
@@ -103,6 +114,7 @@ __all__ = [
     "ShadowTrialLedger",
     "ShadowTrialPolicy",
     "StrategyAutopilot",
+    "StrategyMigrationResult",
     "StrategyAutomationReport",
     "StrategyAutomationResult",
     "StrategyAutomationState",
@@ -113,4 +125,8 @@ __all__ = [
     "TaskOutcomeState",
     "UnattendedSchedulerRunner",
     "scheduled_task_id",
+    "adopt_legacy_positions",
+    "migrate_adopted_strategies",
+    "migration_policy",
+    "publish_pre_shadow_evidence",
 ]

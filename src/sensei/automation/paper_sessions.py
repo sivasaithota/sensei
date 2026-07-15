@@ -8,7 +8,7 @@ idempotency and safety.  It never connects a live broker.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Callable, Mapping
+from typing import Callable, Collection, Mapping
 
 from .runner import TaskOutcome, TaskOutcomeState
 from .scheduling import ScheduledTask
@@ -23,6 +23,7 @@ class LegacyPaperSessions:
         execute_open: Callable[..., Mapping[str, object]] | None = None,
         run_day: Callable[..., Mapping[str, object]] | None = None,
         load_playbook: Callable[[], Mapping[str, object]] | None = None,
+        authorized_strategy_names: Callable[[], Collection[str]] | None = None,
     ) -> None:
         if execute_open is None:
             from sensei.loop.openexec import execute_pending
@@ -39,9 +40,13 @@ class LegacyPaperSessions:
         self._execute_open = execute_open
         self._run_day = run_day
         self._load_playbook = load_playbook
+        self._authorized_strategy_names = authorized_strategy_names or (lambda: ())
 
     def entry(self, task: ScheduledTask, now: datetime) -> TaskOutcome:
-        summary = self._execute_open(today=task.trading_date)
+        summary = self._execute_open(
+            today=task.trading_date,
+            allowed_strategy_names=frozenset(self._authorized_strategy_names()),
+        )
         filled = len(summary.get("filled", ()))
         skipped = len(summary.get("skipped", ()))
         return TaskOutcome(
@@ -55,13 +60,15 @@ class LegacyPaperSessions:
         strategies = playbook.get("strategies", ())
         adopted = tuple(
             item for item in strategies
-            if isinstance(item, Mapping) and item.get("adopted") is True
+            if isinstance(item, Mapping)
+            and item.get("adopted") is True
+            and item.get("name") in frozenset(self._authorized_strategy_names())
         )
         if not adopted:
             return TaskOutcome(
                 TaskOutcomeState.HALTED,
-                ("NO_BACKTEST_ADOPTED_STRATEGIES",),
-                "paper EOD refused because the current playbook has no adopted strategy",
+                ("NO_GOVERNED_PAPER_STRATEGIES",),
+                "paper EOD refused because no backtest-adopted plan is authorized at PAPER",
             )
         summary = self._run_day(
             today=task.trading_date,
