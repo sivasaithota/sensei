@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Template only. The cutover installer must remove Disabled after the
+         governed composition root and journal have been provisioned. -->
+    <key>Disabled</key>
+    <true/>
+
+    <key>Label</key>
+    <string>com.sensei.governed-scheduler</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/uv</string>
+        <string>run</string>
+        <string>sensei</string>
+        <string>scheduler-run-once</string>
+        <string>--journal</string>
+        <string>/Users/sivasaithota/Documents/trade/data/operations.sqlite3</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/sivasaithota/Documents/trade</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>TZ</key>
+        <string>Asia/Kolkata</string>
+    </dict>
+
+    <!-- launchd supplies wakeups; the application owns the NSE date and
+         session-window decision and journals a deterministic task identity. -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>300</integer>
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/sivasaithota/Documents/trade/data/logs/governed-scheduler.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/sivasaithota/Documents/trade/data/logs/governed-scheduler.err</string>
+</dict>
+</plist>

@@ -14,7 +14,7 @@ import json
 import math
 import re
 from enum import Enum
-from typing import Annotated, Generic, Literal, TypeVar
+from typing import Annotated, Generic, Literal, TypeAlias, TypeVar
 
 from pydantic import (
     BaseModel,
@@ -101,6 +101,60 @@ class TemporalReference(_FrozenModel):
     sessions_ago: int = Field(ge=0, le=5_000)
 
 
+class IndicatorKind(str, Enum):
+    """Derived daily-bar operands supported by the canonical v2 engine."""
+
+    SMA = "sma"
+    VOLUME_SMA = "volume_sma"
+    ROLLING_HIGH = "rolling_high"
+    ROLLING_LOW = "rolling_low"
+    RETURN_PCT = "return_pct"
+    RSI = "rsi"
+    STRONG_CLOSE = "strong_close"
+    RULESPEC_HAMMER = "rulespec_hammer"
+
+
+class IndicatorReference(_FrozenModel):
+    """One deterministic derived observation at an explicit session offset."""
+
+    indicator: IndicatorKind
+    window_sessions: int | None = Field(default=None, ge=1, le=5_000)
+    sessions_ago: int = Field(default=0, ge=0, le=5_000)
+
+    @model_validator(mode="after")
+    def _validate_window(self) -> IndicatorReference:
+        windowed = {
+            IndicatorKind.SMA,
+            IndicatorKind.VOLUME_SMA,
+            IndicatorKind.ROLLING_HIGH,
+            IndicatorKind.ROLLING_LOW,
+            IndicatorKind.RETURN_PCT,
+            IndicatorKind.RSI,
+        }
+        if self.indicator in windowed and self.window_sessions is None:
+            raise ValueError(f"{self.indicator.value} requires a window")
+        if self.indicator not in windowed and self.window_sessions is not None:
+            raise ValueError(f"{self.indicator.value} does not accept a window")
+        return self
+
+
+MarketReference: TypeAlias = TemporalReference | IndicatorReference
+
+
+class ScaledOperand(_FrozenModel):
+    """Multiply one right-hand operand before applying its comparison."""
+
+    operand: MarketReference | float
+    factor: float
+
+    @field_validator("factor")
+    @classmethod
+    def _finite_factor(cls, value: float) -> float:
+        if not math.isfinite(value):
+            raise ValueError("operand factor must be finite")
+        return value
+
+
 class ComparisonOperator(str, Enum):
     GT = ">"
     GE = ">="
@@ -113,16 +167,16 @@ class EntryCondition(_FrozenModel):
     """One fully attributed, deterministic comparison."""
 
     condition_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_.-]{2,79}$")
-    left: TemporalReference
+    left: MarketReference
     operator: ComparisonOperator
-    right: TemporalReference | float
+    right: MarketReference | ScaledOperand | float
     attribution: FieldAttribution
 
     @field_validator("right")
     @classmethod
     def _finite_constant(
-        cls, value: TemporalReference | float
-    ) -> TemporalReference | float:
+        cls, value: MarketReference | ScaledOperand | float
+    ) -> MarketReference | ScaledOperand | float:
         if isinstance(value, float) and not math.isfinite(value):
             raise ValueError("condition constants must be finite")
         return value
@@ -224,7 +278,7 @@ class StrategyPlan(_FrozenModel):
 
         return {
             "schema_version": self.schema_version,
-            "engine_contract": "daily-long-only-v1",
+            "engine_contract": self.engine_contract,
             "side": "long",
             "bar_interval": "1d",
             "strategy_family": self.strategy_family.model_dump(mode="json"),
@@ -234,6 +288,15 @@ class StrategyPlan(_FrozenModel):
             "sizing": self.sizing.model_dump(mode="json"),
             "applicability": self.applicability.model_dump(mode="json"),
         }
+
+    @property
+    def engine_contract(self) -> str:
+        for condition in self.entry.conditions:
+            if isinstance(condition.left, IndicatorReference):
+                return "daily-long-only-v2"
+            if isinstance(condition.right, (IndicatorReference, ScaledOperand)):
+                return "daily-long-only-v2"
+        return "daily-long-only-v1"
 
     @property
     def plan_id(self) -> str:
@@ -273,9 +336,9 @@ class DecisionAction(str, Enum):
 
 class ConditionOutcome(_FrozenModel):
     condition_id: str
-    left_reference: TemporalReference
+    left_reference: MarketReference
     operator: ComparisonOperator
-    right_reference: TemporalReference | None
+    right_reference: MarketReference | None
     left_value: float | None
     right_value: float | None
     passed: bool

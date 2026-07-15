@@ -15,7 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 
 
 def main() -> None:
@@ -46,9 +46,49 @@ def main() -> None:
         help="existing governed operational journal",
     )
     lab_p.add_argument("--limit", type=int, default=10)
+    scheduler_p = sub.add_parser("scheduler-run-once")
+    scheduler_p.add_argument("--journal", default="data/operations.sqlite3")
+    scheduler_p.add_argument("--config", default=None)
+    scheduler_p.add_argument("--now", default=None, help="aware ISO timestamp (test/manual)")
+    scheduler_status_p = sub.add_parser("scheduler-status")
+    scheduler_status_p.add_argument("--journal", default="data/operations.sqlite3")
     ui_p = sub.add_parser("ui")
     ui_p.add_argument("--port", type=int, default=8642)
     args = parser.parse_args()
+
+    if args.cmd == "scheduler-run-once":
+        from pathlib import Path
+        from sensei.automation import GovernedSchedulerApplication, SchedulerConfigurationError
+
+        journal_path = Path(args.journal)
+        try:
+            now = datetime.fromisoformat(args.now) if args.now else datetime.now(timezone.utc)
+            if now.tzinfo is None:
+                parser.error("--now must include a timezone offset")
+            app = GovernedSchedulerApplication.open(
+                journal_path,
+                config_path=Path(args.config) if args.config else None,
+            )
+            result = app.run_once(now)
+        except (SchedulerConfigurationError, ValueError) as exc:
+            parser.error(str(exc))
+        print(json.dumps(result.to_dict(), indent=2))
+        return
+
+    if args.cmd == "scheduler-status":
+        from pathlib import Path
+        from sensei.operations import OperationalJournal
+        from sensei.automation.scheduling import SchedulerLedger
+
+        journal_path = Path(args.journal)
+        if not journal_path.is_file():
+            parser.error(f"governed journal does not exist: {journal_path}")
+        journal = OperationalJournal(journal_path)
+        print(json.dumps({
+            "journal": journal.verify().to_dict(),
+            "resolved_task_ids": sorted(SchedulerLedger(journal).resolved_task_ids()),
+        }, indent=2))
+        return
 
     if args.cmd == "research-lab-status":
         from pathlib import Path

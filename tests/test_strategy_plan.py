@@ -164,6 +164,28 @@ def test_plan_identity_covers_semantics_but_not_display_name():
     assert revised_temporal_reference.plan_id != plan.plan_id
 
 
+def test_v1_plan_and_trace_identities_remain_stable():
+    """The richer plan grammar must not silently re-version existing plans."""
+
+    plan = hammer_follow_through_plan()
+    bars = hammer_bars()
+    trace = StrategyPlanEngine().evaluate(
+        PlanEvaluationRequest(
+            plan=plan,
+            instrument_id="NSE:TEST",
+            bars=bars,
+            evaluation_session=bars.index[-1].date(),
+        )
+    )
+
+    assert plan.plan_id == (
+        "sha256:91834a48af0530cfdc99e2c9f25d55a66e11a6cec527ba2aa1100d13e88ddf30"
+    )
+    assert trace.trace_id == (
+        "trace:d0cf5cd25ad63c4683e9631170f5bd7c4ee3fb44117b8907af155b1f75c9b5df"
+    )
+
+
 def test_plan_is_immutable():
     plan = hammer_follow_through_plan()
 

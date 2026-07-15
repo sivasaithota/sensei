@@ -214,6 +214,11 @@ class StageDossierRegistry:
         self._trusted_issuer_ids = frozenset(trusted_issuer_ids)
         self._trusted_producers_by_kind = normalized
 
+    def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
+        """Return whether dossier issuance and verification use this journal."""
+
+        return self._journal is journal
+
     def issue(self, request: StageDossierIssue) -> StageDossier:
         self._require_trusted_issue(request)
         events = self._clean_events()

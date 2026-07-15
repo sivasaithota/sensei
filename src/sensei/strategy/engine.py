@@ -14,10 +14,14 @@ from .models import (
     ConditionOutcome,
     DecisionAction,
     EntryCondition,
+    IndicatorKind,
+    IndicatorReference,
+    MarketReference,
     ObservableField,
     PlanDecisionTrace,
     PlanExitIntent,
     PlanSizingIntent,
+    ScaledOperand,
     StrategyPlan,
     TemporalReference,
 )
@@ -193,12 +197,11 @@ class StrategyPlanEngine:
         current_position: int,
     ) -> ConditionOutcome:
         left = self._resolve(condition.left, bars, current_position)
-        if isinstance(condition.right, TemporalReference):
-            right_reference = condition.right
-            right = self._resolve(condition.right, bars, current_position)
-        else:
-            right_reference = None
-            right = float(condition.right)
+        right_reference, right = self._resolve_right(
+            condition.right,
+            bars,
+            current_position,
+        )
 
         passed = left is not None and right is not None and self._compare(
             left,
@@ -215,18 +218,95 @@ class StrategyPlanEngine:
             passed=passed,
         )
 
+    def _resolve_right(
+        self,
+        operand: MarketReference | ScaledOperand | float,
+        bars: pd.DataFrame,
+        current_position: int,
+    ) -> tuple[MarketReference | None, float | None]:
+        factor = 1.0
+        if isinstance(operand, ScaledOperand):
+            factor = operand.factor
+            operand = operand.operand
+        if isinstance(operand, (TemporalReference, IndicatorReference)):
+            value = self._resolve(operand, bars, current_position)
+            return operand, value * factor if value is not None else None
+        return None, float(operand) * factor
+
     def _resolve(
         self,
-        reference: TemporalReference,
+        reference: MarketReference,
         bars: pd.DataFrame,
         current_position: int,
     ) -> float | None:
         position = current_position - reference.sessions_ago
         if position < 0:
             return None
+        if isinstance(reference, IndicatorReference):
+            return self._resolve_indicator(reference, bars, position)
         if reference.field is ObservableField.HAMMER:
             return self._hammer_at(bars, position)
         return float(bars[reference.field.value].iloc[position])
+
+    def _resolve_indicator(
+        self,
+        reference: IndicatorReference,
+        bars: pd.DataFrame,
+        position: int,
+    ) -> float | None:
+        kind = reference.indicator
+        if kind is IndicatorKind.STRONG_CLOSE:
+            row = bars.iloc[position]
+            candle_range = float(row["high"]) - float(row["low"])
+            denominator = candle_range if candle_range != 0 else 1e-9
+            return (
+                1.0
+                if (float(row["close"]) - float(row["low"])) / denominator
+                >= 0.75
+                else 0.0
+            )
+        if kind is IndicatorKind.RULESPEC_HAMMER:
+            return self._rulespec_hammer_at(bars, position)
+
+        window = reference.window_sessions
+        if window is None:
+            raise PlanInputError(f"indicator {kind.value} requires a window")
+        start = position - window + 1
+        if kind in {
+            IndicatorKind.SMA,
+            IndicatorKind.VOLUME_SMA,
+            IndicatorKind.ROLLING_HIGH,
+            IndicatorKind.ROLLING_LOW,
+        } and start < 0:
+            return None
+        if kind is IndicatorKind.SMA:
+            return float(bars["close"].iloc[start : position + 1].mean())
+        if kind is IndicatorKind.VOLUME_SMA:
+            return float(bars["volume"].iloc[start : position + 1].mean())
+        if kind is IndicatorKind.ROLLING_HIGH:
+            return float(bars["close"].iloc[start : position + 1].max())
+        if kind is IndicatorKind.ROLLING_LOW:
+            return float(bars["close"].iloc[start : position + 1].min())
+        if kind is IndicatorKind.RETURN_PCT:
+            prior = position - window
+            if prior < 0:
+                return None
+            return (
+                float(bars["close"].iloc[position])
+                / float(bars["close"].iloc[prior])
+                - 1.0
+            ) * 100.0
+        if kind is IndicatorKind.RSI:
+            prior = position - window
+            if prior < 0:
+                return None
+            closes = bars["close"].iloc[prior : position + 1]
+            delta = closes.diff().iloc[1:]
+            gain = float(delta.clip(lower=0).mean())
+            loss = float((-delta.clip(upper=0)).mean())
+            denominator = loss if loss != 0 else 1e-9
+            return 100.0 - 100.0 / (1.0 + gain / denominator)
+        raise PlanInputError(f"unsupported indicator {kind.value}")
 
     @staticmethod
     def _hammer_at(bars: pd.DataFrame, position: int) -> float | None:
@@ -252,6 +332,27 @@ class StrategyPlanEngine:
             and after_dip
         )
         return 1.0 if is_hammer else 0.0
+
+    @staticmethod
+    def _rulespec_hammer_at(bars: pd.DataFrame, position: int) -> float | None:
+        """Preserve the legacy RuleSpec hammer semantics for migrated plans."""
+
+        if position < 4:
+            return None
+        row = bars.iloc[position]
+        candle_range = float(row["high"]) - float(row["low"])
+        denominator = candle_range if candle_range != 0 else 1e-9
+        body = abs(float(row["close"]) - float(row["open"]))
+        lower_shadow = min(float(row["open"]), float(row["close"])) - float(
+            row["low"]
+        )
+        near_top = (
+            float(row["high"]) - max(float(row["open"]), float(row["close"]))
+        ) <= denominator * 0.25
+        after_dip = float(bars["close"].iloc[position - 1]) < float(
+            bars["close"].iloc[position - 4]
+        )
+        return 1.0 if lower_shadow >= body * 2.0 and near_top and after_dip else 0.0
 
     @staticmethod
     def _compare(left: float, operator: ComparisonOperator, right: float) -> bool:

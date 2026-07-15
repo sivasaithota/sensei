@@ -1,7 +1,9 @@
 """Governed, mode-independent Strategy Plan contracts."""
 
 from .attestation import DecisionTraceAttestation, DecisionTraceAuthority
+from .catalog import StrategyPlanCatalog, StrategyPlanRecord
 from .conformance import StrategyConformance, assess_strategy_conformance
+from .conversion import RuleSpecPlanPolicy, convert_rule_spec
 from .engine import PlanEvaluationRequest, PlanInputError, StrategyPlanEngine
 from .models import (
     ApplicabilityOutcome,
@@ -15,10 +17,14 @@ from .models import (
     ExitPolicy,
     FieldAttribution,
     FieldAuthority,
+    IndicatorKind,
+    IndicatorReference,
+    MarketReference,
     ObservableField,
     PlanDecisionTrace,
     PlanExitIntent,
     PlanSizingIntent,
+    ScaledOperand,
     SizingPolicy,
     StrategyPlan,
     TemporalReference,
@@ -39,17 +45,25 @@ __all__ = [
     "ExitPolicy",
     "FieldAttribution",
     "FieldAuthority",
+    "IndicatorKind",
+    "IndicatorReference",
+    "MarketReference",
     "ObservableField",
     "PlanDecisionTrace",
     "PlanEvaluationRequest",
     "PlanExitIntent",
     "PlanInputError",
     "PlanSizingIntent",
+    "RuleSpecPlanPolicy",
+    "ScaledOperand",
     "SizingPolicy",
     "StrategyConformance",
     "StrategyPlan",
+    "StrategyPlanCatalog",
     "StrategyPlanEngine",
+    "StrategyPlanRecord",
     "TemporalReference",
     "TimingPolicy",
     "assess_strategy_conformance",
+    "convert_rule_spec",
 ]
