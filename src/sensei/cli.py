@@ -61,6 +61,7 @@ def main() -> None:
     scheduler_migrate_p.add_argument("--playbook", default="data/playbook/current.json")
     scheduler_migrate_p.add_argument("--rules", default="data/studied_rules.json")
     scheduler_migrate_p.add_argument("--positions", default="data/paper/positions.json")
+    scheduler_migrate_p.add_argument("--prices-dir", default="data/prices")
     ui_p = sub.add_parser("ui")
     ui_p.add_argument("--port", type=int, default=8642)
     args = parser.parse_args()
@@ -114,6 +115,23 @@ def main() -> None:
             positions_path=Path(args.positions),
             occurred_at=now,
         )
+        from sensei.runtime import LegacyPositionAdoptionRegistry
+        import pandas as pd
+
+        marks = {
+            item.symbol: round(float(pd.read_parquet(
+                Path(args.prices_dir) / f"{item.symbol}.parquet",
+                columns=["close"],
+            )["close"].iloc[-1]) * 100)
+            for item in positions
+        }
+        position_truth = LegacyPositionAdoptionRegistry(
+            app.journal, positions_path=Path(args.positions)
+        ).reconcile(
+            mark_prices_paise=marks,
+            captured_at=now,
+            command_id="governance-migration:legacy-position-reconciliation",
+        )
         reports = [
             app.autopilot.reconcile(now=now, command_id=f"governance-migration:{index}")
             for index in range(3)
@@ -122,6 +140,10 @@ def main() -> None:
             "registered_plans": [item.plan_id for item in result.registered],
             "skipped_rules": list(result.skipped_names),
             "adopted_positions": [item.symbol for item in positions],
+            "legacy_position_reconciliation_event_id": (
+                position_truth.reconciliation_event_id
+            ),
+            "legacy_account_snapshot_id": position_truth.account_snapshot.snapshot_id,
             "stages": [
                 {item.plan_id: item.stage.value for item in report.results}
                 for report in reports

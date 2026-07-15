@@ -63,6 +63,61 @@ def _kill_active() -> bool:
     return (DATA_DIR / "KILL").exists()
 
 
+def _governance_status() -> dict:
+    journal_path = DATA_DIR / "operations.sqlite3"
+    if not journal_path.is_file():
+        return {"available": False, "plans": [], "alerts": ["Governed journal missing"]}
+    from sensei.operations import OperationalJournal
+
+    journal = OperationalJournal(journal_path)
+    verification = journal.verify()
+    events = journal.read_all() if verification.ok else ()
+    plans = {}
+    stages = {}
+    shadows = {}
+    scheduler = None
+    adopted = reconciled = False
+    for event in events:
+        if event.event_type == "StrategyPlanRegistered":
+            plans[str(event.payload["plan_id"])] = str(event.payload["source_rule_name"])
+        elif event.event_type == "StrategyLifecycleTransitioned":
+            stages[str(event.payload["plan_version_id"])] = str(event.payload["target_stage"])
+        elif event.event_type == "ShadowSessionObserved":
+            plan_id = str(event.payload["plan_id"])
+            shadows[plan_id] = shadows.get(plan_id, 0) + 1
+        elif event.event_type in {"SchedulerTaskCompleted", "SchedulerTaskHalted"}:
+            scheduler = event
+        elif event.event_type == "LegacyPaperPositionsAdopted":
+            adopted = True
+        elif event.event_type == "LegacyPaperPositionsReconciled":
+            reconciled = True
+    alerts = []
+    if not verification.ok:
+        alerts.append("Operational journal integrity failed")
+    if scheduler is not None and scheduler.event_type == "SchedulerTaskHalted":
+        alerts.append("Latest scheduler task halted")
+    if adopted and not reconciled:
+        alerts.append("Legacy positions adopted but not reconciled")
+    return {
+        "available": True,
+        "journal_ok": verification.ok,
+        "events": verification.events_checked,
+        "plans": [
+            {"name": name, "plan_id": plan_id, "stage": stages.get(plan_id, "registered"),
+             "shadow_sessions": shadows.get(plan_id, 0)}
+            for plan_id, name in sorted(plans.items(), key=lambda item: item[1])
+        ],
+        "scheduler": None if scheduler is None else {
+            "state": scheduler.event_type.removeprefix("SchedulerTask").upper(),
+            "occurred_at": scheduler.occurred_at.isoformat(),
+            "reason_codes": scheduler.payload.get("reason_codes", ()),
+        },
+        "positions_adopted": adopted,
+        "positions_reconciled": reconciled,
+        "alerts": alerts,
+    }
+
+
 def _equity_curve() -> list[tuple[str, float]]:
     """Equity after each closed trade (realized only), starting at capital."""
     capital = 50000.0
@@ -146,6 +201,22 @@ def render() -> str:
 
     kill = ("<div class='kill'>⛔ KILL-SWITCH ACTIVE — trading halted</div>"
             if _kill_active() else "")
+    governance = _governance_status()
+    governance_alerts = "".join(
+        f"<div class='warning'>⚠ {_e(message)}</div>"
+        for message in governance.get("alerts", ())
+    )
+    plan_rows = "".join(
+        f"<tr><td>{_e(item['name'])}</td><td>{_e(item['stage']).upper()}</td>"
+        f"<td>{item['shadow_sessions']}/20</td><td class='mono'>{_e(item['plan_id'][:20])}…</td></tr>"
+        for item in governance.get("plans", ())
+    ) or "<tr><td colspan='4' class='muted'>No governed plans registered</td></tr>"
+    scheduler = governance.get("scheduler")
+    scheduler_text = (
+        "No terminal scheduler task yet" if scheduler is None else
+        f"{scheduler['state']} · {scheduler['occurred_at'][:19]} · "
+        f"{', '.join(scheduler['reason_codes']) or 'no reason code'}"
+    )
 
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="refresh" content="60">
@@ -166,9 +237,13 @@ def render() -> str:
  .badge.ok {{ background: #0a7d33; color: white; }}
  .kill {{ background: #b3261e; color: white; padding: .6rem 1rem; border-radius: 8px;
           font-weight: 600; margin-bottom: 1rem; }}
+ .warning {{ background: #fff3cd; color: #664d03; padding: .6rem 1rem;
+             border-radius: 8px; margin-bottom: .5rem; }}
+ .mono {{ font-family: ui-monospace, monospace; font-size: .72rem; }}
 </style></head><body>
 <h1>Sensei <span class="muted">· paper trading (P1) · {date.today().isoformat()}</span></h1>
 {kill}
+{governance_alerts}
 <div class="cards">
  <div class="card"><div class="v">₹{equity:,.0f}</div><div class="k">Equity</div></div>
  <div class="card"><div class="v">₹{cash:,.0f}</div><div class="k">Cash</div></div>
@@ -177,6 +252,15 @@ def render() -> str:
  <div class="card"><div class="v {'pos' if realized >= 0 else 'neg'}">₹{realized:+,.0f}</div><div class="k">Realized P&L</div></div>
  <div class="card"><div class="v">{wins}/{len(closed)}</div><div class="k">Wins / closed</div></div>
 </div>
+
+<h2>Governed operations</h2>
+<div class="cards">
+ <div class="card"><div class="v">{'OK' if governance.get('journal_ok') else '—'}</div><div class="k">Journal integrity</div></div>
+ <div class="card"><div class="v">{governance.get('events', 0)}</div><div class="k">Governed events</div></div>
+ <div class="card"><div class="v">{'YES' if governance.get('positions_reconciled') else 'NO'}</div><div class="k">Legacy positions reconciled</div></div>
+</div>
+<p>{_e(scheduler_text)}</p>
+<table><tr><th>Canonical strategy</th><th>Stage</th><th>Shadow</th><th>Plan</th></tr>{plan_rows}</table>
 
 <h2>Equity curve (realized)</h2>
 {_svg_equity(_equity_curve())}
