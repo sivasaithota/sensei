@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -109,6 +109,28 @@ def test_account_projector_marks_durable_fills_and_protected_risk(tmp_path):
     assert position.quantity == 4
     assert position.notional_paise == 608_000
     assert position.risk_to_stop_paise == 28_000
+
+
+def test_account_projector_keeps_a_new_high_water_mark_monotonic(tmp_path):
+    gateway, _ = _filled_and_protected_gateway(tmp_path)
+    projector = PaperAccountProjector(
+        gateway,
+        starting_capital_paise=10_000_000,
+        high_water_mark_paise=10_000_000,
+    )
+
+    peak = projector.project(
+        captured_at=NOW,
+        mark_prices_paise={"INFY": 152_000},
+    )
+    below_peak = projector.project(
+        captured_at=NOW + timedelta(seconds=1),
+        mark_prices_paise={"INFY": 149_000},
+    )
+
+    assert peak.high_water_mark_paise == 10_008_000
+    assert below_peak.marked_equity_paise == 9_996_000
+    assert below_peak.high_water_mark_paise == peak.high_water_mark_paise
 
 
 def test_account_projector_fails_closed_without_a_current_position_mark(tmp_path):
@@ -393,3 +415,75 @@ def test_capture_invalidates_issued_cycle_when_checked_facts_change(tmp_path):
     )
     assert refreshed_truth.authorized_cycle_request_ids == ()
     assert fixture.inputs.pending(now=NOW + timedelta(seconds=1)) == ()
+
+
+def test_capture_invalidates_issued_cycle_when_safety_latches(tmp_path):
+    fixture = _paper_session_inputs(tmp_path)
+    prepared = fixture.inputs.prepare(
+        now=NOW,
+        command_id="scheduled-paper-session-safety",
+        cycle_builder=_cycle_builder,
+    )
+    assert fixture.inputs.pending(now=NOW) == (prepared.request,)
+    fixture.safety.latch(
+        reason_code="OWNER_HALT",
+        detail="owner stopped new exposure",
+        occurred_at=NOW + timedelta(seconds=1),
+        idempotency_key="paper-session-owner-halt",
+    )
+
+    refreshed_truth = fixture.inputs.capture(
+        now=NOW + timedelta(seconds=1),
+        command_id="scheduled-paper-session-safety:truth:before-dispatch",
+    )
+
+    assert refreshed_truth.operational_health.new_entries_allowed is False
+    assert "SAFETY_LATCHED" in refreshed_truth.operational_health.reason_codes
+    assert refreshed_truth.authorized_cycle_request_ids == ()
+
+
+def test_capture_reauthenticates_and_rebuilds_after_pin_expires(tmp_path):
+    fixture = _paper_session_inputs(tmp_path)
+    prepared = fixture.inputs.prepare(
+        now=NOW,
+        command_id="scheduled-paper-session-expiry",
+        cycle_builder=_cycle_builder,
+    )
+
+    refreshed_truth = fixture.inputs.capture(
+        now=NOW + timedelta(seconds=31),
+        command_id="scheduled-paper-session-expiry:truth",
+    )
+    pending = fixture.inputs.pending(now=NOW + timedelta(seconds=31))
+
+    assert refreshed_truth is not prepared.truth
+    assert len(pending) == 1
+    assert pending[0].account_snapshot is refreshed_truth.account_snapshot
+    assert pending[0].operational_health is refreshed_truth.operational_health
+
+
+def test_empty_poll_does_not_prevent_rebuild_after_health_recovers(tmp_path):
+    fixture = _paper_session_inputs(tmp_path)
+    fixture.check_states["market-data"] = ComponentCheckResult(
+        ComponentState.DEGRADED,
+        "market vendor lagged",
+    )
+    prepared = fixture.inputs.prepare(
+        now=NOW,
+        command_id="scheduled-paper-session-recovery",
+        cycle_builder=_cycle_builder,
+    )
+    assert prepared.request is None
+    assert fixture.inputs.pending(now=NOW) == ()
+    fixture.check_states["market-data"] = ComponentCheckResult(
+        ComponentState.HEALTHY,
+        "market vendor recovered",
+    )
+
+    refreshed_truth = fixture.inputs.capture(
+        now=NOW + timedelta(seconds=1),
+        command_id="scheduled-paper-session-recovery:truth",
+    )
+
+    assert refreshed_truth.operational_health.new_entries_allowed is True
+    assert len(fixture.inputs.pending(now=NOW + timedelta(seconds=1))) == 1
