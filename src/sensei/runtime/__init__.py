@@ -21,6 +21,7 @@ from .activation import (
     RuntimeTrustError,
     VerifiedSurveillanceSource,
 )
+from .production import ProductionPaperSession
 
 __all__ = [
     "ComponentCheck",
@@ -32,6 +33,7 @@ __all__ = [
     "PaperAccountProjector",
     "PaperCycleBuilder",
     "PaperSessionInputs",
+    "ProductionPaperSession",
     "NseSurveillanceRefresher",
     "RuntimeSecretStore",
     "RuntimeTrustError",

@@ -595,6 +595,26 @@ def test_public_paper_boundary_accepts_only_the_exact_concrete_runtime(
     supervisor.close()
 
 
+def test_public_factory_binds_durable_gateway_to_exact_opened_journal(tmp_path):
+    journal_path = tmp_path / "operations.sqlite3"
+    OperationalJournal(journal_path)
+    observed = {}
+
+    def gateway_factory(journal):
+        observed["journal"] = journal
+        return RecordingPaperGateway(journal)
+
+    supervisor = GovernedDeskSupervisor.paper_only_from_gateway_factory(
+        journal_path=journal_path,
+        gateway_factory=gateway_factory,
+        compose=lambda journal, gateway: exact_composition_fixture(journal, gateway),
+        clock=lambda: NOW,
+    )
+
+    assert supervisor._gateway.is_bound_to_journal(observed["journal"])
+    supervisor.close()
+
+
 def test_paper_supervisor_refuses_missing_journal_without_creating_it(
     tmp_path: Path,
 ):
