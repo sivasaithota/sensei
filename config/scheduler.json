@@ -1,5 +1,5 @@
 {
-  "execution_backend": "legacy_paper",
+  "execution_backend": "governed_paper",
   "legacy_positions_path": "data/paper/positions.json",
   "closed_dates": []
 }
