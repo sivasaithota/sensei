@@ -70,7 +70,8 @@ def _todays_bars(symbols: list[str]) -> dict[str, dict]:
 
 
 def run_day(*, refresh: bool = True, client: anthropic.Anthropic | None = None,
-            today: date | None = None) -> dict:
+            today: date | None = None,
+            adopted_entries: tuple[dict, ...] | list[dict] | None = None) -> dict:
     """One full trading day. Returns a summary dict."""
     today = today or date.today()
     cfg = RiskConfig.load("config/risk.yaml")
@@ -101,7 +102,7 @@ def run_day(*, refresh: bool = True, client: anthropic.Anthropic | None = None,
 
     # 2. scan for new signals (skip entirely if halted)
     if not kill_switch_active():
-        candidates = scan(cfg=cfg)
+        candidates = scan(cfg=cfg, adopted_entries=adopted_entries)
         summary["signals"] = len(candidates)
 
         # earnings no-trade windows — code-level guard, not agent judgment

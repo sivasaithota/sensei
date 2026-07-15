@@ -58,6 +58,7 @@ class SchedulerApplicationConfig:
     )
     legacy_positions_path: Path = Path("data/paper/positions.json")
     closed_dates: frozenset[date] = frozenset()
+    execution_backend: str = "disabled"
 
     @classmethod
     def from_json(cls, path: Path | None) -> "SchedulerApplicationConfig":
@@ -92,6 +93,7 @@ class SchedulerApplicationConfig:
                 date.fromisoformat(str(value))
                 for value in raw.get("closed_dates", ())
             ),
+            execution_backend=str(raw.get("execution_backend", "disabled")),
         )
 
 
@@ -100,20 +102,28 @@ class SchedulerConfigurationError(RuntimeError):
 
 
 class _LifecycleMaintenanceHandler:
-    def __init__(self, autopilot: StrategyAutopilot) -> None:
+    def __init__(
+        self,
+        autopilot: StrategyAutopilot,
+        paper_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
+    ) -> None:
         self._autopilot = autopilot
+        self._paper_session = paper_session
 
     def handle(self, task: ScheduledTask, *, now: datetime) -> TaskOutcome:
+        paper_outcome = (
+            self._paper_session(task, now) if self._paper_session is not None else None
+        )
+        if paper_outcome is not None and paper_outcome.state is TaskOutcomeState.HALTED:
+            return paper_outcome
         report = self._autopilot.reconcile(
             now=now,
             command_id=f"scheduler:{task.task_id}:lifecycle",
         )
         if not report.results:
-            return TaskOutcome(
-                TaskOutcomeState.COMPLETED,
-                ("NO_CANONICAL_PLANS",),
-                "lifecycle checked; no immutable plans are registered",
-            )
+            return paper_outcome or TaskOutcome(
+                TaskOutcomeState.COMPLETED, ("NO_CANONICAL_PLANS",),
+                "lifecycle checked; no immutable plans are registered")
         failed = tuple(
             result
             for result in report.results
@@ -155,6 +165,7 @@ class _EntryPreflightHandler:
         autopilot: StrategyAutopilot,
         legacy_positions_path: Path,
         entry_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None,
+        manages_legacy_positions: bool = False,
     ) -> None:
         self._journal = journal
         self._catalog = catalog
@@ -162,10 +173,9 @@ class _EntryPreflightHandler:
         self._autopilot = autopilot
         self._legacy_positions_path = legacy_positions_path
         self._entry_session = entry_session
+        self._manages_legacy_positions = manages_legacy_positions
 
     def handle(self, task: ScheduledTask, *, now: datetime) -> TaskOutcome:
-        if self._entry_session is not None:
-            return self._entry_session(task, now)
         safety = SafetyControl(self._journal).state()
         if safety.latched:
             return TaskOutcome(
@@ -174,12 +184,15 @@ class _EntryPreflightHandler:
                 or ("SAFETY_LATCHED",),
                 "new entries remain blocked by the durable safety state",
             )
-        if _legacy_positions_exist(self._legacy_positions_path):
+        if (not self._manages_legacy_positions
+                and _legacy_positions_exist(self._legacy_positions_path)):
             return TaskOutcome(
                 TaskOutcomeState.HALTED,
                 ("LEGACY_EXPOSURE_UNRESOLVED",),
                 "legacy paper positions require an explicit adoption or closure workflow",
             )
+        if self._entry_session is not None:
+            return self._entry_session(task, now)
         report = self._autopilot.reconcile(
             now=now,
             command_id=f"scheduler:{task.task_id}:entry-preflight",
@@ -206,6 +219,8 @@ class GovernedSchedulerApplication:
         journal: OperationalJournal,
         config: SchedulerApplicationConfig,
         entry_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
+        eod_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
+        manages_legacy_positions: bool = False,
     ) -> None:
         self.journal = journal
         self.config = config
@@ -242,9 +257,10 @@ class GovernedSchedulerApplication:
                     autopilot=self.autopilot,
                     legacy_positions_path=config.legacy_positions_path,
                     entry_session=entry_session,
+                    manages_legacy_positions=manages_legacy_positions,
                 ),
                 SchedulerTaskKind.END_OF_DAY_SESSION: _LifecycleMaintenanceHandler(
-                    self.autopilot
+                    self.autopilot, eod_session
                 ),
             },
         )
@@ -264,7 +280,26 @@ class GovernedSchedulerApplication:
         if not journal.verify().ok:
             raise SchedulerConfigurationError("governed journal failed integrity verification")
         config = SchedulerApplicationConfig.from_json(config_path)
-        return cls(journal=journal, config=config, entry_session=entry_session)
+        eod_session = None
+        manages_legacy_positions = False
+        if entry_session is None and config.execution_backend == "legacy_paper":
+            from .paper_sessions import LegacyPaperSessions
+
+            sessions = LegacyPaperSessions()
+            entry_session = sessions.entry
+            eod_session = sessions.eod
+            manages_legacy_positions = True
+        elif config.execution_backend != "disabled":
+            raise SchedulerConfigurationError(
+                f"unsupported execution_backend: {config.execution_backend}"
+            )
+        return cls(
+            journal=journal,
+            config=config,
+            entry_session=entry_session,
+            eod_session=eod_session,
+            manages_legacy_positions=manages_legacy_positions,
+        )
 
     def run_once(self, now: datetime) -> SchedulerRunResult:
         return self.runner.run_once(now)

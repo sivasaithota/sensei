@@ -34,6 +34,7 @@ from .runner import (
     TaskOutcomeState,
     UnattendedSchedulerRunner,
 )
+from .paper_sessions import LegacyPaperSessions
 
 from .scheduling import (
     INDIA_TIMEZONE,
@@ -74,6 +75,7 @@ __all__ = [
     "INDIA_TIMEZONE",
     "ImmutableJsonArtifactStore",
     "LifecycleEvidenceProvider",
+    "LegacyPaperSessions",
     "PlanStaticEvidenceProducer",
     "PublishedStageEvidence",
     "ScheduleDecision",

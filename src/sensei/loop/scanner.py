@@ -75,11 +75,13 @@ def _facts(df, symbol: str) -> dict:
 
 
 def scan(symbols: list[str] | None = None,
-         cfg: RiskConfig | None = None) -> list[SignalCandidate]:
+         cfg: RiskConfig | None = None,
+         adopted_entries: tuple[dict, ...] | list[dict] | None = None,
+         ) -> list[SignalCandidate]:
     """Run adopted strategies over the latest bar of each symbol."""
     cfg = cfg or RiskConfig.load("config/risk.yaml")
     symbols = symbols or available_symbols()
-    adopted = adopted_strategies()
+    adopted = adopted_strategies() if adopted_entries is None else adopted_entries
     registry = all_strategies()
     candidates: list[SignalCandidate] = []
 

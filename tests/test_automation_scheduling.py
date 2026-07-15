@@ -246,8 +246,9 @@ def test_launchd_templates_use_correct_weekdays_and_new_interval_runner() -> Non
         "rb"
     ) as handle:
         governed = plistlib.load(handle)
-    assert governed["Disabled"] is True
+    assert "Disabled" not in governed
     assert governed["RunAtLoad"] is True
     assert governed["StartInterval"] == 300
+    assert "--config" in governed["ProgramArguments"]
     assert "scheduler-run-once" in governed["ProgramArguments"]
     assert governed["EnvironmentVariables"]["TZ"] == INDIA_TIMEZONE

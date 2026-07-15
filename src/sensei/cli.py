@@ -52,9 +52,36 @@ def main() -> None:
     scheduler_p.add_argument("--now", default=None, help="aware ISO timestamp (test/manual)")
     scheduler_status_p = sub.add_parser("scheduler-status")
     scheduler_status_p.add_argument("--journal", default="data/operations.sqlite3")
+    scheduler_bootstrap_p = sub.add_parser("scheduler-bootstrap")
+    scheduler_bootstrap_p.add_argument("--journal", default="data/operations.sqlite3")
+    scheduler_bootstrap_p.add_argument("--config", default="config/scheduler.json")
     ui_p = sub.add_parser("ui")
     ui_p.add_argument("--port", type=int, default=8642)
     args = parser.parse_args()
+
+    if args.cmd == "scheduler-bootstrap":
+        from pathlib import Path
+        from sensei.operations import OperationalJournal
+        from sensei.automation import GovernedSchedulerApplication
+
+        journal_path = Path(args.journal)
+        config_path = Path(args.config)
+        if journal_path.exists():
+            parser.error(f"governed journal already exists: {journal_path}")
+        if not config_path.is_file():
+            parser.error(f"scheduler config does not exist: {config_path}")
+        journal = OperationalJournal(journal_path)
+        verification = journal.verify()
+        if not verification.ok:
+            parser.error("new governed journal failed integrity verification")
+        GovernedSchedulerApplication.open(journal_path, config_path=config_path)
+        print(json.dumps({
+            "journal": str(journal_path),
+            "config": str(config_path),
+            "verified": True,
+            "execution_backend": "legacy_paper",
+        }, indent=2))
+        return
 
     if args.cmd == "scheduler-run-once":
         from pathlib import Path
@@ -84,8 +111,13 @@ def main() -> None:
         if not journal_path.is_file():
             parser.error(f"governed journal does not exist: {journal_path}")
         journal = OperationalJournal(journal_path)
+        verification = journal.verify()
         print(json.dumps({
-            "journal": journal.verify().to_dict(),
+            "journal": {
+                "ok": verification.ok,
+                "events_checked": verification.events_checked,
+                "errors": list(verification.errors),
+            },
             "resolved_task_ids": sorted(SchedulerLedger(journal).resolved_task_ids()),
         }, indent=2))
         return

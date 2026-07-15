@@ -2,11 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Template only. The cutover installer must remove Disabled after the
-         governed composition root and journal have been provisioned. -->
-    <key>Disabled</key>
-    <true/>
-
     <key>Label</key>
     <string>com.sensei.governed-scheduler</string>
 
@@ -18,6 +13,8 @@
         <string>scheduler-run-once</string>
         <string>--journal</string>
         <string>/Users/sivasaithota/Documents/trade/data/operations.sqlite3</string>
+        <string>--config</string>
+        <string>/Users/sivasaithota/Documents/trade/config/scheduler.json</string>
     </array>
 
     <key>WorkingDirectory</key>
