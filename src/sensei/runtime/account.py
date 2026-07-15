@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime
 
 from sensei.kernel import BrokerSnapshot, EntryCommand, RecordingPaperGateway
@@ -30,6 +30,9 @@ class PaperAccountProjector:
         high_water_mark_paise: int,
         day_pnl_paise: int = 0,
         week_pnl_paise: int = 0,
+        baseline_snapshot_source: (
+            Callable[[datetime, Mapping[str, int]], AccountSnapshot] | None
+        ) = None,
     ) -> None:
         if type(gateway) is not RecordingPaperGateway:
             raise TypeError("gateway must be the exact RecordingPaperGateway type")
@@ -48,6 +51,11 @@ class PaperAccountProjector:
         self._high_water_mark_paise = high_water_mark_paise
         self._day_pnl_paise = day_pnl_paise
         self._week_pnl_paise = week_pnl_paise
+        if baseline_snapshot_source is not None and not callable(
+            baseline_snapshot_source
+        ):
+            raise TypeError("baseline_snapshot_source must be callable")
+        self._baseline_snapshot_source = baseline_snapshot_source
 
     def is_bound_to_gateway(self, gateway: RecordingPaperGateway) -> bool:
         """Return whether projection reads the exact runtime gateway."""
@@ -62,9 +70,59 @@ class PaperAccountProjector:
     ) -> AccountSnapshot:
         require_timestamp(captured_at, "captured_at")
         broker = self._gateway.broker_snapshot(captured_at=captured_at)
-        return self.project_broker_snapshot(
+        governed = self.project_broker_snapshot(
             broker,
             mark_prices_paise=mark_prices_paise,
+        )
+        if self._baseline_snapshot_source is None:
+            return governed
+        baseline = self._baseline_snapshot_source(captured_at, mark_prices_paise)
+        return self._merge_baseline(baseline, governed)
+
+    def _merge_baseline(
+        self,
+        baseline: AccountSnapshot,
+        governed: AccountSnapshot,
+    ) -> AccountSnapshot:
+        if not isinstance(baseline, AccountSnapshot) or not baseline.reconciled:
+            raise PaperAccountProjectionError(
+                "pre-cutover baseline must be a reconciled AccountSnapshot"
+            )
+        baseline_ids = {position.instrument_id for position in baseline.positions}
+        governed_ids = {position.instrument_id for position in governed.positions}
+        overlap = baseline_ids & governed_ids
+        if overlap:
+            raise PaperAccountProjectionError(
+                "pre-cutover and governed positions overlap: "
+                + ", ".join(sorted(overlap))
+            )
+        governed_spend = self._starting_capital_paise - governed.available_cash_paise
+        available_cash = baseline.available_cash_paise - governed_spend
+        if available_cash < 0:
+            raise PaperAccountProjectionError(
+                "combined paper exposure would create unknown negative cash"
+            )
+        governed_notional = sum(
+            position.notional_paise for position in governed.positions
+        )
+        marked_equity = baseline.marked_equity_paise - governed_spend + governed_notional
+        return AccountSnapshot(
+            available_cash_paise=available_cash,
+            marked_equity_paise=marked_equity,
+            high_water_mark_paise=max(
+                self._high_water_mark_paise,
+                baseline.high_water_mark_paise,
+                marked_equity,
+            ),
+            day_pnl_paise=baseline.day_pnl_paise + governed.day_pnl_paise,
+            week_pnl_paise=baseline.week_pnl_paise + governed.week_pnl_paise,
+            positions=baseline.positions + governed.positions,
+            included_reservation_ids=(
+                baseline.included_reservation_ids
+                + governed.included_reservation_ids
+            ),
+            reconciled=True,
+            captured_at=governed.captured_at,
         )
 
     def project_broker_snapshot(

@@ -6,3 +6,5 @@ __pycache__/
 .venv/
 *.egg-info/
 data/logs/
+data/runtime-secrets.json
+data/surveillance.json
