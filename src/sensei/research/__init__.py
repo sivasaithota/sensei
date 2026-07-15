@@ -8,6 +8,11 @@ from sensei.research.catalog import (
 from sensei.research.errors import SnapshotIntegrityError
 from sensei.research.examiner import ExaminationRequest, ResearchExaminer
 from sensei.research.legacy_yahoo import LegacyYahooCurrentConstituentCatalog
+from sensei.research.lab import (
+    ResearchBacktestLab,
+    ResearchLabCandidate,
+    ResearchLabResult,
+)
 from sensei.research.market_data import (
     DataLineage,
     MarketDataSnapshot,
@@ -40,7 +45,10 @@ __all__ = [
     "MarketDataSnapshot",
     "MembershipInterval",
     "Recommendation",
+    "ResearchBacktestLab",
     "ResearchExaminer",
+    "ResearchLabCandidate",
+    "ResearchLabResult",
     "SnapshotIntegrityError",
     "SnapshotRequest",
 ]
