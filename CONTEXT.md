@@ -46,6 +46,8 @@ This glossary is the shared language for the trading system. Terms describe doma
 
 **Evidence Dossier** — The immutable result of an Examination. It records identity, evidence, uncertainty, warnings, and at most eligibility for a shadow trial; it cannot activate a strategy.
 
+**Research Backtest Lab** — The coordinator that binds a Coach-produced Mistake Hypothesis to a researcher-supplied executable Hypothesis Version, preregisters the discovery experiment, runs the Research Examiner, and records a research-only verdict. It cannot synthesize rules from prose, edit the Playbook, promote lifecycle state, or authorize trades.
+
 ## Strategy governance
 
 **Strategy Lifecycle** — The governed progression `proposed → examined → shadow → paper → canary → active`, with `quarantined`, `rejected`, `retired`, and `rolled_back` terminal or safety states.

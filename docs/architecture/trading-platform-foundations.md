@@ -143,6 +143,13 @@ Identity is carried forward instead of reconstructed later:
    episodes, but outcome learning still requires the exact close, reconciled
    attribution and review evidence. Recurrence can only propose a
    `RESEARCH_ONLY` hypothesis; it cannot veto a trade or mutate a plan.
+13. The Research Backtest Lab converts a Coach hypothesis plus an executable
+   researcher-supplied `HypothesisVersion` into a preregistered discovery
+   experiment, runs the deterministic examiner, records a
+   `ResearchLabDossierRecorded` verdict, and optionally writes the immutable
+   dossier artifact. Lab output may recommend `eligible_for_shadow`, but it
+   still cannot edit the Playbook, promote lifecycle state or authorize a
+   trade.
 
 ## Fail-closed behavior
 
@@ -191,8 +198,10 @@ to the governed swing-paper path; see `desk-runtime.md`. The runtime and modules
 are covered by focused tests, but there is not yet a continuously deployed
 service that provisions signing keys and supplies reconciled account truth,
 heartbeats, broker snapshots, session events and alert delivery. Intraday
-directives are deterministic but are not a live/MIS order path. The only kernel
-gateway is an in-memory paper recorder.
+directives are deterministic but are not a live/MIS order path. The Research
+Backtest Lab requires an executable candidate rule; it does not yet synthesize
+new rules from books, videos or free-form Coach prose. The only kernel gateway
+is an in-memory paper recorder.
 
 Before canary, a completed paper soak must produce plan-pinned paper-trial,
 risk-readiness and operations-readiness dossiers, followed by explicit owner

@@ -7,6 +7,7 @@
     sensei resume         # clear the kill-switch
     sensei status         # account snapshot
     sensei playbook       # rebuild the Signal Playbook from historical data
+    sensei research-lab-status  # latest governed research lab verdicts
 """
 
 from __future__ import annotations
@@ -38,9 +39,31 @@ def main() -> None:
         help="existing governed operational journal",
     )
     desk_p.add_argument("--limit", type=int, default=10)
+    lab_p = sub.add_parser("research-lab-status")
+    lab_p.add_argument(
+        "--journal",
+        default="data/operations.sqlite3",
+        help="existing governed operational journal",
+    )
+    lab_p.add_argument("--limit", type=int, default=10)
     ui_p = sub.add_parser("ui")
     ui_p.add_argument("--port", type=int, default=8642)
     args = parser.parse_args()
+
+    if args.cmd == "research-lab-status":
+        from pathlib import Path
+
+        from sensei.operations import OperationalJournal
+        from sensei.reporting.research_lab import ResearchLabReporter
+
+        journal_path = Path(args.journal)
+        if not journal_path.is_file():
+            parser.error(f"governed journal does not exist: {journal_path}")
+        summaries = ResearchLabReporter(
+            OperationalJournal(journal_path)
+        ).latest(limit=args.limit)
+        print(json.dumps([item.to_dict() for item in summaries], indent=2))
+        return
 
     if args.cmd == "desk-status":
         from pathlib import Path
