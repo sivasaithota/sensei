@@ -1,4 +1,4 @@
-"""Authenticated, content-addressed broker snapshots."""
+"""Authenticated, content-addressed account snapshots."""
 
 from __future__ import annotations
 
@@ -15,19 +15,21 @@ from sensei.operations import (
     OperationalJournal,
 )
 
-from .reconciliation import BrokerSnapshot
+from .models import AccountSnapshot
 
-_FACT_TYPE = "BrokerSnapshotObserved"
+_FACT_TYPE = "AccountSnapshotObserved"
 
 
 @dataclass(frozen=True)
-class BrokerSnapshotEvidence:
+class AccountSnapshotEvidence:
     event_id: str
     snapshot_id: str
     issuer_id: str
 
 
-class BrokerSnapshotAuthority:
+class AccountSnapshotAuthority:
+    """Record and verify exact account truth from one configured adapter."""
+
     def __init__(
         self,
         journal: OperationalJournal,
@@ -42,27 +44,31 @@ class BrokerSnapshotAuthority:
         self._expected_issuer_id = expected_issuer_id
 
     def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
-        """Return whether broker snapshot evidence uses the runtime journal."""
+        """Return whether evidence is read from the exact runtime journal."""
 
         return self._journal is journal
 
     def record(
         self,
-        snapshot: BrokerSnapshot,
+        snapshot: AccountSnapshot,
         *,
         signer: HmacFactSigner,
         occurred_at: datetime,
         command_id: str,
-    ) -> BrokerSnapshotEvidence:
-        if not isinstance(snapshot, BrokerSnapshot):
-            raise TypeError("snapshot must be a BrokerSnapshot")
+    ) -> AccountSnapshotEvidence:
+        if not isinstance(snapshot, AccountSnapshot):
+            raise TypeError("snapshot must be an AccountSnapshot")
+        if not snapshot.has_valid_identity():
+            raise ValueError("account snapshot content identity is invalid")
         if signer.issuer_id != self._expected_issuer_id:
-            raise ValueError("broker snapshot must come from the configured gateway")
+            raise ValueError(
+                "account snapshot must come from the configured account adapter"
+            )
         if not command_id.strip():
             raise ValueError("command_id is required")
         observed_at = _utc(occurred_at)
         if snapshot.captured_at.astimezone(timezone.utc) > observed_at:
-            raise ValueError("broker snapshot cannot be observed before capture")
+            raise ValueError("account snapshot cannot be observed before capture")
         fact = {
             "snapshot": snapshot.to_payload(),
             "observed_at": observed_at.isoformat(),
@@ -74,28 +80,28 @@ class BrokerSnapshotAuthority:
             fact=fact,
             signature=signature,
         ):
-            raise ValueError("broker snapshot signer is not trusted")
+            raise ValueError("account snapshot signer is not trusted")
         event = self._journal.append(
             EventAppend(
                 stream_id=(
-                    "broker-snapshot:"
-                    + snapshot.snapshot_id.removeprefix("broker-snapshot:")
+                    "account-snapshot:"
+                    + snapshot.snapshot_id.removeprefix("snapshot:")
                 ),
-                event_type="BrokerSnapshotAuthenticated",
+                event_type="AccountSnapshotAuthenticated",
                 payload={
                     "schema_version": "1.0",
-                    "authority": "BROKER_GATEWAY_SNAPSHOT",
+                    "authority": "ACCOUNT_SNAPSHOT_SOURCE",
                     "issuer_id": signer.issuer_id,
                     "fact": fact,
                     "signature": signature,
                 },
-                idempotency_key="broker-snapshot:" + _digest(command_id),
+                idempotency_key="account-snapshot:" + _digest(command_id),
                 expected_version=0,
                 occurred_at=observed_at,
                 correlation_id=snapshot.snapshot_id,
             )
         )
-        return BrokerSnapshotEvidence(
+        return AccountSnapshotEvidence(
             event_id=event.event_id,
             snapshot_id=snapshot.snapshot_id,
             issuer_id=signer.issuer_id,
@@ -105,24 +111,25 @@ class BrokerSnapshotAuthority:
         self,
         event_id: str,
         *,
-        snapshot: BrokerSnapshot,
+        snapshot: AccountSnapshot,
         no_later_than: datetime,
     ) -> bool:
         try:
             cutoff = _utc(no_later_than)
-            if not self._journal.verify().ok:
+            if not snapshot.has_valid_identity() or not self._journal.verify().ok:
                 return False
             event = next(
                 item for item in self._journal.read_all() if item.event_id == event_id
             )
             if (
-                event.event_type != "BrokerSnapshotAuthenticated"
+                event.event_type != "AccountSnapshotAuthenticated"
                 or event.schema_version != 1
                 or event.correlation_id != snapshot.snapshot_id
                 or event.occurred_at > cutoff
+                or snapshot.captured_at.astimezone(timezone.utc) > event.occurred_at
                 or event.stream_id
-                != "broker-snapshot:"
-                + snapshot.snapshot_id.removeprefix("broker-snapshot:")
+                != "account-snapshot:"
+                + snapshot.snapshot_id.removeprefix("snapshot:")
             ):
                 return False
             payload = event.payload
@@ -136,7 +143,7 @@ class BrokerSnapshotAuthority:
                 return False
             if (
                 payload["schema_version"] != "1.0"
-                or payload["authority"] != "BROKER_GATEWAY_SNAPSHOT"
+                or payload["authority"] != "ACCOUNT_SNAPSHOT_SOURCE"
                 or payload["issuer_id"] != self._expected_issuer_id
             ):
                 return False
@@ -152,7 +159,7 @@ class BrokerSnapshotAuthority:
                 fact=expected_fact,
                 signature=str(payload["signature"]),
             )
-        except (KeyError, StopIteration, TypeError, ValueError):
+        except (AttributeError, KeyError, StopIteration, TypeError, ValueError):
             return False
 
 
@@ -180,5 +187,5 @@ def _plain(value: object) -> object:
 
 def _utc(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError("broker snapshot timestamps must be timezone-aware")
+        raise ValueError("account snapshot timestamps must be timezone-aware")
     return value.astimezone(timezone.utc)

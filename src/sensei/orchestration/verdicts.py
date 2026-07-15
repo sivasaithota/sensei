@@ -45,6 +45,11 @@ class CommitteeVerdictAuthority:
         self._journal = journal
         self._verifier = verifier
 
+    def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
+        """Return whether committee evidence uses the runtime journal."""
+
+        return self._journal is journal
+
     def record(
         self,
         thesis: TradeThesis,

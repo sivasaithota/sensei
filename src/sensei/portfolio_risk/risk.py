@@ -34,6 +34,11 @@ class PortfolioRisk:
         self._journal = journal
         self._limits = limits
 
+    def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
+        """Return whether reservations use the exact runtime journal."""
+
+        return self._journal is journal
+
     def reserve(
         self,
         intent: TradeIntent,

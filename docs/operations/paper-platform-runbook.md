@@ -5,7 +5,8 @@ a live-trading runbook. Do not connect the governed kernel to real capital.
 
 ## Safety rules
 
-1. Use only `RecordingPaperGateway` with `TradingKernel`. Do not substitute the
+1. Use only the exact `RecordingPaperGateway` type with `TradingKernel`; subclasses
+   are not admitted by the current supervisor. Do not substitute the
    legacy OpenAlgo adapter; OpenAlgo is outside this authority chain and is
    intentionally sandbox-only.
 2. Never repair, delete, truncate or hand-edit the Operational Journal. Preserve
@@ -55,7 +56,10 @@ Complete every check; a failed or unknown item means no new entries.
   pinned by the intent. Check marked equity, high-water mark, day/week P&L,
   positions and risk-to-stop values. Its `snapshot_id` must be the identity
   derived from all snapshot content, reservations, reconciliation state and
-  capture time; do not accept or copy a caller-selected label.
+  capture time; do not accept or copy a caller-selected label. Record that exact
+  snapshot through `AccountSnapshotAuthority` using the configured account
+  adapter signer, and pass its evidence event ID as session truth. A valid
+  content address without valid producer evidence is blocked.
 - Confirm the Point-in-Time Market Data snapshot, executable quote and exchange
   session calendar are the intended versions. Missing earnings or surveillance
   status must remain blocked.
@@ -120,6 +124,70 @@ allowing another entry.
 
 ## Normal session flow
 
+Use `GovernedDeskSupervisor.paper_only(...)` as the owner of a bounded paper
+session. Its composition must supply the exact `TradingKernel`, `DeskRuntime`,
+cycle source, truth source, Account Snapshot verifier, Operations Monitor
+verifier and Safety Control that belong to the existing journal. Configure a
+small positive request-clock skew bound and use the process's trusted clock;
+request timestamps are not freshness authority. The supplied gateway must be
+the same exact `RecordingPaperGateway` used by the Kernel, Coordinator, Trader
+and Desk path. The supervisor verifies this object-identity chain at startup and
+again before dispatch. Do not use it with OpenAlgo or a network-capable adapter.
+Treat `compose(...)` as privileged startup code: it executes before the returned
+graph can be validated. Do not load strategies, plugins or remote code in that
+callback. The public factory rejects subclasses in the side-effecting runtime
+chain, but exact-type checks cannot make a hostile composition callback safe.
+
+The supervisor executes the following fail-closed prefix before it polls a
+cycle source: acquire the journal lease, verify the journal, enforce kernel
+protection/recovery, capture authenticated session truth, reconcile the complete
+Broker Snapshot, verify Operational Health and signed Account Snapshot evidence,
+check their freshness, and observe the Safety latch. A failed check records a
+terminal failed or halted session and suppresses new work. An incomplete prior
+session runs kernel recovery and is then halted, including when restart uses a
+new command ID; it never reruns agents under the interrupted command. Journal
+aliases resolve to one inode-identity lease, so neither a symlink nor a hard
+link can create a second owner. One Supervisor object also rejects overlapping
+run or shutdown calls; close waits for an active session to leave its protected
+lifecycle section.
+
+Before recording `HALTED` or `FAILED`, the Supervisor makes a fresh protective
+Kernel enforcement attempt. Replaying either non-completed terminal performs
+protective recovery again without polling work or rerunning agents. Production
+replay resolves every truth-manifest reference to earlier signed Account,
+Health, Broker and reconciliation evidence, verifies the phase sequence, and
+requires the final manifest to match the terminal reconciliation.
+
+After that prefix succeeds:
+
+Before every individual queued cycle, the supervisor re-verifies Account
+Snapshot evidence, Operational Health, freshness, the Safety latch, the trusted
+clock bound and the exact cycle request identity. That identity includes the
+command, bars, decision market snapshot, executable quote, Account Snapshot,
+health and evaluation inputs. If an earlier cycle degrades health or latches
+safety, later cycles are not invoked.
+
+The cycle-level check is not the final entry authority. After Historian,
+Reporter, Crowd Reader, Analyst and Committee complete, `TradingKernel.run_once`
+first performs protection/cancel recovery and then calls the Supervisor gate
+again before any entry reserve, command preparation or gateway call. The gate
+uses a new trusted-clock sample, captures authenticated Account, Health and
+Broker truth, reconciles it, and records a `DeskSupervisorTruthCaptured`
+manifest containing those evidence IDs and the exact cycle request identity.
+The gate signs a one-use capability over that manifest, the exact admitted
+intent, cycle request and Account Snapshot; the Kernel durably consumes it
+before reservation. The Kernel dispatches only the intent named by that cycle. If the gate
+rejects it, `TradeIntentQuarantined` records the reason codes and manifest ID;
+invalid evidence or any failure before the authorization callback returns is
+also quarantined against the best durable evidence available while no entry
+command exists. A previously prepared outbox command cannot be quarantined; it
+remains incomplete, every retry still requires fresh authorization, and a
+rejection is returned without being masked. Unscoped Kernel recovery performs
+protection and cancellation only; it cannot dispatch any accepted intent.
+After each cycle that does run, the
+Supervisor captures and reconciles fresh account/broker/health truth before the
+next cycle or terminal session event.
+
 1. Record component-signed heartbeats, derive Operations Readiness, and record a
    monitor-signed Operational Health assessment. These are evidence events, not
    informal log messages.
@@ -147,10 +215,12 @@ allowing another entry.
    the linked Trade Episode, records the exact
    committee/lifecycle/health evidence, and appends `TradeIntentAccepted`. It
    does not call the gateway.
-6. Call `TradingKernel.run_once` with the matching fresh reconciled Account
-   Snapshot. The kernel recovers fill/protection gaps first, atomically reserves
+6. Call the scoped `TradingKernel.run_once` path with the exact accepted intent
+   and Supervisor entry-authorizer callback. The kernel recovers fill/protection
+   gaps first, obtains the final fresh authorization, atomically reserves
    portfolio capacity, persists a typed command, dispatches it by stable command
    ID, records its receipt, and protects any positive fill before another entry.
+   The authorization is signed, exact-intent/cycle bound, and consumed once.
 7. Ingest cumulative fills monotonically. Never decrease cumulative quantity or
    replace an average fill price for the same cumulative quantity.
 8. Reconcile a complete, content-addressed and gateway-signed `BrokerSnapshot`, including positions, protection and
@@ -219,7 +289,9 @@ Then follow this order:
 7. Restart the paper process against the preserved or verified-restored journal.
    Run the kernel recovery path before new admission. It reconstructs a fill from
    a completed entry receipt when a crash occurred before the separate fill
-   event, then installs the missing protection.
+   event. If gateway acceptance preceded a failed completion append, it looks up
+   the immutable receipt by command ID without resending the entry. It then
+   installs missing protection and handles the confirmed working remainder.
 8. Reconcile again from a newer complete snapshot. Keep the latch set until this
    result is clean and all incident actions are documented.
 
@@ -227,7 +299,7 @@ Then follow this order:
 
 | Incident | Required recovery evidence |
 | --- | --- |
-| Crash after gateway receipt | Journal replay recovers the cumulative fill; protection is completed; later broker snapshot reconciles cleanly |
+| Crash or journal failure after gateway receipt | Safety is latched; command-ID receipt lookup recovers the original outcome without resending entry; protection is completed; later broker snapshot reconciles cleanly |
 | Protection command failure | Safety remains latched; unfilled entry remainder is cancelled; filled quantity is fully protected or the paper position is flattened under an approved procedure |
 | Unknown position/order or quantity mismatch | Full broker inventory captured; unknown object resolved; subsequent reconciliation is clean |
 | Feed disconnect or late receipt | Feed reconnect, market data received strictly after that reconnect, fresh watermark, explicit authorized feed reset and fresh health assessment |

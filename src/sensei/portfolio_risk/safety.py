@@ -13,6 +13,7 @@ from .safety_authority import (
     OwnerAuthorization,
     ReconciliationHealth,
     SafetyResetAuthority,
+    project_safety_history,
 )
 
 _STREAM = "safety:global"
@@ -63,6 +64,33 @@ class SafetyControl:
         self._maximum_authorization_age = maximum_authorization_age
         self._maximum_reconciliation_age = maximum_reconciliation_age
 
+    def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
+        """Return whether this latch is backed by the exact runtime journal."""
+
+        return self._journal is journal and (
+            self._reset_authority is None
+            or (
+                type(self._reset_authority) is SafetyResetAuthority
+                and SafetyResetAuthority.is_bound_to_journal(
+                    self._reset_authority,
+                    journal,
+                )
+            )
+        )
+
+    def is_bound_to_runtime(
+        self,
+        *,
+        journal: OperationalJournal,
+        reset_authority: SafetyResetAuthority | None,
+    ) -> bool:
+        """Check that the latch and kernel share one reset authority."""
+
+        return (
+            self._reset_authority is reset_authority
+            and self.is_bound_to_journal(journal)
+        )
+
     def latch(
         self,
         *,
@@ -96,6 +124,14 @@ class SafetyControl:
         idempotency_key: str,
     ) -> SafetyState:
         require_timestamp(occurred_at, "occurred_at")
+        current_state = self.state()
+        if any(
+            reason.reason_code == "SAFETY_HISTORY_INVALID"
+            for reason in current_state.reasons
+        ):
+            raise SafetyResetRejected("safety history is invalid")
+        if not current_state.latched:
+            raise SafetyResetRejected("safety is not latched")
         if (
             self._reset_authority is None
             or not self._reset_authority.verify_owner(
@@ -164,22 +200,21 @@ class SafetyControl:
         return self.state()
 
     def state(self) -> SafetyState:
-        latched = False
-        reasons: list[SafetyReason] = []
-        events = self._journal.read_stream(_STREAM)
-        for event in events:
-            if event.event_type == "SafetyLatched":
-                latched = True
-                reasons.append(
-                    SafetyReason(
-                        reason_code=str(event.payload["reason_code"]),
-                        detail=str(event.payload["detail"]),
-                    )
-                )
-            elif event.event_type == "SafetyReset":
-                latched = False
-                reasons.clear()
-        return SafetyState(latched=latched, reasons=tuple(reasons), version=len(events))
+        projection = project_safety_history(
+            self._journal.read_all(),
+            reset_authority=self._reset_authority,
+            maximum_authorization_age=self._maximum_authorization_age,
+            maximum_reconciliation_age=self._maximum_reconciliation_age,
+            journal_integrity_ok=self._journal.verify().ok,
+        )
+        return SafetyState(
+            latched=projection.latched,
+            reasons=tuple(
+                SafetyReason(reason_code=code, detail=detail)
+                for code, detail in projection.reasons
+            ),
+            version=projection.version,
+        )
 
     def assert_allowed(self, action: SafetyAction) -> None:
         action = SafetyAction(action)

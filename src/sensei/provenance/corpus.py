@@ -41,6 +41,11 @@ class ProvenanceCorpus:
         self._raw_root = self._root / "raw"
         self._manifest_root = self._root / "manifests"
 
+    def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
+        """Return whether provenance records use the exact runtime journal."""
+
+        return self._journal is journal
+
     def ingest(
         self,
         adapted: AdaptedSource,

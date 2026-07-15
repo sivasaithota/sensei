@@ -224,28 +224,7 @@ class AccountSnapshot:
     def derived_snapshot_id(self) -> str:
         """Recompute the content address without trusting stored identity."""
         material = json.dumps(
-            {
-                "schema": "account-snapshot-v1",
-                "available_cash_paise": self.available_cash_paise,
-                "marked_equity_paise": self.marked_equity_paise,
-                "high_water_mark_paise": self.high_water_mark_paise,
-                "day_pnl_paise": self.day_pnl_paise,
-                "week_pnl_paise": self.week_pnl_paise,
-                "positions": [
-                    {
-                        "instrument_id": position.instrument_id,
-                        "quantity": position.quantity,
-                        "notional_paise": position.notional_paise,
-                        "risk_to_stop_paise": position.risk_to_stop_paise,
-                    }
-                    for position in self.positions
-                ],
-                "included_reservation_ids": list(
-                    self.included_reservation_ids
-                ),
-                "reconciled": self.reconciled,
-                "captured_at": self.captured_at.astimezone(timezone.utc).isoformat(),
-            },
+            {"schema": "account-snapshot-v1", **self.to_payload(include_id=False)},
             sort_keys=True,
             separators=(",", ":"),
             allow_nan=False,
@@ -255,6 +234,30 @@ class AccountSnapshot:
 
     def has_valid_identity(self) -> bool:
         return self.snapshot_id == self.derived_snapshot_id()
+
+    def to_payload(self, *, include_id: bool = True) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "available_cash_paise": self.available_cash_paise,
+            "marked_equity_paise": self.marked_equity_paise,
+            "high_water_mark_paise": self.high_water_mark_paise,
+            "day_pnl_paise": self.day_pnl_paise,
+            "week_pnl_paise": self.week_pnl_paise,
+            "positions": [
+                {
+                    "instrument_id": position.instrument_id,
+                    "quantity": position.quantity,
+                    "notional_paise": position.notional_paise,
+                    "risk_to_stop_paise": position.risk_to_stop_paise,
+                }
+                for position in self.positions
+            ],
+            "included_reservation_ids": list(self.included_reservation_ids),
+            "reconciled": self.reconciled,
+            "captured_at": self.captured_at.astimezone(timezone.utc).isoformat(),
+        }
+        if include_id:
+            payload["snapshot_id"] = self.snapshot_id
+        return payload
 
     @property
     def held_notional_paise(self) -> int:

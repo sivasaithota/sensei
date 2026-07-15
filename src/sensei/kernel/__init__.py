@@ -10,7 +10,13 @@ from .commands import (
     ProtectionCommand,
 )
 from .gateway import GatewayReceipt, PaperGateway, RecordingPaperGateway
-from .kernel import TradingKernel
+from .kernel import (
+    ENTRY_DISPATCH_AUTHORIZATION_FACT_TYPE,
+    EntryAuthorizationInvalid,
+    EntryDispatchAuthorization,
+    TradingKernel,
+    entry_dispatch_authorization_fact,
+)
 from .reconciliation import (
     BrokerPosition,
     BrokerProtection,
@@ -30,6 +36,10 @@ __all__ = [
     "CancelEntryCommand",
     "CommandKind",
     "EntryCommand",
+    "EntryAuthorizationInvalid",
+    "ENTRY_DISPATCH_AUTHORIZATION_FACT_TYPE",
+    "EntryDispatchAuthorization",
+    "entry_dispatch_authorization_fact",
     "GatewayReceipt",
     "KernelAdmissionAuthorization",
     "KernelAdmissionAuthority",

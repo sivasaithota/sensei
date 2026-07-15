@@ -74,6 +74,8 @@ LINEAGE = "hammer-follow-through"
 DECISION_SNAPSHOT = "snapshot:" + "a" * 64
 HISTORIAN_SECRET = b"historian-fixture-secret-at-least-32-bytes"
 ADMISSION_SECRET = b"paper-admission-fixture-secret-at-least-32b"
+SUPERVISOR_SECRET = b"desk-supervisor-fixture-secret-at-least-32bytes"
+SUPERVISOR_ISSUER = "desk-supervisor"
 COMMITTEE_SECRETS = {
     "risk-officer": b"risk-officer-fixture-secret-at-least-32",
     "devils-advocate": b"devils-advocate-fixture-secret-at-least-32",
@@ -306,6 +308,10 @@ def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER)
         safety,
         gateway,
         admission_authority=admission_authority,
+        entry_authorization_verifier=HmacFactVerifier(
+            {SUPERVISOR_ISSUER: SUPERVISOR_SECRET}
+        ),
+        expected_supervisor_issuer_id=SUPERVISOR_ISSUER,
     )
     intent_factory = TradeIntentFactory(
         limits, maximum_quote_age=timedelta(minutes=1)
@@ -422,6 +428,121 @@ def governed_system(tmp_path, *, stop_at: LifecycleStage = LifecycleStage.PAPER)
         trace_attestation.event_id,
         verdict_evidence_event_ids,
         kernel,
+    )
+
+
+def test_coordinator_reports_its_exact_journal_and_kernel_binding(tmp_path):
+    system = governed_system(tmp_path)
+    coordinator = system[0]
+    journal = system[8]
+    kernel = system[11]
+    safety = coordinator._safety
+    monitor = coordinator._operations_monitor
+
+    assert coordinator.is_bound_to_kernel_runtime(
+        journal=journal,
+        kernel=kernel,
+        safety=safety,
+        operations_monitor=monitor,
+    )
+    assert not coordinator.is_bound_to_kernel_runtime(
+        journal=OperationalJournal(tmp_path / "different-journal.sqlite3"),
+        kernel=kernel,
+        safety=safety,
+        operations_monitor=monitor,
+    )
+    assert not coordinator.is_bound_to_kernel_runtime(
+        journal=journal,
+        kernel=object(),
+        safety=safety,
+        operations_monitor=monitor,
+    )
+
+
+def test_coordinator_binding_rejects_misbound_durable_collaborators(tmp_path):
+    system = governed_system(tmp_path)
+    coordinator = system[0]
+    journal = system[8]
+    kernel = system[11]
+    safety = coordinator._safety
+    monitor = coordinator._operations_monitor
+    other = OperationalJournal(tmp_path / "different-coordinator-journal.sqlite3")
+    committee_verifier = HmacFactVerifier(COMMITTEE_SECRETS)
+    replacements = (
+        ("_lifecycle", StrategyLifecycle(other)),
+        ("_episodes", TradeEpisodeJournal(other)),
+        (
+            "_committee_gate",
+            TradeCommitteeGate(
+                other,
+                CommitteeVerdictAuthority(other, committee_verifier),
+            ),
+        ),
+        (
+            "_decision_trace_authority",
+            DecisionTraceAuthority(
+                other,
+                HmacFactVerifier({"historian-1": HISTORIAN_SECRET}),
+            ),
+        ),
+        (
+            "_admission_authority",
+            KernelAdmissionAuthority(
+                other,
+                HmacFactVerifier({"paper-admission": ADMISSION_SECRET}),
+            ),
+        ),
+        ("_provenance", ProvenanceCorpus(other, tmp_path / "other-provenance")),
+    )
+    binding = {
+        "journal": journal,
+        "kernel": kernel,
+        "safety": safety,
+        "operations_monitor": monitor,
+    }
+
+    for attribute, replacement in replacements:
+        original = getattr(coordinator, attribute)
+        setattr(coordinator, attribute, replacement)
+        assert not coordinator.is_bound_to_kernel_runtime(**binding)
+        setattr(coordinator, attribute, original)
+
+
+def test_coordinator_binding_rejects_nested_writer_journal_mismatch(tmp_path):
+    system = governed_system(tmp_path)
+    coordinator = system[0]
+    journal = system[8]
+    kernel = system[11]
+    safety = coordinator._safety
+    monitor = coordinator._operations_monitor
+    other = OperationalJournal(tmp_path / "different-nested-journal.sqlite3")
+    original_gate = coordinator._committee_gate
+    coordinator._committee_gate = TradeCommitteeGate(
+        journal,
+        CommitteeVerdictAuthority(
+            other,
+            HmacFactVerifier(COMMITTEE_SECRETS),
+        ),
+    )
+
+    assert not coordinator.is_bound_to_kernel_runtime(
+        journal=journal,
+        kernel=kernel,
+        safety=safety,
+        operations_monitor=monitor,
+    )
+
+    coordinator._committee_gate = original_gate
+    monitor._control_plane = OperationsControlPlane(
+        other,
+        HmacFactVerifier(OPERATIONS_SECRETS),
+    )
+
+    assert not coordinator.is_bound_to_kernel_runtime(
+        journal=journal,
+        kernel=kernel,
+        safety=safety,
+        operations_monitor=monitor,
     )
 
 

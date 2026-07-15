@@ -1,5 +1,6 @@
 """Portfolio admission, reservations, and independent safety controls."""
 
+from .account_authority import AccountSnapshotAuthority, AccountSnapshotEvidence
 from .models import (
     AccountPosition,
     AccountSnapshot,
@@ -25,6 +26,8 @@ from .safety_authority import SafetyResetAuthority
 __all__ = [
     "AccountPosition",
     "AccountSnapshot",
+    "AccountSnapshotAuthority",
+    "AccountSnapshotEvidence",
     "OwnerAuthorization",
     "PortfolioRisk",
     "ReconciliationHealth",

@@ -14,7 +14,12 @@ from sensei.operations.control_plane import (
     OperationsControlPlane,
     OperationsReadiness,
 )
-from sensei.operations.journal import EventAppend, OperationalJournal
+from sensei.operations.journal import EventAppend, JournalEvent, OperationalJournal
+from sensei.portfolio_risk.safety_authority import (
+    SafetyHistoryProjection,
+    SafetyResetAuthority,
+    project_safety_history,
+)
 
 
 class HealthState(str, Enum):
@@ -59,6 +64,9 @@ class OperationsMonitor:
         maximum_readiness_age: timedelta,
         signer: HmacFactSigner,
         verifier: HmacFactVerifier,
+        safety_reset_authority: SafetyResetAuthority | None = None,
+        maximum_safety_authorization_age: timedelta = timedelta(minutes=5),
+        maximum_safety_reconciliation_age: timedelta = timedelta(minutes=2),
     ) -> None:
         if not required_components:
             raise ValueError("health requires at least one operational component")
@@ -66,12 +74,47 @@ class OperationsMonitor:
             raise ValueError("component maximum ages must be positive")
         if maximum_readiness_age <= timedelta(0):
             raise ValueError("maximum_readiness_age must be positive")
+        if maximum_safety_authorization_age <= timedelta(0):
+            raise ValueError("maximum_safety_authorization_age must be positive")
+        if maximum_safety_reconciliation_age <= timedelta(0):
+            raise ValueError("maximum_safety_reconciliation_age must be positive")
         self._journal = journal
         self._control_plane = control_plane
         self._required_components = dict(required_components)
         self._maximum_readiness_age = maximum_readiness_age
         self._signer = signer
         self._verifier = verifier
+        self._safety_reset_authority = safety_reset_authority
+        self._maximum_safety_authorization_age = (
+            maximum_safety_authorization_age
+        )
+        self._maximum_safety_reconciliation_age = (
+            maximum_safety_reconciliation_age
+        )
+
+    def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
+        """Return whether health evidence uses the exact runtime journal."""
+
+        control_plane = getattr(self, "_control_plane", None)
+        reset_authority = getattr(self, "_safety_reset_authority", None)
+        return (
+            self._journal is journal
+            and type(control_plane) is OperationsControlPlane
+            and OperationsControlPlane.is_bound_to_journal(
+                control_plane,
+                journal,
+            )
+            and (
+                reset_authority is None
+                or (
+                    type(reset_authority) is SafetyResetAuthority
+                    and SafetyResetAuthority.is_bound_to_journal(
+                        reset_authority,
+                        journal,
+                    )
+                )
+            )
+        )
 
     def assess(
         self, facts: HealthAssessmentInput, *, command_id: str
@@ -85,11 +128,14 @@ class OperationsMonitor:
             required_components=self._required_components,
             no_later_than=now,
         )
+        events = self._journal.read_all()
+        safety = self._safety_projection(events)
         state, reasons = self._derive(
             readiness,
             readiness_valid=readiness_valid,
             now=now,
-            safety_latched=_safety_latched(self._journal.read_all()),
+            safety_latched=safety.latched,
+            safety_history_valid=safety.history_valid,
         )
         fact = _fact(state, reasons, readiness, now)
         signature = self._signer.sign("OperationalHealthDerived", fact)
@@ -173,11 +219,13 @@ class OperationsMonitor:
                 for item in self._journal.read_all()
                 if item.global_sequence < event.global_sequence
             )
+            safety = self._safety_projection(prior_events)
             state, reasons = self._derive(
                 readiness,
                 readiness_valid=readiness_valid,
                 now=event.occurred_at,
-                safety_latched=_safety_latched(prior_events),
+                safety_latched=safety.latched,
+                safety_history_valid=safety.history_valid,
             )
             expected_fact = _fact(state, reasons, readiness, event.occurred_at)
             if _canonical(fact) != _canonical(expected_fact):
@@ -200,6 +248,7 @@ class OperationsMonitor:
         readiness_valid: bool,
         now: datetime,
         safety_latched: bool,
+        safety_history_valid: bool,
     ) -> tuple[HealthState, tuple[str, ...]]:
         reasons: list[str] = []
         if not readiness_valid:
@@ -226,10 +275,24 @@ class OperationsMonitor:
                 )
             else:
                 state = HealthState.HEALTHY
+        if not safety_history_valid:
+            reasons.append("SAFETY_HISTORY_INVALID")
+            state = HealthState.HALTED
         if safety_latched:
             reasons.append("SAFETY_LATCHED")
             state = HealthState.HALTED
         return state, tuple(reasons)
+
+    def _safety_projection(
+        self, events: tuple[JournalEvent, ...]
+    ) -> SafetyHistoryProjection:
+        return project_safety_history(
+            events,
+            reset_authority=self._safety_reset_authority,
+            maximum_authorization_age=self._maximum_safety_authorization_age,
+            maximum_reconciliation_age=self._maximum_safety_reconciliation_age,
+            journal_integrity_ok=self._journal.verify().ok,
+        )
 
 
 def _fact(
@@ -287,16 +350,6 @@ def _readiness_from_fact(fact: Mapping[str, object]) -> OperationsReadiness:
         ),
         event_id=str(readiness["event_id"]),
     )
-
-
-def _safety_latched(events: tuple[object, ...]) -> bool:
-    latched = False
-    for event in events:
-        if event.event_type == "SafetyLatched":
-            latched = True
-        elif event.event_type == "SafetyReset":
-            latched = False
-    return latched
 
 
 def _digest(value: str) -> str:

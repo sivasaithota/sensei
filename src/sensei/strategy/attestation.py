@@ -43,6 +43,11 @@ class DecisionTraceAuthority:
         self._journal = journal
         self._verifier = verifier
 
+    def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
+        """Return whether trace attestations use the runtime journal."""
+
+        return self._journal is journal
+
     def record(
         self,
         trace: PlanDecisionTrace,

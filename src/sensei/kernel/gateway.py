@@ -55,6 +55,9 @@ class PaperGateway(Protocol):
     def execute(self, command: BrokerCommand) -> GatewayReceipt:
         """Execute once by command_id, returning the original receipt on retry."""
 
+    def receipt_for(self, command_id: str) -> GatewayReceipt | None:
+        """Return durable outcome truth, or None only if never accepted."""
+
 
 class RecordingPaperGateway:
     """Deterministic in-memory paper gateway used by tests and replay harnesses."""
@@ -67,6 +70,9 @@ class RecordingPaperGateway:
     @property
     def commands(self) -> tuple[BrokerCommand, ...]:
         return tuple(self._commands)
+
+    def receipt_for(self, command_id: str) -> GatewayReceipt | None:
+        return self._receipts.get(command_id)
 
     def queue_entry_fill(
         self, *, cumulative_quantity: int, average_price_paise: int

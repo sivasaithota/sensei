@@ -101,6 +101,81 @@ class GovernedPaperCoordinator:
         self._provenance = provenance
         self._maximum_health_age = maximum_health_age
 
+    def is_bound_to_kernel_runtime(
+        self,
+        *,
+        journal: OperationalJournal,
+        kernel: TradingKernel,
+        safety: SafetyControl,
+        operations_monitor: OperationsMonitor,
+    ) -> bool:
+        """Return whether admission targets the exact journal and kernel."""
+
+        return (
+            self._kernel is kernel
+            and self._safety is safety
+            and self._operations_monitor is operations_monitor
+            and self.is_bound_to_journal(journal)
+        )
+
+    def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
+        """Check every durable admission collaborator against one journal."""
+
+        lifecycle = getattr(self, "_lifecycle", None)
+        episodes = getattr(self, "_episodes", None)
+        kernel = getattr(self, "_kernel", None)
+        safety = getattr(self, "_safety", None)
+        committee_gate = getattr(self, "_committee_gate", None)
+        trace_authority = getattr(self, "_decision_trace_authority", None)
+        admission_authority = getattr(self, "_admission_authority", None)
+        operations_monitor = getattr(self, "_operations_monitor", None)
+        provenance = getattr(self, "_provenance", None)
+        return (
+            self._journal is journal
+            and type(lifecycle) is StrategyLifecycle
+            and StrategyLifecycle.is_bound_to_journal(
+                lifecycle,
+                journal,
+            )
+            and type(episodes) is TradeEpisodeJournal
+            and TradeEpisodeJournal.is_bound_to_journal(
+                episodes,
+                journal,
+            )
+            and type(kernel) is TradingKernel
+            and type(safety) is SafetyControl
+            and TradingKernel.is_bound_to_runtime(
+                kernel,
+                journal=journal,
+                safety=safety,
+            )
+            and type(committee_gate) is TradeCommitteeGate
+            and TradeCommitteeGate.is_bound_to_journal(
+                committee_gate,
+                journal,
+            )
+            and type(trace_authority) is DecisionTraceAuthority
+            and DecisionTraceAuthority.is_bound_to_journal(
+                trace_authority,
+                journal,
+            )
+            and type(admission_authority) is KernelAdmissionAuthority
+            and KernelAdmissionAuthority.is_bound_to_journal(
+                admission_authority,
+                journal,
+            )
+            and type(operations_monitor) is OperationsMonitor
+            and OperationsMonitor.is_bound_to_journal(
+                operations_monitor,
+                journal,
+            )
+            and type(provenance) is ProvenanceCorpus
+            and ProvenanceCorpus.is_bound_to_journal(
+                provenance,
+                journal,
+            )
+        )
+
     def derive_candidate(
         self,
         *,
