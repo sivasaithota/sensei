@@ -269,15 +269,10 @@ def adopt_legacy_positions(
     digest = hashlib.sha256(content).hexdigest()
     existing = journal.read_stream("legacy-paper-position-adoption")
     if existing:
-        if (
-            len(existing) != 1
-            or existing[0].event_type != "LegacyPaperPositionsAdopted"
-            or existing[0].payload.get("source_sha256") != f"sha256:{digest}"
-        ):
-            raise RuntimeError(
-                "legacy paper inventory changed after its governed adoption"
-            )
-        return adopted
+        if any(event.event_type != "LegacyPaperPositionsAdopted" for event in existing):
+            raise RuntimeError("legacy paper adoption stream is invalid")
+        if existing[-1].payload.get("source_sha256") == f"sha256:{digest}":
+            return adopted
     journal.append(EventAppend(
         stream_id="legacy-paper-position-adoption",
         event_type="LegacyPaperPositionsAdopted",
@@ -288,9 +283,10 @@ def adopt_legacy_positions(
             "cash": payload.get("cash"),
             "positions": [item.__dict__ for item in adopted],
             "requires_broker_reconciliation": True,
+            "previous_adoption_event_id": existing[-1].event_id if existing else None,
         },
         idempotency_key=f"legacy-position-adoption:{digest}",
-        expected_version=0,
+        expected_version=len(existing),
         occurred_at=occurred_at,
     ))
     return adopted

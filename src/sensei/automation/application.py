@@ -261,6 +261,31 @@ class GovernedSchedulerApplication:
         )
         if entry_session is None and config.execution_backend == "legacy_paper":
             from .paper_sessions import LegacyPaperSessions
+            from .migration import adopt_legacy_positions
+            from sensei.data.store import load_prices
+            from sensei.runtime import LegacyPositionAdoptionRegistry
+
+            def reconcile_positions(now: datetime) -> None:
+                if not config.legacy_positions_path.is_file():
+                    return
+                positions = adopt_legacy_positions(
+                    journal,
+                    positions_path=config.legacy_positions_path,
+                    occurred_at=now,
+                )
+                marks = {
+                    item.symbol: round(
+                        float(load_prices(item.symbol)["close"].iloc[-1]) * 100
+                    )
+                    for item in positions
+                }
+                LegacyPositionAdoptionRegistry(
+                    journal, positions_path=config.legacy_positions_path
+                ).reconcile(
+                    mark_prices_paise=marks,
+                    captured_at=now,
+                    command_id=f"scheduler-position-reconciliation:{now.isoformat()}",
+                )
 
             sessions = LegacyPaperSessions(
                 authorized_strategy_names=lambda: tuple(
@@ -268,7 +293,8 @@ class GovernedSchedulerApplication:
                     for record in self.catalog.plans_at_stage(
                         self.lifecycle, LifecycleStage.PAPER
                     )
-                )
+                ),
+                reconcile_positions=reconcile_positions,
             )
             entry_session = sessions.entry
             eod_session = sessions.eod
