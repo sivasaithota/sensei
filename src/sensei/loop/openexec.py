@@ -56,7 +56,11 @@ def live_price(symbol: str) -> float | None:
         return None
 
 
-def execute_pending(today: date | None = None) -> dict:
+def execute_pending(
+    today: date | None = None,
+    *,
+    allowed_strategy_names: frozenset[str] | None = None,
+) -> dict:
     """Fill queued orders at live prices. Returns execution summary."""
     today = today or date.today()
     cfg = RiskConfig.load("config/risk.yaml")
@@ -71,6 +75,15 @@ def execute_pending(today: date | None = None) -> dict:
         rec = ApprovalRecord.model_validate(item["record"])
         t = rec.thesis
         age = (today - date.fromisoformat(item["queued"])).days
+
+        if allowed_strategy_names is not None:
+            cited = {citation.strategy for citation in t.playbook_citations}
+            if not cited or not cited <= allowed_strategy_names:
+                summary["skipped"].append({
+                    "id": t.id,
+                    "reason": "strategy is not authorized at governed PAPER — dropped",
+                })
+                continue
 
         if kill_switch_active():
             summary["skipped"].append({"id": t.id, "reason": "kill-switch active"})

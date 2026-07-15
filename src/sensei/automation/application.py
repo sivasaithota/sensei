@@ -19,6 +19,7 @@ from sensei.governance.lifecycle import (
     Authority,
     AuthorityRole,
     EvidenceKind,
+    LifecycleStage,
     StrategyLifecycle,
 )
 from sensei.operations import OperationalJournal
@@ -106,21 +107,27 @@ class _LifecycleMaintenanceHandler:
         self,
         autopilot: StrategyAutopilot,
         paper_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
+        shadow_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
     ) -> None:
         self._autopilot = autopilot
         self._paper_session = paper_session
+        self._shadow_session = shadow_session
 
     def handle(self, task: ScheduledTask, *, now: datetime) -> TaskOutcome:
-        paper_outcome = (
-            self._paper_session(task, now) if self._paper_session is not None else None
+        shadow_outcome = (
+            self._shadow_session(task, now) if self._shadow_session is not None else None
         )
-        if paper_outcome is not None and paper_outcome.state is TaskOutcomeState.HALTED:
-            return paper_outcome
+        if shadow_outcome is not None and shadow_outcome.state is TaskOutcomeState.HALTED:
+            return shadow_outcome
         report = self._autopilot.reconcile(
             now=now,
             command_id=f"scheduler:{task.task_id}:lifecycle",
         )
         if not report.results:
+            paper_outcome = (
+                self._paper_session(task, now)
+                if self._paper_session is not None else None
+            )
             return paper_outcome or TaskOutcome(
                 TaskOutcomeState.COMPLETED, ("NO_CANONICAL_PLANS",),
                 "lifecycle checked; no immutable plans are registered")
@@ -148,6 +155,11 @@ class _LifecycleMaintenanceHandler:
             for result in report.results
         )
         reason = "LIFECYCLE_RECONCILED" if not waiting else "LIFECYCLE_WAITING_EVIDENCE"
+        paper_outcome = (
+            self._paper_session(task, now) if self._paper_session is not None else None
+        )
+        if paper_outcome is not None:
+            return paper_outcome
         return TaskOutcome(
             TaskOutcomeState.COMPLETED,
             (reason,),
@@ -220,6 +232,7 @@ class GovernedSchedulerApplication:
         config: SchedulerApplicationConfig,
         entry_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
         eod_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
+        shadow_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
         manages_legacy_positions: bool = False,
     ) -> None:
         self.journal = journal
@@ -246,6 +259,33 @@ class GovernedSchedulerApplication:
             proposer=Authority(config.proposer_id, AuthorityRole.PROPOSER),
             governor=Authority(config.governor_id, AuthorityRole.GOVERNOR),
         )
+        if entry_session is None and config.execution_backend == "legacy_paper":
+            from .paper_sessions import LegacyPaperSessions
+
+            sessions = LegacyPaperSessions(
+                authorized_strategy_names=lambda: tuple(
+                    record.source_rule_name
+                    for record in self.catalog.plans_at_stage(
+                        self.lifecycle, LifecycleStage.PAPER
+                    )
+                )
+            )
+            entry_session = sessions.entry
+            eod_session = sessions.eod
+            manages_legacy_positions = True
+            from .shadow_session import DailyCanonicalShadowSession
+
+            shadow_session = DailyCanonicalShadowSession(
+                journal=journal,
+                catalog=self.catalog,
+                lifecycle=self.lifecycle,
+                dossiers=self.dossiers,
+                issuer_id=config.dossier_issuer_id,
+                shadow_trial_producer_id=next(
+                    iter(config.producers_by_kind[EvidenceKind.SHADOW_TRIAL])
+                ),
+                artifact_root=Path("data/governance-artifacts"),
+            )
         self.runner = UnattendedSchedulerRunner(
             journal=journal,
             policy=SwingSessionPolicy(closed_dates=config.closed_dates),
@@ -260,7 +300,7 @@ class GovernedSchedulerApplication:
                     manages_legacy_positions=manages_legacy_positions,
                 ),
                 SchedulerTaskKind.END_OF_DAY_SESSION: _LifecycleMaintenanceHandler(
-                    self.autopilot, eod_session
+                    self.autopilot, eod_session, shadow_session
                 ),
             },
         )
@@ -280,16 +320,7 @@ class GovernedSchedulerApplication:
         if not journal.verify().ok:
             raise SchedulerConfigurationError("governed journal failed integrity verification")
         config = SchedulerApplicationConfig.from_json(config_path)
-        eod_session = None
-        manages_legacy_positions = False
-        if entry_session is None and config.execution_backend == "legacy_paper":
-            from .paper_sessions import LegacyPaperSessions
-
-            sessions = LegacyPaperSessions()
-            entry_session = sessions.entry
-            eod_session = sessions.eod
-            manages_legacy_positions = True
-        elif config.execution_backend != "disabled":
+        if config.execution_backend not in {"disabled", "legacy_paper"}:
             raise SchedulerConfigurationError(
                 f"unsupported execution_backend: {config.execution_backend}"
             )
@@ -297,8 +328,6 @@ class GovernedSchedulerApplication:
             journal=journal,
             config=config,
             entry_session=entry_session,
-            eod_session=eod_session,
-            manages_legacy_positions=manages_legacy_positions,
         )
 
     def run_once(self, now: datetime) -> SchedulerRunResult:
