@@ -38,10 +38,12 @@ place an order. The current evidence and execution paths do not depend on them.
 | Governance | `sensei.governance.lifecycle`, `evidence` | Exact stage path, authority roles and verified, plan-pinned Stage Dossiers | Broker side effects |
 | Durable facts | `sensei.operations.journal` | Event identity, append-only ordering, idempotency, optimistic concurrency and hash-chain verification | Deciding whether a fact is sufficient evidence |
 | Signed facts | `sensei.operations.authority` | Issuer-authenticated local facts with independently configured verification keys | Deciding whether a signed fact is sufficient for trading |
+| Account truth | `sensei.portfolio_risk.account_authority` | Exact Account Snapshot evidence signed by the configured account adapter | Reconciliation, freshness or trade permission by itself |
 | Operational truth | `sensei.operations.health`, `control_plane` | Durable health and component-readiness assessments | Strategy or risk judgment |
 | Per-trade committee | `sensei.orchestration.committee` | Exact L1 risk, L2 challenge, L3 compliance and L4 orchestration approval bound to one thesis and derived intent | Lifecycle promotion, sizing or gateway dispatch |
 | Paper admission | `sensei.orchestration.paper`, `intents` | Composition of the exact governed plan, trace, provenance, committee approval, health, content-addressed account snapshot and derived quantity | Gateway dispatch |
 | Multi-agent desk | `sensei.orchestration.desk`, `roles` | Durable routing of Historian, Reporter, Crowd Reader, Analyst, Committee, Trader, Coach and Secretary | Replacing deterministic authority with agent opinion |
+| Desk supervision | `sensei.operations.supervisor` | Existing-journal verification, paper-only composition, single-writer session lease, recovery/reconciliation ordering, truth freshness, cycle binding and durable terminal evidence | Creating account/broker/health truth, resetting safety, scheduling or live execution |
 | Portfolio authority | `sensei.portfolio_risk` | Atomic reservations, cash/notional/heat/slot limits, loss and drawdown breakers | Alpha decisions or order transport |
 | Safety authority | `sensei.portfolio_risk.safety` | Durable global entry latch and owner-controlled reset | Blocking protection or entry cancellation |
 | Order state machine | `sensei.kernel` | Typed paper commands, durable outbox, fill/protection ordering and broker reconciliation | Live transport or strategy selection |
@@ -63,7 +65,7 @@ flowchart LR
     plan --> dossier
     dossier --> lifecycle["Lifecycle: shadow then paper"]
     trace --> candidate["Derived candidate intent"]
-    account["Content-addressed reconciled account snapshot"] --> candidate
+    account["Authenticated content-addressed account snapshot"] --> candidate
     candidate --> committee["Exact L1-L4 Trade Thesis committee"]
     corpus --> committee
     committee --> admission["Governed paper admission"]
@@ -109,7 +111,10 @@ Identity is carried forward instead of reconstructed later:
    caller. The resulting candidate pins plan, trace, market and account
    identities. The Account Snapshot ID is itself derived from all material
    account content, including positions, reservations, P&L and capture time;
-   callers cannot reuse a label for changed account truth.
+   callers cannot reuse a label for changed account truth. The supervisor also
+   requires a valid `AccountSnapshotAuthenticated` event from its independently
+   configured account-source verifier; a self-consistent caller object is not
+   account evidence.
 7. Every governed paper trade requires one exact, unanimous L1-L4
    `ApprovalRecord`: `risk-officer`, `devils-advocate`, `compliance`, then
    `orchestrator`. The Trade Thesis must match the derived quantity, instrument,
@@ -126,8 +131,19 @@ Identity is carried forward instead of reconstructed later:
    paise or basis points at this boundary.
 10. The coordinator signs an admission capability over the exact intent and its
     trace, lifecycle, health, provenance, committee and verdict evidence. The
-    kernel rejects an intent without that exact capability. It then persists a
-    typed command before dispatch. A positive partial fill
+    kernel rejects an intent without that exact capability. The governed Kernel
+    dispatch is scoped to that exact intent. After protect-first recovery and
+    immediately before any entry reservation or command preparation, it requires
+    a signed, one-use Supervisor authorization containing the exact intent,
+    cycle request, matching Account Snapshot, trusted time and durable
+    truth-manifest ID. A rejected intent is durably quarantined so no scoped
+    retry can dispatch it; unscoped recovery is protective-only. Invalid
+    evidence and failures before authorization returns are contained
+    the same way while no entry command exists. A prepared outbox command stays
+    incomplete and must pass fresh authorization on each retry; rejection is
+    preserved without attempting an impossible quarantine. An authorized entry
+    persists a typed command before dispatch.
+    A positive partial fill
    is protected before another entry can be sent. Unknown, mismatched or
    under-protected broker state causes quarantine and a safety latch. Broker
     protection is reconciled against the exact command ID, quantity, stop and
@@ -135,7 +151,9 @@ Identity is carried forward instead of reconstructed later:
 11. Broker snapshots are content-addressed and gateway-signed. Reconciliation
     rejects unsigned, stale or future snapshots and signs its outcome. Safety
     reset needs the latest fresh, clean outcome plus fresh owner-signed reset
-    scope.
+    scope. Safety history revalidates each reset at its original journal point,
+    so a hash-valid forged reset cannot clear a latch and later reconciliation
+    evidence does not invalidate an earlier legitimate reset.
 12. The Trade Episode records immutable planned prices and the complete lineage
    through every fill, reconciled costs, review and close. Attribution rejects a
    caller's arithmetic unless quantity, weighted fill values, currency and fees
@@ -168,9 +186,10 @@ Identity is carried forward instead of reconstructed later:
   latch.
 - Risk considers held exposure and all durable reservations together. Filled
   exposure is not freed until a later reconciled account snapshot includes it.
-- A broker receipt recorded immediately before a process crash can be replayed;
-  the kernel reconstructs the fill and installs missing protection before new
-  entries.
+- If gateway execution succeeds before receipt journaling fails, the kernel
+  latches safety and resolves the original receipt by command ID. It never
+  resends the entry during recovery; it reconstructs any fill, installs missing
+  protection, and cancels the confirmed working remainder.
 - Journal integrity failure makes readiness fail and suppresses trusted P&L
   totals in operational reports.
 
@@ -193,11 +212,13 @@ kernel. Existing legacy data files are not rewritten by the new platform.
 
 ## Current limits and next boundary
 
-`DeskRuntime.run_cycle(...)` now connects all nine roles from the original PRD
-to the governed swing-paper path; see `desk-runtime.md`. The runtime and modules
-are covered by focused tests, but there is not yet a continuously deployed
-service that provisions signing keys and supplies reconciled account truth,
-heartbeats, broker snapshots, session events and alert delivery. Intraday
+`DeskRuntime.run_cycle(...)` connects all nine roles from the original PRD to
+the governed swing-paper path, and `GovernedDeskSupervisor.run_session(...)`
+now owns the fail-closed, single-writer paper-session seam above it; see
+`desk-runtime.md`. The runtime and modules are covered by focused tests, but
+there is not yet a continuously deployed composition root that provisions
+signing keys and supplies reconciled account truth, heartbeats, broker
+snapshots, session events and alert delivery. Intraday
 directives are deterministic but are not a live/MIS order path. The Research
 Backtest Lab requires an executable candidate rule; it does not yet synthesize
 new rules from books, videos or free-form Coach prose. The only kernel gateway

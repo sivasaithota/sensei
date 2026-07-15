@@ -42,6 +42,11 @@ class KernelAdmissionAuthority:
         self._journal = journal
         self._verifier = verifier
 
+    def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
+        """Return whether admission capabilities use the runtime journal."""
+
+        return self._journal is journal
+
     def issue(
         self,
         intent: TradeIntent,

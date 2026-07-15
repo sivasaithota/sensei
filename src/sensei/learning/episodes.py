@@ -85,6 +85,11 @@ class TradeEpisodeJournal:
     def __init__(self, journal: OperationalJournal) -> None:
         self._journal = journal
 
+    def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
+        """Return whether episode history uses the exact runtime journal."""
+
+        return self._journal is journal
+
     def start(
         self,
         *,

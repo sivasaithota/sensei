@@ -252,6 +252,11 @@ class StrategyLifecycle:
         self._evidence_verifier = evidence_verifier
         self._trusted_actor_roles = _freeze_trusted_actor_roles(trusted_actor_roles)
 
+    def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
+        """Return whether lifecycle state uses the exact runtime journal."""
+
+        return self._journal is journal
+
     def transition(self, request: TransitionRequest) -> LifecycleRecord:
         events = self._events(request.lineage_id)
         repeated = _repeated_command(events, request)

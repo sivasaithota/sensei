@@ -41,6 +41,18 @@ class TradeCommitteeGate:
         self._journal = journal
         self._verdict_authority = verdict_authority
 
+    def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
+        """Return whether the gate and its verdict evidence share a journal."""
+
+        return (
+            self._journal is journal
+            and type(self._verdict_authority) is CommitteeVerdictAuthority
+            and CommitteeVerdictAuthority.is_bound_to_journal(
+                self._verdict_authority,
+                journal,
+            )
+        )
+
     def record(
         self,
         approval: ApprovalRecord,

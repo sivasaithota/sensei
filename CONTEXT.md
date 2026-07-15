@@ -76,7 +76,7 @@ This glossary is the shared language for the trading system. Terms describe doma
 
 **Kernel Admission** — A signed paper-only capability binding one exact Trade Intent to its trace, lifecycle, health, provenance, Committee and verdict evidence. The Trading Kernel rejects an intent without it.
 
-**Account Snapshot** — Immutable reconciled account truth whose content-derived identity covers cash, marked equity, high-water mark, P&L, positions, included reservations, reconciliation state, and capture time. A caller label cannot preserve identity after content changes.
+**Account Snapshot** — Immutable reconciled account truth whose content-derived identity covers cash, marked equity, high-water mark, P&L, positions, included reservations, reconciliation state, and capture time. A caller label cannot preserve identity after content changes. `AccountSnapshotAuthority` separately proves that the exact content came from the configured account adapter; identity alone is not authenticity.
 
 **Trade Episode** — The complete immutable history from signal snapshot through thesis, approvals, orders, fills, protection, exit, attribution, and post-mortem.
 
@@ -85,6 +85,10 @@ This glossary is the shared language for the trading system. Terms describe doma
 **Signed Fact** — A canonical domain fact authenticated by a producer credential and checked against independently configured trust. Journal durability and producer authenticity are separate properties and both may be required.
 
 **Desk Cycle** — One durable Desk Head orchestration of Historian, Reporter, Crowd Reader, Analyst, Committee, Trader, Coach and Secretary. It records each role as completed or skipped but does not itself grant trading authority.
+
+**Governed Desk Supervisor** — The paper-only session owner above Desk Cycles. It holds an inode-identity single-writer lease, serializes its lifecycle, verifies the existing Operational Journal, recovers protective kernel work, captures authenticated account, broker and operational truth, reconciles, enforces freshness and the Safety latch, binds queued cycles to that exact truth, and records content-linked truth manifests plus terminal session evidence. Production replay resolves those manifests to their signed evidence and re-enforces protection for non-completed terminals. Immediately before an entry, the Kernel invokes the Supervisor gate again after protect-first recovery and requires a signed, one-use capability bound to the exact intent, cycle and Account Snapshot. Rejection, invalid evidence or a pre-authorization failure durably quarantines the accepted intent; unscoped Kernel recovery never dispatches accepted intents. It cannot create truth, reset safety, admit a live gateway, or promote a Strategy Plan.
+
+**Quarantined Trade Intent** — An admitted paper intent that failed the final Supervisor dispatch gate before any entry command was prepared. Its durable reason codes and truth-manifest evidence permanently exclude it from scoped dispatch; unscoped Kernel recovery is protective-only. It is not a Safety reset or a broker cancellation.
 
 **Broker Snapshot** — Content-addressed, producer-signed broker account and order truth used by reconciliation. Caller-selected labels and unsigned snapshots are not broker truth.
 

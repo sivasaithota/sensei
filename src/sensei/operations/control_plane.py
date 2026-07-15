@@ -53,6 +53,11 @@ class OperationsControlPlane:
         self._journal = journal
         self._verifier = verifier
 
+    def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
+        """Return whether readiness evidence uses the runtime journal."""
+
+        return self._journal is journal
+
     def record_heartbeat(
         self,
         *,

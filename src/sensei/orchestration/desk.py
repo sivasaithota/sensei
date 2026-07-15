@@ -5,19 +5,25 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, fields, is_dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum, StrEnum
 from typing import Protocol
 
+import pandas as pd
+
 from sensei.agents.thesis import ApprovalRecord, TradeThesis
-from sensei.kernel import TradingKernel
+from sensei.kernel import (
+    EntryAuthorizationInvalid,
+    EntryDispatchAuthorization,
+    TradingKernel,
+)
 from sensei.learning.outcomes import LearningObservation
 from sensei.operations import EventAppend, OperationalJournal
-from sensei.operations.health import OperationalHealth
-from sensei.portfolio_risk import AccountSnapshot
+from sensei.operations.health import OperationalHealth, OperationsMonitor
+from sensei.portfolio_risk import AccountSnapshot, SafetyControl, TradeIntent
 from sensei.strategy import PlanDecisionTrace, StrategyPlan
 
 from .intents import ExecutableQuote, IntentBuildResult
@@ -140,6 +146,63 @@ class DeskCycleFailed(RuntimeError):
 
 
 @dataclass(frozen=True)
+class DispatchAuthorization:
+    """One trusted supervisor decision made at the Trader boundary."""
+
+    observed_at: datetime
+    evidence_event_id: str
+    intent_id: str
+    cycle_request_id: str
+    issuer_id: str
+    signature: str
+    reason_codes: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
+            raise ValueError("dispatch authorization time must be timezone-aware")
+        if (
+            not isinstance(self.evidence_event_id, str)
+            or not self.evidence_event_id.startswith("event:")
+        ):
+            raise ValueError("dispatch authorization evidence_event_id is required")
+        if not isinstance(self.intent_id, str) or not self.intent_id.startswith(
+            "intent:"
+        ):
+            raise ValueError("dispatch authorization intent_id is required")
+        if not isinstance(
+            self.cycle_request_id, str
+        ) or not self.cycle_request_id.startswith("desk-request:"):
+            raise ValueError("dispatch authorization cycle_request_id is required")
+        if not isinstance(self.issuer_id, str) or not self.issuer_id.strip():
+            raise ValueError("dispatch authorization issuer_id is required")
+        if not isinstance(self.signature, str) or not self.signature.strip():
+            raise ValueError("dispatch authorization signature is required")
+        reasons = tuple(self.reason_codes)
+        if any(
+            not isinstance(reason, str) or not reason.strip()
+            for reason in reasons
+        ):
+            raise ValueError("dispatch authorization reason codes must be text")
+        if len(reasons) != len(set(reasons)):
+            raise ValueError("dispatch authorization reason codes must be unique")
+        object.__setattr__(self, "reason_codes", reasons)
+
+
+class DispatchAuthorizationRejected(RuntimeError):
+    """The supervisor rejected admission before any paper gateway dispatch."""
+
+    def __init__(self, authorization: DispatchAuthorization) -> None:
+        if not authorization.reason_codes:
+            raise ValueError(
+                "rejected dispatch authorization requires reason codes"
+            )
+        self.authorization = authorization
+        self.reason_codes = authorization.reason_codes
+        self.observed_at = authorization.observed_at
+        super().__init__("; ".join(self.reason_codes))
+
+
+@dataclass(frozen=True)
 class DeskCycleRequest:
     lineage_id: str
     plan: StrategyPlan
@@ -175,6 +238,9 @@ class PaperExecutionRequest:
     cycle: DeskCycleRequest
     history: HistoricalDecision
     decision: AuthenticatedCommitteeDecision
+    authorize_dispatch: (
+        Callable[[DeskCycleRequest, TradeIntent], DispatchAuthorization] | None
+    ) = None
 
 
 @dataclass(frozen=True)
@@ -255,6 +321,28 @@ class PaperTrader:
         self._coordinator = coordinator
         self._kernel = kernel
 
+    def is_bound_to_governed_paper_runtime(
+        self,
+        *,
+        journal: OperationalJournal,
+        kernel: TradingKernel,
+        safety: SafetyControl,
+        operations_monitor: OperationsMonitor,
+    ) -> bool:
+        """Return whether execution traverses the exact governed paper path."""
+
+        return (
+            self._kernel is kernel
+            and type(self._coordinator) is GovernedPaperCoordinator
+            and GovernedPaperCoordinator.is_bound_to_kernel_runtime(
+                self._coordinator,
+                journal=journal,
+                kernel=kernel,
+                safety=safety,
+                operations_monitor=operations_monitor,
+            )
+        )
+
     def derive_candidate(
         self,
         *,
@@ -274,6 +362,10 @@ class PaperTrader:
 
     def execute(self, request: PaperExecutionRequest) -> PaperAcceptance:
         cycle = request.cycle
+        if request.authorize_dispatch is None:
+            raise RuntimeError(
+                "paper entry requires a Supervisor dispatch authorizer"
+            )
         accepted = self._coordinator.accept(
             lineage_id=cycle.lineage_id,
             plan=cycle.plan,
@@ -293,7 +385,74 @@ class PaperTrader:
                 request.decision.verdict_evidence_event_ids
             ),
         )
-        self._kernel.run_once(cycle.account_snapshot, now=cycle.now)
+        authorization_returned = False
+        entry_was_prepared = self._kernel.has_prepared_entry(
+            accepted.intent.intent_id
+        )
+        quarantine_evidence_event_id = accepted.admission_event_id
+        quarantine_time = cycle.now
+
+        def authorize_entry(intent):
+            nonlocal authorization_returned
+            nonlocal quarantine_evidence_event_id
+            nonlocal quarantine_time
+            if intent.intent_id != accepted.intent.intent_id:
+                raise RuntimeError("Kernel requested authorization for another intent")
+            authorization = request.authorize_dispatch(cycle, intent)
+            if type(authorization) is not DispatchAuthorization:
+                raise TypeError(
+                    "dispatch gate must return an exact DispatchAuthorization"
+                )
+            quarantine_evidence_event_id = authorization.evidence_event_id
+            quarantine_time = authorization.observed_at
+            if authorization.reason_codes:
+                raise DispatchAuthorizationRejected(authorization)
+            entry_authorization = EntryDispatchAuthorization(
+                account_snapshot=cycle.account_snapshot,
+                authorized_at=authorization.observed_at,
+                evidence_event_id=authorization.evidence_event_id,
+                intent_id=authorization.intent_id,
+                cycle_request_id=authorization.cycle_request_id,
+                issuer_id=authorization.issuer_id,
+                signature=authorization.signature,
+            )
+            authorization_returned = True
+            return entry_authorization
+
+        try:
+            self._kernel.run_once(
+                cycle.account_snapshot,
+                now=cycle.now,
+                intent_id=accepted.intent.intent_id,
+                authorize_entry=authorize_entry,
+            )
+        except DispatchAuthorizationRejected as exc:
+            if not entry_was_prepared:
+                self._kernel.quarantine_intent(
+                    accepted.intent.intent_id,
+                    reason_codes=exc.reason_codes,
+                    evidence_event_id=exc.authorization.evidence_event_id,
+                    occurred_at=exc.observed_at,
+                )
+            raise
+        except EntryAuthorizationInvalid as exc:
+            if not entry_was_prepared:
+                self._kernel.quarantine_intent(
+                    accepted.intent.intent_id,
+                    reason_codes=(exc.reason_code,),
+                    evidence_event_id=quarantine_evidence_event_id,
+                    occurred_at=quarantine_time,
+                )
+            raise
+        except Exception:
+            if not authorization_returned and not entry_was_prepared:
+                self._kernel.quarantine_intent(
+                    accepted.intent.intent_id,
+                    reason_codes=("DISPATCH_AUTHORIZATION_FAILED",),
+                    evidence_event_id=quarantine_evidence_event_id,
+                    occurred_at=quarantine_time,
+                )
+            raise
         return accepted
 
 
@@ -323,7 +482,36 @@ class DeskRuntime:
         self.coach = coach
         self.secretary = secretary
 
-    def run_cycle(self, request: DeskCycleRequest) -> DeskCycleResult:
+    def is_bound_to_governed_paper_runtime(
+        self,
+        *,
+        journal: OperationalJournal,
+        kernel: TradingKernel,
+        safety: SafetyControl,
+        operations_monitor: OperationsMonitor,
+    ) -> bool:
+        """Return whether this desk routes through the exact paper runtime."""
+
+        return (
+            self._journal is journal
+            and type(self.trader) is PaperTrader
+            and PaperTrader.is_bound_to_governed_paper_runtime(
+                self.trader,
+                journal=journal,
+                kernel=kernel,
+                safety=safety,
+                operations_monitor=operations_monitor,
+            )
+        )
+
+    def run_cycle(
+        self,
+        request: DeskCycleRequest,
+        *,
+        authorize_dispatch: (
+            Callable[[DeskCycleRequest, TradeIntent], DispatchAuthorization] | None
+        ) = None,
+    ) -> DeskCycleResult:
         cycle_id = "cycle:" + _digest(request.command_id)
         stream = "desk-cycle:" + cycle_id.removeprefix("cycle:")
         try:
@@ -351,7 +539,30 @@ class DeskRuntime:
                     terminal,
                     self._journal.read_stream(stream),
                 )
-            return self._run_cycle(request)
+            return self._run_cycle(
+                request,
+                authorize_dispatch=authorize_dispatch,
+            )
+        except DispatchAuthorizationRejected as exc:
+            try:
+                if _terminal_event(self._journal.read_stream(stream)) is None:
+                    self._append(
+                        stream,
+                        request,
+                        event_type="DeskCycleFailed",
+                        suffix="failed",
+                        payload={
+                            "cycle_id": cycle_id,
+                            "error_type": type(exc).__name__,
+                            "detail": str(exc),
+                            "reason_codes": exc.reason_codes,
+                            "new_entries_allowed": False,
+                        },
+                        occurred_at=exc.observed_at,
+                    )
+            except Exception:
+                pass
+            raise
         except DeskCycleFailed:
             raise
         except Exception as exc:
@@ -373,7 +584,14 @@ class DeskRuntime:
                 pass
             raise DeskCycleFailed(cycle_id, str(exc)) from exc
 
-    def _run_cycle(self, request: DeskCycleRequest) -> DeskCycleResult:
+    def _run_cycle(
+        self,
+        request: DeskCycleRequest,
+        *,
+        authorize_dispatch: (
+            Callable[[DeskCycleRequest, TradeIntent], DispatchAuthorization] | None
+        ),
+    ) -> DeskCycleResult:
         cycle_id = "cycle:" + _digest(request.command_id)
         stream = "desk-cycle:" + cycle_id.removeprefix("cycle:")
         role_events: list[str] = []
@@ -582,6 +800,7 @@ class DeskRuntime:
                 cycle=request,
                 history=history,
                 decision=decision,
+                authorize_dispatch=authorize_dispatch,
             )
         )
         role_events.append(
@@ -749,6 +968,7 @@ class DeskRuntime:
         event_type: str,
         suffix: str,
         payload: dict[str, object],
+        occurred_at: datetime | None = None,
     ) -> str:
         events = self._journal.read_stream(stream)
         event = self._journal.append(
@@ -760,7 +980,7 @@ class DeskRuntime:
                     f"desk:{_digest(request.command_id)}:{suffix}"
                 ),
                 expected_version=len(events),
-                occurred_at=request.now,
+                occurred_at=occurred_at or request.now,
                 correlation_id="cycle:" + _digest(request.command_id),
             )
         )
@@ -777,7 +997,7 @@ def _start_payload(
 ) -> dict[str, object]:
     return {
         "cycle_id": cycle_id,
-        "request_id": _request_id(request),
+        "request_id": desk_cycle_request_id(request),
         "lineage_id": request.lineage_id,
         "plan_id": request.plan.plan_id,
         "instrument_id": request.quote.instrument_id,
@@ -785,10 +1005,16 @@ def _start_payload(
     }
 
 
-def _request_id(request: DeskCycleRequest) -> str:
+def desk_cycle_request_id(request: DeskCycleRequest) -> str:
+    """Return the content identity of every decision-bearing cycle input."""
+
+    if not isinstance(request, DeskCycleRequest):
+        raise TypeError("request must be a DeskCycleRequest")
     identity = {
+        "command_id": request.command_id,
         "lineage_id": request.lineage_id,
         "plan_id": request.plan.plan_id,
+        "bars": _identity_value(request.bars),
         "evaluation_session": request.evaluation_session.isoformat(),
         "decision_market_snapshot_id": request.decision_market_snapshot_id,
         "quote": _identity_value(request.quote),
@@ -829,10 +1055,37 @@ def _identity_value(value: object) -> object:
         return value.isoformat()
     if isinstance(value, Enum):
         return _identity_value(value.value)
-    if isinstance(value, Mapping):
+    if isinstance(value, pd.DataFrame):
+        if not value.columns.is_unique or not value.index.is_unique:
+            raise ValueError(
+                "desk request identity requires unique DataFrame axes"
+            )
+        if not all(isinstance(column, str) for column in value.columns):
+            raise TypeError(
+                "desk request identity requires string DataFrame columns"
+            )
+        digest = hashlib.sha256()
+        digest.update(repr(tuple(value.columns)).encode("utf-8"))
+        digest.update(
+            repr(tuple(str(dtype) for dtype in value.dtypes)).encode("utf-8")
+        )
+        digest.update(str(value.index.dtype).encode("utf-8"))
+        digest.update(
+            pd.util.hash_pandas_object(value, index=True).values.tobytes()
+        )
         return {
-            str(key): _identity_value(child)
-            for key, child in sorted(value.items(), key=lambda item: str(item[0]))
+            "schema": "pandas-dataframe-v1",
+            "rows": len(value),
+            "content_sha256": digest.hexdigest(),
+        }
+    if isinstance(value, Mapping):
+        if not all(isinstance(key, str) for key in value):
+            raise TypeError(
+                "desk request identity requires string mapping keys"
+            )
+        return {
+            key: _identity_value(child)
+            for key, child in sorted(value.items())
         }
     if isinstance(value, (list, tuple)):
         return [_identity_value(child) for child in value]

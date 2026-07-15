@@ -5,6 +5,8 @@ from .desk import (
     AnalystBrief,
     AuthenticatedCommitteeDecision,
     CoachReflection,
+    DispatchAuthorization,
+    DispatchAuthorizationRejected,
     DeskCycleRequest,
     DeskCycleResult,
     DeskCycleFailed,
@@ -17,6 +19,7 @@ from .desk import (
     PaperExecutionRequest,
     PaperTrader,
     StrategyEvidenceStats,
+    desk_cycle_request_id,
 )
 from .intents import (
     ExecutableQuote,
@@ -46,6 +49,8 @@ __all__ = [
     "AnalystBrief",
     "AuthenticatedCommitteeDecision",
     "CoachReflection",
+    "DispatchAuthorization",
+    "DispatchAuthorizationRejected",
     "DeskCycleRequest",
     "DeskCycleResult",
     "DeskCycleFailed",
@@ -58,6 +63,7 @@ __all__ = [
     "PaperExecutionRequest",
     "PaperTrader",
     "StrategyEvidenceStats",
+    "desk_cycle_request_id",
     "AnalystJudgment",
     "ApprovalChainCommittee",
     "CommitteeInputs",

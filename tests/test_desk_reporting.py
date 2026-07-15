@@ -6,12 +6,15 @@ import pytest
 from sensei.cli import main
 from sensei.orchestration import DeskCycleFailed
 from sensei.reporting.desk import DeskStatusReporter
-from tests.test_desk_runtime import _runtime_fixture
+from tests.test_desk_runtime import _authorize_dispatch_for, _runtime_fixture
 
 
 def test_desk_status_reports_role_use_and_cycle_outcome(tmp_path):
     runtime, request, _, _, _, journal, _ = _runtime_fixture(tmp_path)
-    result = runtime.run_cycle(request)
+    result = runtime.run_cycle(
+        request,
+        authorize_dispatch=_authorize_dispatch_for(journal),
+    )
 
     status = DeskStatusReporter(journal).latest(limit=1)[0]
 
@@ -35,8 +38,11 @@ def test_desk_status_reports_role_use_and_cycle_outcome(tmp_path):
 def test_desk_status_cli_reads_existing_journal_without_creating_one(
     tmp_path, monkeypatch, capsys
 ):
-    runtime, request, _, _, _, _, _ = _runtime_fixture(tmp_path)
-    runtime.run_cycle(request)
+    runtime, request, _, _, _, journal, _ = _runtime_fixture(tmp_path)
+    runtime.run_cycle(
+        request,
+        authorize_dispatch=_authorize_dispatch_for(journal),
+    )
     monkeypatch.setattr(
         "sys.argv",
         [
