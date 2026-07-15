@@ -55,6 +55,10 @@ def main() -> None:
     scheduler_bootstrap_p = sub.add_parser("scheduler-bootstrap")
     scheduler_bootstrap_p.add_argument("--journal", default="data/operations.sqlite3")
     scheduler_bootstrap_p.add_argument("--config", default="config/scheduler.json")
+    scheduler_bootstrap_p.add_argument(
+        "--secrets", default="data/runtime-secrets.json",
+        help="owner-only runtime signing material (created with mode 0600)",
+    )
     scheduler_migrate_p = sub.add_parser("scheduler-migrate-governance")
     scheduler_migrate_p.add_argument("--journal", default="data/operations.sqlite3")
     scheduler_migrate_p.add_argument("--config", default="config/scheduler.json")
@@ -155,6 +159,7 @@ def main() -> None:
         from pathlib import Path
         from sensei.operations import OperationalJournal
         from sensei.automation import GovernedSchedulerApplication
+        from sensei.runtime import RuntimeSecretStore, RuntimeTrustError
 
         journal_path = Path(args.journal)
         config_path = Path(args.config)
@@ -162,6 +167,11 @@ def main() -> None:
             parser.error(f"governed journal already exists: {journal_path}")
         if not config_path.is_file():
             parser.error(f"scheduler config does not exist: {config_path}")
+        secrets_path = Path(args.secrets)
+        try:
+            RuntimeSecretStore.bootstrap(secrets_path)
+        except RuntimeTrustError as exc:
+            parser.error(str(exc))
         journal = OperationalJournal(journal_path)
         verification = journal.verify()
         if not verification.ok:
@@ -170,6 +180,8 @@ def main() -> None:
         print(json.dumps({
             "journal": str(journal_path),
             "config": str(config_path),
+            "runtime_secrets": str(secrets_path),
+            "runtime_secrets_mode": "0600",
             "verified": True,
             "execution_backend": "governed_paper",
         }, indent=2))

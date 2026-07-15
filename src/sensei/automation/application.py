@@ -58,6 +58,8 @@ class SchedulerApplicationConfig:
         }
     )
     legacy_positions_path: Path = Path("data/paper/positions.json")
+    runtime_secrets_path: Path = Path("data/runtime-secrets.json")
+    surveillance_path: Path = Path("data/surveillance.json")
     closed_dates: frozenset[date] = frozenset()
     execution_backend: str = "disabled"
 
@@ -89,6 +91,12 @@ class SchedulerApplicationConfig:
             producers_by_kind=producers,
             legacy_positions_path=Path(
                 raw.get("legacy_positions_path", str(cls.legacy_positions_path))
+            ),
+            runtime_secrets_path=Path(
+                raw.get("runtime_secrets_path", str(cls.runtime_secrets_path))
+            ),
+            surveillance_path=Path(
+                raw.get("surveillance_path", str(cls.surveillance_path))
             ),
             closed_dates=frozenset(
                 date.fromisoformat(str(value))

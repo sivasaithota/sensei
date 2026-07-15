@@ -30,6 +30,16 @@ a live-trading runbook. Do not connect the governed kernel to real capital.
 
 Complete every check; a failed or unknown item means no new entries.
 
+- Bootstrap runtime authority material once with `scheduler-bootstrap`. The
+  generated `data/runtime-secrets.json` is local operational state, is ignored
+  by Git, and must remain mode `0600`. Never copy its values into scheduler
+  configuration, logs, issues, prompts, or commits. A missing, incomplete, or
+  more broadly readable store blocks production composition.
+- Obtain GSM/ASM status from an independent surveillance producer and retain a
+  producer-signed daily snapshot. The scheduler accepts it only for the exact
+  trading session and within its configured freshness window. Missing, stale,
+  tampered, or self-asserted stage zero remains an event/compliance block.
+
 - Confirm the intended journal path already exists. Constructing an
   `OperationalJournal` at a missing path creates a new empty journal, which is
   not recovery.

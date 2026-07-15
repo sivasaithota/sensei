@@ -15,6 +15,12 @@ from .session_inputs import (
     PaperSessionTruthError,
     PreparedPaperSession,
 )
+from .activation import (
+    NseSurveillanceRefresher,
+    RuntimeSecretStore,
+    RuntimeTrustError,
+    VerifiedSurveillanceSource,
+)
 
 __all__ = [
     "ComponentCheck",
@@ -26,6 +32,10 @@ __all__ = [
     "PaperAccountProjector",
     "PaperCycleBuilder",
     "PaperSessionInputs",
+    "NseSurveillanceRefresher",
+    "RuntimeSecretStore",
+    "RuntimeTrustError",
+    "VerifiedSurveillanceSource",
     "PaperSessionTruthError",
     "PreparedPaperSession",
     "ReconciledLegacyPositionTruth",
