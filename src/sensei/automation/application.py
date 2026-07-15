@@ -259,7 +259,9 @@ class GovernedSchedulerApplication:
             proposer=Authority(config.proposer_id, AuthorityRole.PROPOSER),
             governor=Authority(config.governor_id, AuthorityRole.GOVERNOR),
         )
-        if entry_session is None and config.execution_backend == "legacy_paper":
+        if entry_session is None and config.execution_backend in {
+            "legacy_paper", "governed_paper"
+        }:
             from .paper_sessions import LegacyPaperSessions
             from .migration import adopt_legacy_positions
             from sensei.data.store import load_prices
@@ -288,12 +290,6 @@ class GovernedSchedulerApplication:
                 )
 
             sessions = LegacyPaperSessions(
-                authorized_strategy_names=lambda: tuple(
-                    record.source_rule_name
-                    for record in self.catalog.plans_at_stage(
-                        self.lifecycle, LifecycleStage.PAPER
-                    )
-                ),
                 reconcile_positions=reconcile_positions,
             )
             entry_session = sessions.entry
@@ -346,7 +342,9 @@ class GovernedSchedulerApplication:
         if not journal.verify().ok:
             raise SchedulerConfigurationError("governed journal failed integrity verification")
         config = SchedulerApplicationConfig.from_json(config_path)
-        if config.execution_backend not in {"disabled", "legacy_paper"}:
+        if config.execution_backend not in {
+            "disabled", "legacy_paper", "governed_paper"
+        }:
             raise SchedulerConfigurationError(
                 f"unsupported execution_backend: {config.execution_backend}"
             )

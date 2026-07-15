@@ -171,7 +171,7 @@ def main() -> None:
             "journal": str(journal_path),
             "config": str(config_path),
             "verified": True,
-            "execution_backend": "legacy_paper",
+            "execution_backend": "governed_paper",
         }, indent=2))
         return
 

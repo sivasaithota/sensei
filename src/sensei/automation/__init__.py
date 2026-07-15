@@ -43,6 +43,11 @@ from .migration import (
     migration_policy,
     publish_pre_shadow_evidence,
 )
+from .governed_entry import (
+    AuthorizedPlan,
+    CanonicalSignalPlanner,
+    GovernedPaperEntrySession,
+)
 from .shadow_session import DailyCanonicalShadowSession
 
 from .scheduling import (
@@ -75,9 +80,12 @@ from .shadow import (
 __all__ = [
     "AdoptedLegacyPosition",
     "ArtifactIntegrityError",
+    "AuthorizedPlan",
     "ArtifactStoreError",
     "CanonicalShadowRunner",
+    "CanonicalSignalPlanner",
     "GovernedSchedulerApplication",
+    "GovernedPaperEntrySession",
     "EvidenceAvailability",
     "EvidenceAvailabilityState",
     "EvidencePublicationError",

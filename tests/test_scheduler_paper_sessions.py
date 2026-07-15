@@ -24,31 +24,24 @@ def task(kind: SchedulerTaskKind) -> ScheduledTask:
 def test_paper_sessions_execute_open_and_pass_only_adopted_entries_to_eod():
     calls = []
     sessions = LegacyPaperSessions(
-        execute_open=lambda **kwargs: {"filled": [{"symbol": "INFY"}], "skipped": []},
         run_day=lambda **kwargs: calls.append(kwargs) or {"signals": 2, "opened": [{}]},
-        load_playbook=lambda: {"strategies": [
-            {"name": "eligible", "adopted": True},
-            {"name": "rejected", "adopted": False},
-        ]},
-        authorized_strategy_names=lambda: {"eligible"},
     )
 
     entry = sessions.entry(task(SchedulerTaskKind.ENTRY_SESSION), NOW)
     eod = sessions.eod(task(SchedulerTaskKind.END_OF_DAY_SESSION), NOW)
 
     assert entry.state is TaskOutcomeState.COMPLETED
+    assert entry.reason_codes == ("LEGACY_ENTRY_PATH_DISABLED",)
     assert eod.state is TaskOutcomeState.COMPLETED
-    assert [item["name"] for item in calls[0]["adopted_entries"]] == ["eligible"]
+    assert calls[0]["adopted_entries"] == ()
 
 
 def test_paper_eod_halts_without_backtest_adoption():
     sessions = LegacyPaperSessions(
-        execute_open=lambda **kwargs: {},
         run_day=lambda **kwargs: {},
-        load_playbook=lambda: {"strategies": []},
     )
 
     outcome = sessions.eod(task(SchedulerTaskKind.END_OF_DAY_SESSION), NOW)
 
-    assert outcome.state is TaskOutcomeState.HALTED
-    assert outcome.reason_codes == ("NO_GOVERNED_PAPER_STRATEGIES",)
+    assert outcome.state is TaskOutcomeState.COMPLETED
+    assert outcome.reason_codes == ("PAPER_EOD_SESSION_COMPLETED",)
