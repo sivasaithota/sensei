@@ -7,5 +7,13 @@
   "playbook_path": "data/playbook/current.json",
   "prices_path": "data/prices",
   "provenance_path": "data/provenance",
+  "shadow_trial": {
+    "minimum_sessions": 5,
+    "minimum_signals": 0,
+    "minimum_signal_instruments": 0,
+    "minimum_data_completeness": 0.99,
+    "require_zero_errors": true,
+    "require_adopted_oos_evidence": true
+  },
   "closed_dates": []
 }

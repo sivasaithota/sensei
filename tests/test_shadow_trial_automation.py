@@ -202,3 +202,13 @@ def test_missing_expected_market_data_keeps_shadow_trial_unready(tmp_path):
     assert result.error_count == 1
     assert "SHADOW_DATA_INCOMPLETE" in result.reason_codes
     assert "SHADOW_EVALUATION_ERRORS" in result.reason_codes
+
+
+def test_default_shadow_policy_is_an_operational_gate_for_paper():
+    policy = ShadowTrialPolicy()
+
+    assert policy.minimum_sessions == 5
+    assert policy.minimum_signals == 0
+    assert policy.minimum_signal_instruments == 0
+    assert policy.minimum_data_completeness == 0.99
+    assert policy.require_zero_errors is True

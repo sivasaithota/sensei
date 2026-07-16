@@ -39,6 +39,7 @@ from .runner import (
     UnattendedSchedulerRunner,
 )
 from .scheduling import SchedulerTaskKind, SwingSessionPolicy, ScheduledTask
+from .shadow import ShadowTrialPolicy
 
 
 DEFAULT_PRODUCER_IDS = {
@@ -65,6 +66,8 @@ class SchedulerApplicationConfig:
     prices_path: Path = Path("data/prices")
     provenance_path: Path = Path("data/provenance")
     closed_dates: frozenset[date] = frozenset()
+    shadow_trial: ShadowTrialPolicy = field(default_factory=ShadowTrialPolicy)
+    require_adopted_oos_evidence: bool = True
     execution_backend: str = "disabled"
 
     @classmethod
@@ -86,6 +89,11 @@ class SchedulerApplicationConfig:
             )
             for kind, values in DEFAULT_PRODUCER_IDS.items()
         }
+        shadow_raw = raw.get("shadow_trial", {})
+        if not isinstance(shadow_raw, dict):
+            raise ValueError("shadow_trial must be a JSON object")
+        if shadow_raw.get("require_adopted_oos_evidence", True) is not True:
+            raise ValueError("adopted OOS evidence cannot be disabled")
         return cls(
             proposer_id=str(raw.get("proposer_id", cls.proposer_id)),
             governor_id=str(raw.get("governor_id", cls.governor_id)),
@@ -111,6 +119,20 @@ class SchedulerApplicationConfig:
             closed_dates=frozenset(
                 date.fromisoformat(str(value))
                 for value in raw.get("closed_dates", ())
+            ),
+            shadow_trial=ShadowTrialPolicy(
+                minimum_sessions=int(shadow_raw.get("minimum_sessions", 5)),
+                minimum_signals=int(shadow_raw.get("minimum_signals", 0)),
+                minimum_signal_instruments=int(
+                    shadow_raw.get("minimum_signal_instruments", 0)
+                ),
+                minimum_data_completeness=float(
+                    shadow_raw.get("minimum_data_completeness", 0.99)
+                ),
+                require_zero_errors=shadow_raw.get("require_zero_errors", True),
+            ),
+            require_adopted_oos_evidence=shadow_raw.get(
+                "require_adopted_oos_evidence", True
             ),
             execution_backend=str(raw.get("execution_backend", "disabled")),
         )
@@ -365,6 +387,8 @@ class GovernedSchedulerApplication:
                     iter(config.producers_by_kind[EvidenceKind.SHADOW_TRIAL])
                 ),
                 artifact_root=Path("data/governance-artifacts"),
+                policy=config.shadow_trial,
+                playbook_path=config.playbook_path,
                 ingestion_ledger=MarketDataIngestionLedger(journal),
             )
             from sensei.data.store import (
