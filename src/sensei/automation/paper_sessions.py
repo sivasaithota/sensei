@@ -44,6 +44,7 @@ class LegacyPaperSessions:
         summary = self._run_day(
             today=task.trading_date,
             adopted_entries=adopted,
+            refresh=False,
         )
         if self._reconcile_positions is not None:
             self._reconcile_positions(now)

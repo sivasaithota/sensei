@@ -126,12 +126,24 @@ class _LifecycleMaintenanceHandler:
         autopilot: StrategyAutopilot,
         paper_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
         shadow_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
+        market_ingestion: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
     ) -> None:
         self._autopilot = autopilot
         self._paper_session = paper_session
         self._shadow_session = shadow_session
+        self._market_ingestion = market_ingestion
 
     def handle(self, task: ScheduledTask, *, now: datetime) -> TaskOutcome:
+        ingestion_outcome = (
+            self._market_ingestion(task, now)
+            if self._market_ingestion is not None
+            else None
+        )
+        if (
+            ingestion_outcome is not None
+            and ingestion_outcome.state is TaskOutcomeState.HALTED
+        ):
+            return ingestion_outcome
         shadow_outcome = (
             self._shadow_session(task, now) if self._shadow_session is not None else None
         )
@@ -278,6 +290,7 @@ class GovernedSchedulerApplication:
             proposer=Authority(config.proposer_id, AuthorityRole.PROPOSER),
             governor=Authority(config.governor_id, AuthorityRole.GOVERNOR),
         )
+        market_ingestion = None
         if entry_session is None and config.execution_backend in {
             "legacy_paper", "governed_paper"
         }:
@@ -337,6 +350,11 @@ class GovernedSchedulerApplication:
                 )
             from .shadow_session import DailyCanonicalShadowSession
 
+            from .market_ingestion import (
+                MarketDataIngestionLedger,
+                MarketDataIngestionSession,
+            )
+
             shadow_session = DailyCanonicalShadowSession(
                 journal=journal,
                 catalog=self.catalog,
@@ -347,6 +365,21 @@ class GovernedSchedulerApplication:
                     iter(config.producers_by_kind[EvidenceKind.SHADOW_TRIAL])
                 ),
                 artifact_root=Path("data/governance-artifacts"),
+                ingestion_ledger=MarketDataIngestionLedger(journal),
+            )
+            from sensei.data.store import (
+                download_symbol,
+                load_prices as load_ingestion_prices,
+                load_universe,
+            )
+
+            market_ingestion = MarketDataIngestionSession(
+                journal=journal,
+                universe=lambda: tuple(
+                    str(value) for value in load_universe()["symbol"]
+                ),
+                refresh=download_symbol,
+                existing=load_ingestion_prices,
             )
         self.runner = UnattendedSchedulerRunner(
             journal=journal,
@@ -362,7 +395,10 @@ class GovernedSchedulerApplication:
                     manages_legacy_positions=manages_legacy_positions,
                 ),
                 SchedulerTaskKind.END_OF_DAY_SESSION: _LifecycleMaintenanceHandler(
-                    self.autopilot, eod_session, shadow_session
+                    self.autopilot,
+                    eod_session,
+                    shadow_session,
+                    market_ingestion if config.execution_backend == "governed_paper" else None,
                 ),
             },
         )

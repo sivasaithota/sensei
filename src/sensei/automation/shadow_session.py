@@ -14,6 +14,7 @@ from sensei.operations import OperationalJournal
 from sensei.strategy import StrategyPlanCatalog
 
 from .evidence import ImmutableJsonArtifactStore, StageEvidencePublisher
+from .market_ingestion import MarketDataIngestionLedger
 from .runner import TaskOutcome, TaskOutcomeState
 from .scheduling import ScheduledTask
 from .shadow import CanonicalShadowRunner, ShadowTrialLedger, ShadowTrialPolicy
@@ -33,12 +34,14 @@ class DailyCanonicalShadowSession:
         shadow_trial_producer_id: str,
         artifact_root: Path,
         policy: ShadowTrialPolicy | None = None,
+        ingestion_ledger: MarketDataIngestionLedger | None = None,
     ) -> None:
         self._catalog = catalog
         self._lifecycle = lifecycle
         self._ledger = ShadowTrialLedger(journal)
         self._runner = CanonicalShadowRunner(lifecycle=lifecycle, ledger=self._ledger)
         self._policy = policy or ShadowTrialPolicy()
+        self._ingestion_ledger = ingestion_ledger
         self._publisher = StageEvidencePublisher(
             journal,
             dossiers,
@@ -51,7 +54,16 @@ class DailyCanonicalShadowSession:
         records = self._catalog.plans_at_stage(self._lifecycle, LifecycleStage.SHADOW)
         if not records:
             return TaskOutcome(TaskOutcomeState.COMPLETED, ("NO_SHADOW_PLANS",), "no plans require shadow evaluation")
-        symbols = tuple(sorted(available_symbols()))
+        ingestion = (
+            self._ingestion_ledger.for_session(task.trading_date)
+            if self._ingestion_ledger is not None
+            else None
+        )
+        symbols = (
+            ingestion.eligible_symbols
+            if ingestion is not None
+            else tuple(sorted(available_symbols()))
+        )
         bars = {}
         latest_dates = set()
         for symbol in symbols:
@@ -61,15 +73,24 @@ class DailyCanonicalShadowSession:
                 continue
             bars[symbol] = frame
             latest_dates.add(frame.index[-1].date())
-        if not bars or len(latest_dates) != 1:
+        if (
+            not bars
+            or len(bars) != len(symbols)
+            or len(latest_dates) != 1
+            or next(iter(latest_dates)) != task.trading_date
+        ):
             return TaskOutcome(TaskOutcomeState.HALTED, ("SHADOW_MARKET_SNAPSHOT_INCOMPLETE",), "shadow universe has no single complete evaluation session")
         evaluation_session = next(iter(latest_dates))
         snapshot_payload = {
-            symbol: {
+            "ingestion_event_id": ingestion.event_id if ingestion else None,
+            "ingestion_completeness": ingestion.completeness if ingestion else 1.0,
+            "excluded_symbols": list(ingestion.excluded_symbols) if ingestion else [],
+            "failed_symbols": list(ingestion.failed_symbols) if ingestion else [],
+            "bars": {symbol: {
                 "session": frame.index[-1].date().isoformat(),
                 "bar": {key: float(frame.iloc[-1][key]) for key in ("open", "high", "low", "close", "volume")},
             }
-            for symbol, frame in sorted(bars.items())
+            for symbol, frame in sorted(bars.items())},
         }
         snapshot_id = "snapshot:" + hashlib.sha256(
             json.dumps(snapshot_payload, sort_keys=True, separators=(",", ":")).encode()
