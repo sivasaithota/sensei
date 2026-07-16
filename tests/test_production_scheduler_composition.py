@@ -2,13 +2,50 @@ import json
 from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
+import pytest
 
-from sensei.automation import GovernedSchedulerApplication
+from sensei.automation import GovernedSchedulerApplication, SchedulerApplicationConfig
 from sensei.operations import OperationalJournal
 from sensei.runtime import RuntimeSecretStore, VerifiedSurveillanceSource
 
 
 NOW = datetime(2026, 7, 16, 9, 25, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+
+
+def test_scheduler_config_carries_deployable_accelerated_shadow_policy(tmp_path):
+    config_path = tmp_path / "scheduler.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "shadow_trial": {
+                    "minimum_sessions": 5,
+                    "minimum_signals": 0,
+                    "minimum_signal_instruments": 0,
+                    "minimum_data_completeness": 0.99,
+                    "require_zero_errors": True,
+                    "require_adopted_oos_evidence": True,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = SchedulerApplicationConfig.from_json(config_path)
+
+    assert config.shadow_trial.minimum_sessions == 5
+    assert config.shadow_trial.minimum_signals == 0
+    assert config.require_adopted_oos_evidence is True
+
+
+def test_scheduler_config_cannot_disable_adopted_oos_evidence(tmp_path):
+    config_path = tmp_path / "scheduler.json"
+    config_path.write_text(
+        '{"shadow_trial": {"require_adopted_oos_evidence": false}}',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="cannot be disabled"):
+        SchedulerApplicationConfig.from_json(config_path)
 
 
 def test_scheduler_uses_real_supervisor_composition_when_no_plan_signals(tmp_path):

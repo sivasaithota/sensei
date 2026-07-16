@@ -144,20 +144,21 @@ class ShadowSessionRecord:
 
 @dataclass(frozen=True)
 class ShadowTrialPolicy:
-    minimum_sessions: int = 20
-    minimum_signals: int = 30
-    minimum_signal_instruments: int = 10
+    minimum_sessions: int = 5
+    minimum_signals: int = 0
+    minimum_signal_instruments: int = 0
     minimum_data_completeness: float = 0.99
     require_zero_errors: bool = True
 
     def __post_init__(self) -> None:
+        if type(self.minimum_sessions) is not int or self.minimum_sessions < 1:
+            raise ValueError("minimum_sessions must be a positive integer")
         for label, value in (
-            ("minimum_sessions", self.minimum_sessions),
             ("minimum_signals", self.minimum_signals),
             ("minimum_signal_instruments", self.minimum_signal_instruments),
         ):
-            if type(value) is not int or value < 1:
-                raise ValueError(f"{label} must be a positive integer")
+            if type(value) is not int or value < 0:
+                raise ValueError(f"{label} must be a non-negative integer")
         if (
             not math.isfinite(self.minimum_data_completeness)
             or not 0 < self.minimum_data_completeness <= 1
@@ -222,6 +223,62 @@ class ShadowTrialLedger:
 
     def is_bound_to_journal(self, journal: OperationalJournal) -> bool:
         return self._journal is journal
+
+    def register_policy(
+        self,
+        *,
+        lineage_id: str,
+        plan_id: str,
+        policy: ShadowTrialPolicy,
+        historical_oos: Mapping[str, object],
+        occurred_at: datetime,
+        command_id: str,
+    ) -> str:
+        """Pre-register immutable PAPER-readiness criteria before observations."""
+
+        _aware(occurred_at, "occurred_at")
+        if not lineage_id.strip() or _PLAN_ID.fullmatch(plan_id) is None:
+            raise ValueError("lineage_id and content-addressed plan_id are required")
+        if not isinstance(policy, ShadowTrialPolicy):
+            raise TypeError("policy must be a ShadowTrialPolicy")
+        if not isinstance(historical_oos, Mapping):
+            raise TypeError("historical_oos must be a mapping")
+        if not command_id.strip():
+            raise ValueError("command_id is required")
+        payload = {
+            "lineage_id": lineage_id,
+            "plan_id": plan_id,
+            "paper_only": True,
+            "forward_operational_policy": policy.to_payload(),
+            "historical_oos": _plain(historical_oos),
+        }
+        stream = "shadow-trial-policy:" + hashlib.sha256(
+            f"{lineage_id}|{plan_id}".encode()
+        ).hexdigest()
+        existing = self._journal.read_stream(stream)
+        if existing:
+            if (
+                len(existing) != 1
+                or existing[0].event_type != "ShadowTrialPolicyRegistered"
+                or _canonical(existing[0].payload) != _canonical(payload)
+            ):
+                raise JournalIntegrityError(
+                    "shadow trial policy conflicts with preregistered criteria"
+                )
+            return existing[0].event_id
+        event = self._journal.append(
+            EventAppend(
+                stream_id=stream,
+                event_type="ShadowTrialPolicyRegistered",
+                payload=payload,
+                idempotency_key="shadow-policy:"
+                + hashlib.sha256(command_id.encode()).hexdigest(),
+                expected_version=0,
+                occurred_at=occurred_at,
+                correlation_id=plan_id,
+            )
+        )
+        return event.event_id
 
     def record_session(
         self,

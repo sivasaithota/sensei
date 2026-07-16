@@ -55,7 +55,7 @@ def test_report_counts_observations_and_signals(journal):
     assert plan["observations"] == 1
     assert plan["signals"] == 1                       # only enter_long counts
     assert plan["signal_instruments"] == 1
-    assert plan["sessions_remaining_minimum"] == 19
+    assert plan["sessions_remaining_minimum"] == 4
     assert report.expected_sessions == 1              # Jul 17 itself
     assert report.ingestion["completeness"] == 0.996
     assert report.ingestion["excluded"] == ["VEDL"]

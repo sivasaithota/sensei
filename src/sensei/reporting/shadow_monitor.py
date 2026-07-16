@@ -21,13 +21,9 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from sensei.operations import OperationalJournal
+from sensei.automation.shadow import ShadowTrialPolicy
 
 REPORTS_DIR = Path(__file__).resolve().parents[3] / "data" / "reports"
-
-MINIMUM_SESSIONS = 20          # mirrors ShadowTrialPolicy for expectation math
-MINIMUM_SIGNALS = 30
-MINIMUM_SIGNAL_INSTRUMENTS = 10
-
 
 @dataclass
 class MonitorReport:
@@ -72,7 +68,7 @@ def build_report(
         report.alerts.append("ALERT: governed journal missing")
         return report
 
-    closed_dates = _closed_dates(config_path)
+    closed_dates, shadow_policy = _monitor_config(config_path)
     journal = OperationalJournal.open_read_only(journal_path)
     verification = journal.verify()
     report.journal_ok = verification.ok
@@ -156,7 +152,9 @@ def build_report(
             "expected": expected,
             "signals": signals.get(pid, 0),
             "signal_instruments": len(signal_instruments.get(pid, ())),
-            "sessions_remaining_minimum": max(0, MINIMUM_SESSIONS - obs),
+            "sessions_remaining_minimum": max(
+                0, shadow_policy.minimum_sessions - obs
+            ),
         })
 
     # ---- alerts ----
@@ -237,10 +235,26 @@ def run(
     return payload
 
 
-def _closed_dates(config_path: Path) -> frozenset[date]:
+def _monitor_config(
+    config_path: Path,
+) -> tuple[frozenset[date], ShadowTrialPolicy]:
     try:
         raw = json.loads(Path(config_path).read_text(encoding="utf-8"))
         values = raw.get("closed_dates", ())
-        return frozenset(date.fromisoformat(str(value)) for value in values)
+        shadow = raw.get("shadow_trial", {})
+        return (
+            frozenset(date.fromisoformat(str(value)) for value in values),
+            ShadowTrialPolicy(
+                minimum_sessions=int(shadow.get("minimum_sessions", 5)),
+                minimum_signals=int(shadow.get("minimum_signals", 0)),
+                minimum_signal_instruments=int(
+                    shadow.get("minimum_signal_instruments", 0)
+                ),
+                minimum_data_completeness=float(
+                    shadow.get("minimum_data_completeness", 0.99)
+                ),
+                require_zero_errors=shadow.get("require_zero_errors", True),
+            ),
+        )
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        return frozenset()
+        return frozenset(), ShadowTrialPolicy()
