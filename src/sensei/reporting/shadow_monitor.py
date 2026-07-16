@@ -24,8 +24,6 @@ from sensei.operations import OperationalJournal
 
 REPORTS_DIR = Path(__file__).resolve().parents[3] / "data" / "reports"
 
-# Forward-only observations begin the first session AFTER plan registration.
-SHADOW_START = date(2026, 7, 17)
 MINIMUM_SESSIONS = 20          # mirrors ShadowTrialPolicy for expectation math
 MINIMUM_SIGNALS = 30
 MINIMUM_SIGNAL_INSTRUMENTS = 10
@@ -47,9 +45,13 @@ class MonitorReport:
         return self.__dict__
 
 
-def _expected_sessions(as_of: date, closed_dates: frozenset[date] = frozenset()) -> int:
-    """NSE weekday sessions in [SHADOW_START, as_of]; holidays via closed_dates."""
-    n, d = 0, SHADOW_START
+def _expected_sessions(
+    start: date,
+    as_of: date,
+    closed_dates: frozenset[date] = frozenset(),
+) -> int:
+    """Configured NSE sessions in the inclusive interval."""
+    n, d = 0, start
     while d <= as_of:
         if d.weekday() < 5 and d not in closed_dates:
             n += 1
@@ -57,7 +59,12 @@ def _expected_sessions(as_of: date, closed_dates: frozenset[date] = frozenset())
     return n
 
 
-def build_report(journal_path: Path, as_of: date | None = None) -> MonitorReport:
+def build_report(
+    journal_path: Path,
+    as_of: date | None = None,
+    *,
+    config_path: Path = Path("config/scheduler.json"),
+) -> MonitorReport:
     as_of = as_of or date.today()
     report = MonitorReport(as_of=as_of.isoformat())
 
@@ -65,7 +72,8 @@ def build_report(journal_path: Path, as_of: date | None = None) -> MonitorReport
         report.alerts.append("ALERT: governed journal missing")
         return report
 
-    journal = OperationalJournal(journal_path)
+    closed_dates = _closed_dates(config_path)
+    journal = OperationalJournal.open_read_only(journal_path)
     verification = journal.verify()
     report.journal_ok = verification.ok
     report.events = verification.events_checked
@@ -75,10 +83,13 @@ def build_report(journal_path: Path, as_of: date | None = None) -> MonitorReport
 
     plan_names: dict[str, str] = {}
     stages: dict[str, str] = {}
+    shadow_started: dict[str, date] = {}
     observations: dict[str, int] = {}
     signals: dict[str, int] = {}
     signal_instruments: dict[str, set[str]] = {}
     latest_ingestion: dict | None = None
+    eod_claims: set[str] = set()
+    terminal_tasks: set[str] = set()
 
     for ev in journal.read_all():
         et = ev.event_type
@@ -89,6 +100,8 @@ def build_report(journal_path: Path, as_of: date | None = None) -> MonitorReport
             pid = str(p["plan_version_id"])
             target = str(p["target_stage"])
             stages[pid] = target
+            if target == "shadow":
+                shadow_started[pid] = ev.occurred_at.date()
             if target in ("paper", "canary", "active"):
                 report.promotions.append(
                     {"plan": plan_names.get(pid, pid[:16]), "to": target,
@@ -113,31 +126,51 @@ def build_report(journal_path: Path, as_of: date | None = None) -> MonitorReport
                 "event_at": ev.occurred_at.isoformat(),
             }
         elif et == "SchedulerTaskHalted":
+            terminal_tasks.add(str(p.get("task_id", "?")))
             report.halts.append({
                 "task": p.get("task_id", "?"),
                 "reasons": list(p.get("reason_codes", ())),
                 "at": ev.occurred_at.isoformat(),
             })
+        elif et == "SchedulerTaskCompleted":
+            terminal_tasks.add(str(p.get("task_id", "?")))
+        elif et == "SchedulerTaskClaimed":
+            task = p.get("task", {})
+            if (
+                task.get("kind") == "END_OF_DAY_SESSION"
+                and task.get("trading_date") == as_of.isoformat()
+            ):
+                eod_claims.add(str(task.get("task_id", "?")))
 
     report.ingestion = latest_ingestion
-    report.expected_sessions = _expected_sessions(as_of)
 
     for pid, name in sorted(plan_names.items(), key=lambda kv: kv[1]):
         obs = observations.get(pid, 0)
+        first_session = shadow_started.get(pid, as_of) + timedelta(days=1)
+        expected = _expected_sessions(first_session, as_of, closed_dates)
+        report.expected_sessions = max(report.expected_sessions, expected)
         report.plans.append({
             "name": name,
             "stage": stages.get(pid, "registered"),
             "observations": obs,
-            "expected": report.expected_sessions,
+            "expected": expected,
             "signals": signals.get(pid, 0),
             "signal_instruments": len(signal_instruments.get(pid, ())),
             "sessions_remaining_minimum": max(0, MINIMUM_SESSIONS - obs),
         })
 
     # ---- alerts ----
-    if latest_ingestion is None and report.expected_sessions > 0:
-        report.alerts.append("ALERT: no market-data ingestion recorded yet")
-    elif latest_ingestion is not None:
+    ingestion_is_current = (
+        latest_ingestion is not None
+        and latest_ingestion.get("session") == as_of.isoformat()
+    )
+    pending_eod = bool(eod_claims - terminal_tasks)
+    if not ingestion_is_current and report.expected_sessions > 0:
+        if pending_eod:
+            report.alerts.append("note: EOD ingestion pending; monitor will reassess next run")
+        else:
+            report.alerts.append("ALERT: no market-data ingestion recorded for today")
+    if latest_ingestion is not None:
         comp = latest_ingestion.get("completeness")
         if comp is not None and comp < 0.99:
             report.alerts.append(f"ALERT: ingestion completeness {comp:.3f} < 0.99")
@@ -145,12 +178,12 @@ def build_report(journal_path: Path, as_of: date | None = None) -> MonitorReport
             report.alerts.append(
                 f"warn: failed symbols last ingestion: {latest_ingestion['failed'][:5]}")
     lag = [p for p in report.plans
-           if p["stage"] == "shadow" and p["observations"] < report.expected_sessions]
-    if lag and report.expected_sessions > 0:
-        worst = min(lag, key=lambda p: p["observations"])
+           if p["stage"] == "shadow" and p["observations"] < p["expected"]]
+    if lag:
+        worst = min(lag, key=lambda p: p["observations"] / p["expected"])
         report.alerts.append(
             f"ALERT: shadow observations lagging — {worst['name']} has "
-            f"{worst['observations']}/{report.expected_sessions} expected sessions")
+            f"{worst['observations']}/{worst['expected']} expected sessions")
     recent_halts = [h for h in report.halts if h["at"][:10] == as_of.isoformat()]
     if recent_halts:
         report.alerts.append(
@@ -171,7 +204,7 @@ def render_markdown(r: MonitorReport) -> str:
         lines.append(f"- Ingestion (session {i['session']}): completeness "
                      f"{i['completeness']}, eligible {i['eligible']}, "
                      f"failed {len(i['failed'])}, excluded {i['excluded'] or 'none'}")
-    lines.append(f"- Expected shadow sessions since {SHADOW_START}: {r.expected_sessions}")
+    lines.append(f"- Maximum expected shadow sessions across plans: {r.expected_sessions}")
     lines += ["", "## Plans", "",
               "| Plan | Stage | Obs / Expected | Signals | Instruments | Sessions to min |",
               "|---|---|---|---|---|---|"]
@@ -189,11 +222,25 @@ def render_markdown(r: MonitorReport) -> str:
     return "\n".join(lines)
 
 
-def run(journal_path: Path, as_of: date | None = None) -> dict:
-    report = build_report(journal_path, as_of=as_of)
+def run(
+    journal_path: Path,
+    as_of: date | None = None,
+    *,
+    config_path: Path = Path("config/scheduler.json"),
+) -> dict:
+    report = build_report(journal_path, as_of=as_of, config_path=config_path)
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     out = REPORTS_DIR / f"shadow-monitor-{report.as_of}.md"
     out.write_text(render_markdown(report))
     payload = report.to_dict()
     payload["report_path"] = str(out)
     return payload
+
+
+def _closed_dates(config_path: Path) -> frozenset[date]:
+    try:
+        raw = json.loads(Path(config_path).read_text(encoding="utf-8"))
+        values = raw.get("closed_dates", ())
+        return frozenset(date.fromisoformat(str(value)) for value in values)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return frozenset()

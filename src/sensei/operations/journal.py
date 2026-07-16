@@ -97,11 +97,27 @@ class OperationalJournal:
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._path = Path(path)
+        self._read_only = False
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._initialize()
 
+    @classmethod
+    def open_read_only(cls, path: Path) -> "OperationalJournal":
+        """Open an existing journal through SQLite's filesystem read-only mode."""
+
+        target = Path(path)
+        if not target.is_file():
+            raise FileNotFoundError(target)
+        journal = object.__new__(cls)
+        journal._path = target.resolve(strict=True)
+        journal._read_only = True
+        journal._clock = lambda: datetime.now(timezone.utc)
+        return journal
+
     def append(self, command: EventAppend) -> JournalEvent:
+        if self._read_only:
+            raise PermissionError("operational journal is read-only")
         payload_json = _canonical_json(command.payload)
         command_json = _canonical_json(
             {
@@ -388,10 +404,16 @@ class OperationalJournal:
         return restored
 
     def _connect(self) -> sqlite3.Connection:
+        target = (
+            f"file:{self._path}?mode=ro"
+            if self._read_only
+            else self._path
+        )
         connection = sqlite3.connect(
-            self._path,
+            target,
             timeout=5,
             isolation_level=None,
+            uri=self._read_only,
         )
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")

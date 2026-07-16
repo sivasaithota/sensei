@@ -1,12 +1,13 @@
 """Shadow monitor is passive: builds reports from journal reads only."""
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
 from sensei.operations import OperationalJournal
 from sensei.operations.journal import EventAppend
+from sensei.automation.scheduling import SchedulerLedger, SchedulerTaskKind, SwingSessionPolicy
 import sensei.reporting.shadow_monitor as sm
 
 
@@ -24,12 +25,13 @@ def journal(tmp_path):
 
 def _seed(journal):
     now = datetime(2026, 7, 17, 13, 30, tzinfo=timezone.utc)
+    registered = datetime(2026, 7, 16, 13, 30, tzinfo=timezone.utc)
     _append(journal, "plan:p1", "StrategyPlanRegistered",
             {"plan_id": "sha256:p1", "source_rule_name": "minervini_trend_template"},
-            "reg:p1", now)
+            "reg:p1", registered)
     _append(journal, "plan:p1:shadow", "StrategyLifecycleTransitioned",
             {"plan_version_id": "sha256:p1", "target_stage": "shadow"},
-            "tr:p1:shadow", now)
+            "tr:p1:shadow", registered)
     _append(journal, "ingest:s1", "MarketDataIngestionCompleted",
             {"session": "2026-07-17", "completeness": 0.996,
              "eligible_symbols": ["A", "B"], "failed_symbols": ["VEDL"],
@@ -100,3 +102,49 @@ def test_missing_journal_alerts(tmp_path):
     report = sm.build_report(tmp_path / "nope.sqlite3")
     assert not report.journal_ok
     assert any("missing" in a for a in report.alerts)
+
+
+def test_read_only_journal_refuses_append(journal):
+    _seed(journal)
+    read_only = OperationalJournal.open_read_only(_journal_path(journal))
+
+    with pytest.raises(PermissionError, match="read-only"):
+        _append(
+            read_only,
+            "must:not:write",
+            "Forbidden",
+            {},
+            "forbidden",
+            datetime(2026, 7, 17, tzinfo=timezone.utc),
+        )
+
+
+def test_report_uses_configured_closed_dates(journal, tmp_path):
+    _seed(journal)
+    config = tmp_path / "scheduler.json"
+    config.write_text('{"closed_dates": ["2026-07-20"]}', encoding="utf-8")
+
+    report = sm.build_report(
+        _journal_path(journal),
+        as_of=date(2026, 7, 20),
+        config_path=config,
+    )
+
+    assert report.expected_sessions == 1
+
+
+def test_pending_eod_is_not_reported_as_missing_ingestion(journal):
+    _seed(journal)
+    policy = SwingSessionPolicy()
+    now = datetime(2026, 7, 20, 18, 30, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+    task = next(
+        item
+        for item in policy.due_tasks(now).tasks
+        if item.kind is SchedulerTaskKind.END_OF_DAY_SESSION
+    )
+    SchedulerLedger(journal).claim(task, occurred_at=now)
+
+    report = sm.build_report(_journal_path(journal), as_of=date(2026, 7, 20))
+
+    assert not any("no market-data ingestion" in alert for alert in report.alerts)
+    assert any("EOD ingestion pending" in alert for alert in report.alerts)

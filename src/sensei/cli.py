@@ -70,12 +70,17 @@ def main() -> None:
     ui_p.add_argument("--port", type=int, default=8642)
     monitor_p = sub.add_parser("shadow-monitor")
     monitor_p.add_argument("--journal", default="data/operations.sqlite3")
+    monitor_p.add_argument("--config", default="config/scheduler.json")
     args = parser.parse_args()
 
     if args.cmd == "shadow-monitor":
         from pathlib import Path
         from sensei.reporting.shadow_monitor import run
-        print(json.dumps(run(Path(args.journal)), indent=2, default=str))
+        print(json.dumps(
+            run(Path(args.journal), config_path=Path(args.config)),
+            indent=2,
+            default=str,
+        ))
         return
 
     if args.cmd == "scheduler-migrate-governance":
