@@ -8,3 +8,8 @@ __pycache__/
 data/logs/
 data/runtime-secrets.json
 data/surveillance.json
+data/operations.sqlite3
+data/operations.sqlite3-wal
+data/operations.sqlite3-shm
+data/governance-artifacts/
+data/provenance/
