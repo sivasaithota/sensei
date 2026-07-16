@@ -264,6 +264,68 @@ class GovernedDeskSupervisor:
         )
 
     @classmethod
+    def paper_only_from_gateway_factory(
+        cls,
+        *,
+        journal_path: Path,
+        gateway_factory: Callable[[OperationalJournal], RecordingPaperGateway],
+        compose: Callable[
+            [OperationalJournal, RecordingPaperGateway], SupervisorComposition
+        ],
+        clock: Callable[[], datetime] | None = None,
+    ) -> GovernedDeskSupervisor:
+        """Open a durable gateway against the Supervisor's exact journal.
+
+        Production command receipts must share the same opened journal object
+        as authenticated account, broker, health and reconciliation evidence.
+        """
+
+        if not callable(gateway_factory):
+            raise SupervisorConfigurationError("gateway_factory must be callable")
+        requested_path = Path(journal_path)
+        if not requested_path.is_file():
+            raise SupervisorStartupError("JOURNAL_MISSING")
+        try:
+            path = requested_path.resolve(strict=True)
+        except FileNotFoundError:
+            raise SupervisorStartupError("JOURNAL_MISSING") from None
+        lease = _acquire_lease(path)
+        try:
+            journal = OperationalJournal(path)
+            _verify_journal(journal)
+            gateway = gateway_factory(journal)
+            if (
+                type(gateway) is not RecordingPaperGateway
+                or not gateway.is_bound_to_journal(journal)
+            ):
+                raise SupervisorConfigurationError(
+                    "gateway factory must return an exact journal-bound "
+                    "RecordingPaperGateway"
+                )
+            composition = compose(journal, gateway)
+            if type(composition) is not SupervisorComposition:
+                raise SupervisorConfigurationError(
+                    "paper composition must return SupervisorComposition"
+                )
+            _assert_paper_runtime(
+                journal,
+                gateway,
+                composition,
+                allow_test_doubles=False,
+            )
+            return cls(
+                journal,
+                gateway,
+                composition,
+                lease,
+                clock=clock,
+                allow_test_doubles=False,
+            )
+        except BaseException:
+            _release_lease(lease)
+            raise
+
+    @classmethod
     def _paper_only_for_tests(
         cls,
         *,

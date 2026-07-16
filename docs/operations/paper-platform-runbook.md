@@ -134,6 +134,17 @@ allowing another entry.
 
 ## Normal session flow
 
+With `execution_backend` set to `governed_paper`, `scheduler-run-once` now
+constructs this graph for each bounded entry task. It opens the durable gateway
+from the Supervisor's exact journal, refreshes or verifies the session's signed
+NSE surveillance snapshot, requires local bars to be closed through the exact
+previous configured trading session, authenticates account/broker/health facts,
+and then runs at most one canonical PAPER-plan cycle. Missing runtime secrets,
+statistics, prices, surveillance, provenance, health, or reconciliation truth
+halts the task; the scheduler never falls back to the legacy entry executor.
+The legacy session remains present only for pre-cutover position maintenance at
+end of day.
+
 Use `GovernedDeskSupervisor.paper_only(...)` as the owner of a bounded paper
 session. Its composition must supply the exact `TradingKernel`, `DeskRuntime`,
 cycle source, truth source, Account Snapshot verifier, Operations Monitor

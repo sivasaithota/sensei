@@ -3,5 +3,9 @@
   "legacy_positions_path": "data/paper/positions.json",
   "runtime_secrets_path": "data/runtime-secrets.json",
   "surveillance_path": "data/surveillance.json",
+  "risk_path": "config/risk.yaml",
+  "playbook_path": "data/playbook/current.json",
+  "prices_path": "data/prices",
+  "provenance_path": "data/provenance",
   "closed_dates": []
 }

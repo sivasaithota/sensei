@@ -70,14 +70,10 @@ class PaperAccountProjector:
     ) -> AccountSnapshot:
         require_timestamp(captured_at, "captured_at")
         broker = self._gateway.broker_snapshot(captured_at=captured_at)
-        governed = self.project_broker_snapshot(
+        return self.project_broker_snapshot(
             broker,
             mark_prices_paise=mark_prices_paise,
         )
-        if self._baseline_snapshot_source is None:
-            return governed
-        baseline = self._baseline_snapshot_source(captured_at, mark_prices_paise)
-        return self._merge_baseline(baseline, governed)
 
     def _merge_baseline(
         self,
@@ -234,7 +230,7 @@ class PaperAccountProjector:
             marked_equity_paise,
         )
         self._high_water_mark_paise = high_water_mark_paise
-        return AccountSnapshot(
+        governed = AccountSnapshot(
             available_cash_paise=available_cash_paise,
             marked_equity_paise=marked_equity_paise,
             high_water_mark_paise=high_water_mark_paise,
@@ -245,3 +241,10 @@ class PaperAccountProjector:
             reconciled=True,
             captured_at=broker.captured_at,
         )
+        if self._baseline_snapshot_source is None:
+            return governed
+        baseline = self._baseline_snapshot_source(
+            broker.captured_at,
+            mark_prices_paise,
+        )
+        return self._merge_baseline(baseline, governed)

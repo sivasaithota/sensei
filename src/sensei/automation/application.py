@@ -60,6 +60,10 @@ class SchedulerApplicationConfig:
     legacy_positions_path: Path = Path("data/paper/positions.json")
     runtime_secrets_path: Path = Path("data/runtime-secrets.json")
     surveillance_path: Path = Path("data/surveillance.json")
+    risk_path: Path = Path("config/risk.yaml")
+    playbook_path: Path = Path("data/playbook/current.json")
+    prices_path: Path = Path("data/prices")
+    provenance_path: Path = Path("data/provenance")
     closed_dates: frozenset[date] = frozenset()
     execution_backend: str = "disabled"
 
@@ -97,6 +101,12 @@ class SchedulerApplicationConfig:
             ),
             surveillance_path=Path(
                 raw.get("surveillance_path", str(cls.surveillance_path))
+            ),
+            risk_path=Path(raw.get("risk_path", str(cls.risk_path))),
+            playbook_path=Path(raw.get("playbook_path", str(cls.playbook_path))),
+            prices_path=Path(raw.get("prices_path", str(cls.prices_path))),
+            provenance_path=Path(
+                raw.get("provenance_path", str(cls.provenance_path))
             ),
             closed_dates=frozenset(
                 date.fromisoformat(str(value))
@@ -242,6 +252,7 @@ class GovernedSchedulerApplication:
         eod_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
         shadow_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
         manages_legacy_positions: bool = False,
+        journal_path: Path | None = None,
     ) -> None:
         self.journal = journal
         self.config = config
@@ -275,9 +286,9 @@ class GovernedSchedulerApplication:
             from sensei.data.store import load_prices
             from sensei.runtime import LegacyPositionAdoptionRegistry
 
-            def reconcile_positions(now: datetime) -> None:
+            def reconcile_positions(now: datetime):
                 if not config.legacy_positions_path.is_file():
-                    return
+                    return None
                 positions = adopt_legacy_positions(
                     journal,
                     positions_path=config.legacy_positions_path,
@@ -289,7 +300,7 @@ class GovernedSchedulerApplication:
                     )
                     for item in positions
                 }
-                LegacyPositionAdoptionRegistry(
+                return LegacyPositionAdoptionRegistry(
                     journal, positions_path=config.legacy_positions_path
                 ).reconcile(
                     mark_prices_paise=marks,
@@ -300,9 +311,30 @@ class GovernedSchedulerApplication:
             sessions = LegacyPaperSessions(
                 reconcile_positions=reconcile_positions,
             )
-            entry_session = sessions.entry
             eod_session = sessions.eod
             manages_legacy_positions = True
+            if config.execution_backend == "legacy_paper":
+                entry_session = sessions.entry
+            elif journal_path is not None:
+                from sensei.runtime.production import ProductionPaperSession
+
+                def legacy_baseline(captured_at: datetime):
+                    truth = reconcile_positions(captured_at)
+                    return truth.account_snapshot if truth is not None else None
+
+                entry_session = ProductionPaperSession(
+                    journal_path=journal_path,
+                    scheduler_config=config,
+                    risk_path=config.risk_path,
+                    playbook_path=config.playbook_path,
+                    prices_path=config.prices_path,
+                    provenance_path=config.provenance_path,
+                    legacy_baseline=(
+                        legacy_baseline
+                        if config.legacy_positions_path.is_file()
+                        else None
+                    ),
+                )
             from .shadow_session import DailyCanonicalShadowSession
 
             shadow_session = DailyCanonicalShadowSession(
@@ -360,6 +392,7 @@ class GovernedSchedulerApplication:
             journal=journal,
             config=config,
             entry_session=entry_session,
+            journal_path=path,
         )
 
     def run_once(self, now: datetime) -> SchedulerRunResult:
