@@ -49,6 +49,11 @@ from .governed_entry import (
     GovernedPaperEntrySession,
 )
 from .shadow_session import DailyCanonicalShadowSession
+from .market_ingestion import (
+    MarketDataIngestionLedger,
+    MarketDataIngestionSession,
+    MarketDataIngestionSnapshot,
+)
 
 from .scheduling import (
     INDIA_TIMEZONE,
@@ -95,6 +100,9 @@ __all__ = [
     "LifecycleEvidenceProvider",
     "LegacyPaperSessions",
     "DailyCanonicalShadowSession",
+    "MarketDataIngestionLedger",
+    "MarketDataIngestionSession",
+    "MarketDataIngestionSnapshot",
     "PlanStaticEvidenceProducer",
     "PublishedStageEvidence",
     "ScheduleDecision",

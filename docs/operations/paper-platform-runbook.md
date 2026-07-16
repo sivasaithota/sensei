@@ -145,6 +145,15 @@ halts the task; the scheduler never falls back to the legacy entry executor.
 The legacy session remains present only for pre-cutover position maintenance at
 end of day.
 
+At EOD, market ingestion runs before shadow evaluation. It retries each Nifty
+universe member up to three times, records the exact eligible/failed/excluded
+sets, and requires the default 99% completeness threshold without changing the
+registered shadow policy. A refresh failure for a recently active instrument
+counts against completeness. A symbol whose retained bar is at least 30 days
+stale after refresh failure is excluded operationally with an audited reason;
+its history remains untouched. A run below the threshold halts shadow progress
+for that trading session rather than evaluating a mixed-date snapshot.
+
 Use `GovernedDeskSupervisor.paper_only(...)` as the owner of a bounded paper
 session. Its composition must supply the exact `TradingKernel`, `DeskRuntime`,
 cycle source, truth source, Account Snapshot verifier, Operations Monitor

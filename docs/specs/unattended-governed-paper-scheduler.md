@@ -39,7 +39,7 @@ again.
 Normal task order is:
 
 1. protective recovery and reconciliation;
-2. research/lifecycle and shadow progression;
+2. retry-bounded market-data ingestion, universe hygiene, and shadow progression;
 3. one bounded governed paper-entry session;
 4. post-close outcome/Coach processing and reporting;
 5. journal verification and backup.
@@ -68,6 +68,16 @@ system distinguishes:
 
 Unknown exceptions fail the current task closed, are journaled without secret
 material, and stop later entry-bearing work in that poll.
+
+Before each EOD shadow observation the scheduler refreshes every configured
+universe member with bounded per-symbol retries and records one durable
+ingestion manifest. Instruments whose retained history is long stale after all
+refresh attempts are explicitly excluded with a reason; their files and prior
+history are never deleted. Temporary refresh failures remain in the denominator.
+Shadow evaluation proceeds only when the exact-session eligible set meets the
+pre-registered `minimum_data_completeness` threshold, and its market snapshot
+links the ingestion event, failures and exclusions. No ingestion result grants
+lifecycle or trading authority.
 
 ## Restart and cutover invariants
 
