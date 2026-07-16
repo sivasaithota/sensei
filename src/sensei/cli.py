@@ -68,7 +68,15 @@ def main() -> None:
     scheduler_migrate_p.add_argument("--prices-dir", default="data/prices")
     ui_p = sub.add_parser("ui")
     ui_p.add_argument("--port", type=int, default=8642)
+    monitor_p = sub.add_parser("shadow-monitor")
+    monitor_p.add_argument("--journal", default="data/operations.sqlite3")
     args = parser.parse_args()
+
+    if args.cmd == "shadow-monitor":
+        from pathlib import Path
+        from sensei.reporting.shadow_monitor import run
+        print(json.dumps(run(Path(args.journal)), indent=2, default=str))
+        return
 
     if args.cmd == "scheduler-migrate-governance":
         from pathlib import Path

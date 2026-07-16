@@ -1,0 +1,490 @@
+[
+  {
+    "name": "minervini_trend_template",
+    "source": "Mark Minervini, Trade Like a Stock Market Wizard, 2013",
+    "principle": "Stock must be in a confirmed Stage 2 uptrend: price above key moving averages in proper order, near 52-week high, and at least 30% above 52-week low.",
+    "conditions": [
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_150",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_200",
+        "factor": 1.0
+      },
+      {
+        "left": "sma_150",
+        "op": ">",
+        "right": "sma_200",
+        "factor": 1.0
+      },
+      {
+        "left": "sma_50",
+        "op": ">",
+        "right": "sma_150",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "lowest_252",
+        "factor": 1.3
+      },
+      {
+        "left": "close",
+        "op": ">=",
+        "right": "high_52w",
+        "factor": 0.75
+      }
+    ],
+    "stop_pct": 7.5,
+    "target_pct": 20.0,
+    "max_hold_days": 60
+  },
+  {
+    "name": "minervini_breakout_volume",
+    "source": "Mark Minervini, Trade Like a Stock Market Wizard, 2013",
+    "principle": "Enter on a breakout from a base on expanding volume \u2014 price clears the prior 50-day high with volume above its average.",
+    "conditions": [
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_150",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_200",
+        "factor": 1.0
+      },
+      {
+        "left": "sma_50",
+        "op": ">",
+        "right": "sma_150",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "highest_50",
+        "factor": 1.0
+      },
+      {
+        "left": "volume",
+        "op": ">",
+        "right": "vol_sma_50",
+        "factor": 1.4
+      }
+    ],
+    "stop_pct": 7.5,
+    "target_pct": 20.0,
+    "max_hold_days": 60
+  },
+  {
+    "name": "connors_rsi2_pullback",
+    "source": "Larry Connors, Short Term Trading Strategies That Work, 2008",
+    "principle": "Buy short-term pullbacks within uptrends when RSI(2) drops below 5 while price remains above its 200-day MA; exit when price closes above the 5-day MA.",
+    "conditions": [
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_200",
+        "factor": 1.0
+      },
+      {
+        "left": "rsi_2",
+        "op": "<",
+        "right": 5.0,
+        "factor": 1.0
+      }
+    ],
+    "stop_pct": 4.0,
+    "target_pct": 4.0,
+    "max_hold_days": 7
+  },
+  {
+    "name": "gujral_20ema_pullback_resume",
+    "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)",
+    "principle": "In an established uptrend, buy the pullback that touches or approaches the 20 EMA and then resumes upward \u2014 'buy the dip to the moving average in a trending market, never counter-trend.'",
+    "conditions": [
+      {
+        "left": "sma_20",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_20",
+        "factor": 1.0
+      },
+      {
+        "left": "low",
+        "op": "<=",
+        "right": "sma_20",
+        "factor": 1.02
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "open",
+        "factor": 1.0
+      }
+    ],
+    "stop_pct": 4.0,
+    "target_pct": 12.0,
+    "max_hold_days": 20
+  },
+  {
+    "name": "gujral_trend_alignment_dual_ma",
+    "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)",
+    "principle": "Trade only with the trend of the higher timeframe. Shorter MA above longer MA confirms trend alignment; a daily-timeframe long is stronger when the weekly trend agrees.",
+    "conditions": [
+      {
+        "left": "sma_20",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 1.0
+      },
+      {
+        "left": "sma_50",
+        "op": ">",
+        "right": "sma_200",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_20",
+        "factor": 1.0
+      },
+      {
+        "left": "ret_20",
+        "op": ">",
+        "right": 0.0,
+        "factor": 1.0
+      }
+    ],
+    "stop_pct": 5.0,
+    "target_pct": 15.0,
+    "max_hold_days": 30
+  },
+  {
+    "name": "gujral_exceptional_candle_volume",
+    "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)",
+    "principle": "Unusually large range candles with strong volume in the trend direction signal institutional participation; entries on/after such candles in trend direction have follow-through.",
+    "conditions": [
+      {
+        "left": "sma_20",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_20",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "open",
+        "factor": 1.02
+      },
+      {
+        "left": "volume",
+        "op": ">",
+        "right": "vol_sma_20",
+        "factor": 1.5
+      }
+    ],
+    "stop_pct": 5.0,
+    "target_pct": 15.0,
+    "max_hold_days": 20
+  },
+  {
+    "name": "gujral_gap_and_hold_uptrend",
+    "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)",
+    "principle": "Gaps in trend direction that hold above the prior day's range tend to run; fading gaps against the bigger trend is low-probability.",
+    "conditions": [
+      {
+        "left": "sma_20",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 1.0
+      },
+      {
+        "left": "open",
+        "op": ">",
+        "right": "highest_5",
+        "factor": 1.005
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "open",
+        "factor": 1.0
+      },
+      {
+        "left": "volume",
+        "op": ">",
+        "right": "vol_sma_20",
+        "factor": 1.0
+      }
+    ],
+    "stop_pct": 4.0,
+    "target_pct": 10.0,
+    "max_hold_days": 10
+  },
+  {
+    "name": "sadekar_bullish_engulfing_support",
+    "source": "Sadekar \u2014 How to Make Money Trading with Candlestick Charts",
+    "principle": "Bullish engulfing after a decline, at or near a moving-average support zone, confirmed by above-average volume, in a larger uptrend.",
+    "conditions": [
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_200",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 0.98
+      },
+      {
+        "left": "ret_10",
+        "op": "<",
+        "right": 0.0,
+        "factor": 1.0
+      },
+      {
+        "left": "bullish_engulfing",
+        "op": ">",
+        "right": 0.5,
+        "factor": 1.0
+      },
+      {
+        "left": "volume",
+        "op": ">",
+        "right": "vol_sma_20",
+        "factor": 1.2
+      }
+    ],
+    "stop_pct": 4.0,
+    "target_pct": 10.0,
+    "max_hold_days": 20
+  },
+  {
+    "name": "sadekar_hammer_confirmation",
+    "source": "Sadekar \u2014 How to Make Money Trading with Candlestick Charts",
+    "principle": "Hammer after a decline; buy on the follow-through candle closing above the hammer's high, not on the hammer itself.",
+    "conditions": [
+      {
+        "left": "ret_10",
+        "op": "<",
+        "right": 0.0,
+        "factor": 1.0
+      },
+      {
+        "left": "hammer",
+        "op": ">",
+        "right": 0.5,
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "highest_1",
+        "factor": 1.0
+      },
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 0.97
+      }
+    ],
+    "stop_pct": 5.0,
+    "target_pct": 10.0,
+    "max_hold_days": 15
+  },
+  {
+    "name": "sadekar_strong_close_volume",
+    "source": "Sadekar \u2014 How to Make Money Trading with Candlestick Charts",
+    "principle": "Strong close in the top of the day's range on expanding volume marks institutional demand; acts as a continuation entry in an uptrend.",
+    "conditions": [
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 1.0
+      },
+      {
+        "left": "strong_close",
+        "op": ">",
+        "right": 0.5,
+        "factor": 1.0
+      },
+      {
+        "left": "volume",
+        "op": ">",
+        "right": "vol_sma_20",
+        "factor": 1.25
+      },
+      {
+        "left": "ret_20",
+        "op": ">",
+        "right": 0.0,
+        "factor": 1.0
+      }
+    ],
+    "stop_pct": 4.0,
+    "target_pct": 10.0,
+    "max_hold_days": 20
+  },
+  {
+    "name": "sadekar_inside_day_breakout_uptrend",
+    "source": "Sadekar \u2014 How to Make Money Trading with Candlestick Charts",
+    "principle": "Inside-day (harami) resolution: a quiet inside candle after a big move, resolved by a close beyond the inside candle's range in the trend direction.",
+    "conditions": [
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 1.0
+      },
+      {
+        "left": "ret_10",
+        "op": ">",
+        "right": 0.0,
+        "factor": 1.0
+      },
+      {
+        "left": "inside_day_breakout",
+        "op": ">",
+        "right": 0.5,
+        "factor": 1.0
+      },
+      {
+        "left": "volume",
+        "op": ">",
+        "right": "vol_sma_20",
+        "factor": 1.0
+      }
+    ],
+    "stop_pct": 3.0,
+    "target_pct": 8.0,
+    "max_hold_days": 15
+  },
+  {
+    "name": "turner_trend_breakout_volume",
+    "source": "Turner, A Beginner's Guide to Day Trading Online, 2nd ed. 2007",
+    "principle": "Breakouts count only when volume expands versus recent average; buy strength that clears a recent consolidation high.",
+    "conditions": [
+      {
+        "left": "close",
+        "op": ">",
+        "right": "highest_20",
+        "factor": 1.0
+      },
+      {
+        "left": "volume",
+        "op": ">",
+        "right": "vol_sma_20",
+        "factor": 1.3
+      }
+    ],
+    "stop_pct": 5.0,
+    "target_pct": 10.0,
+    "max_hold_days": 15
+  },
+  {
+    "name": "turner_trend_filter_sma",
+    "source": "Turner, A Beginner's Guide to Day Trading Online, 2nd ed. 2007",
+    "principle": "Avoid the chop: stand aside when moving averages are flat and ranges are narrow. Trade only when price is above a rising average and range is not compressed.",
+    "conditions": [
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 1.0
+      },
+      {
+        "left": "sma_20",
+        "op": ">",
+        "right": "sma_50",
+        "factor": 1.0
+      },
+      {
+        "left": "range_ratio_5",
+        "op": ">",
+        "right": 1.0,
+        "factor": 1.0
+      }
+    ],
+    "stop_pct": 5.0,
+    "target_pct": 10.0,
+    "max_hold_days": 15
+  },
+  {
+    "name": "schwager_trend_with_pullback_strength",
+    "source": "Stock Market Wizards \u2014 Schwager synthesis, Ryan/Minervini",
+    "principle": "Wait for the exact setup: a trending stock that pauses briefly and resumes strength before entering \u2014 patience over action.",
+    "conditions": [
+      {
+        "left": "close",
+        "op": ">",
+        "right": "sma_200",
+        "factor": 1.0
+      },
+      {
+        "left": "sma_50",
+        "op": ">",
+        "right": "sma_200",
+        "factor": 1.0
+      },
+      {
+        "left": "ret_5",
+        "op": "<",
+        "right": 0.0,
+        "factor": 1.0
+      },
+      {
+        "left": "ret_20",
+        "op": ">",
+        "right": 5.0,
+        "factor": 1.0
+      },
+      {
+        "left": "rsi_14",
+        "op": ">",
+        "right": 50.0,
+        "factor": 1.0
+      },
+      {
+        "left": "strong_close",
+        "op": ">",
+        "right": 0.5,
+        "factor": 1.0
+      }
+    ],
+    "stop_pct": 6.0,
+    "target_pct": 20.0,
+    "max_hold_days": 45
+  }
+]
