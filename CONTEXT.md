@@ -82,6 +82,10 @@ This glossary is the shared language for the trading system. Terms describe doma
 
 **Operational Journal** — The append-only, ordered record of governance, risk, trading, episode, and operator facts from which rebuildable views are derived.
 
+**Decision Memory** — A read-only, point-in-time projection over the Operational Journal that retrieves typed facts, counter-evidence and derived research for a specific agent role. It is not a second source of truth and has no trading, strategy or risk authority.
+
+**Memory Context Pack** — A content-addressed record of the exact Decision Memory query and source event IDs made available to one agent as of one instant. Its authority is `CONTEXT_ONLY`; recording or retrieving it cannot approve a trade or mutate policy.
+
 **Signed Fact** — A canonical domain fact authenticated by a producer credential and checked against independently configured trust. Journal durability and producer authenticity are separate properties and both may be required.
 
 **Desk Cycle** — One durable Desk Head orchestration of Historian, Reporter, Crowd Reader, Analyst, Committee, Trader, Coach and Secretary. It records each role as completed or skipped but does not itself grant trading authority.
