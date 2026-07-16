@@ -9,12 +9,16 @@ from .models import (
     MemoryQuery,
     MemoryQueryResult,
 )
+from .desk import DeskMemoryContexts, DeskMemoryCoordinator, DeskMemoryScope
 from .service import ContextPackAuditTrail, DecisionMemoryService
 
 __all__ = [
     "AgentMemoryRole",
     "DecisionMemoryItem",
     "DecisionMemoryService",
+    "DeskMemoryContexts",
+    "DeskMemoryCoordinator",
+    "DeskMemoryScope",
     "ContextPackAuditTrail",
     "MemoryContextPack",
     "MemoryKind",

@@ -5,6 +5,8 @@ import pytest
 from sensei.memory import (
     AgentMemoryRole,
     ContextPackAuditTrail,
+    DeskMemoryCoordinator,
+    DeskMemoryScope,
     DecisionMemoryService,
     MemoryKind,
     MemoryContextPack,
@@ -446,3 +448,35 @@ def test_scope_filter_uses_event_subject_not_incidental_nested_values(tmp_path):
 
     assert {item.event_id for item in actual.items} == {event.event_id}
     assert incidental.items == ()
+
+
+def test_desk_memory_coordinator_binds_one_audited_pack_per_role(tmp_path):
+    memory, _events, journal = _memory(tmp_path)
+    coordinator = DeskMemoryCoordinator(journal)
+    scope = DeskMemoryScope(
+        instrument_id="NSE:INFY",
+        plan_version_id=PLAN,
+        strategy_lineage_id="lineage-1",
+        market_regime="bullish",
+        timeframe="swing",
+    )
+
+    first = coordinator.prepare_cycle_contexts(
+        cycle_id="cycle:memory-one",
+        as_of=BASE + timedelta(hours=4),
+        occurred_at=BASE + timedelta(hours=4),
+        scope=scope,
+    )
+    replay = coordinator.prepare_cycle_contexts(
+        cycle_id="cycle:memory-one",
+        as_of=BASE + timedelta(hours=4),
+        occurred_at=BASE + timedelta(hours=4),
+        scope=scope,
+    )
+
+    assert set(first.contexts) == set(AgentMemoryRole)
+    assert replay == first
+    assert len(first.audit_event_ids) == len(AgentMemoryRole)
+    assert len(set(first.audit_event_ids.values())) == len(AgentMemoryRole)
+    assert all(pack.query.role is role for role, pack in first.contexts.items())
+    assert all(pack.can_authorize_trading is False for pack in first.contexts.values())

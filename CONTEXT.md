@@ -86,6 +86,10 @@ This glossary is the shared language for the trading system. Terms describe doma
 
 **Memory Context Pack** — A content-addressed record of the exact Decision Memory query and source event IDs made available to one agent as of one instant. Its authority is `CONTEXT_ONLY`; recording or retrieving it cannot approve a trade or mutate policy.
 
+**Agent Invocation** — An immutable evaluation-only fact binding one Desk role and cycle to its exact Memory Context Pack, prompt/model identity, outcome, confidence, latency and cost. A realized outcome label is appended later and cannot rewrite the original invocation.
+
+**Agent Evaluation** — A point-in-time, read-only projection over Agent Invocations and later outcome labels. It measures abstention, veto/error rates, latency, cost, calibration and false decisions; it has no trading or lifecycle authority.
+
 **Signed Fact** — A canonical domain fact authenticated by a producer credential and checked against independently configured trust. Journal durability and producer authenticity are separate properties and both may be required.
 
 **Desk Cycle** — One durable Desk Head orchestration of Historian, Reporter, Crowd Reader, Analyst, Committee, Trader, Coach and Secretary. It records each role as completed or skipped but does not itself grant trading authority.

@@ -26,6 +26,11 @@ items, provenance and explicit non-authority flags.
 not grant the memory service a strategy, risk, lifecycle, committee or broker
 mutation method.
 
+`DeskMemoryCoordinator.prepare_cycle_contexts(...)` creates and audits exactly
+one role-scoped pack for every Desk role. Consumer identity includes the cycle
+and role, so repeated preparation is idempotent while two cycles may consume
+the same deterministic pack independently.
+
 ## Memory classes
 
 - `episode`: decisions, intents, orders and protection facts;
@@ -78,7 +83,8 @@ Hermes or Obsidian may be adapters or interfaces; none becomes an authority.
 
 ## Required follow-up
 
-1. Bind audited context packs into each Desk role input and cycle manifest.
+1. Pass the coordinator's already cycle-bound packs into each concrete role
+   adapter and include their audit IDs in the Desk cycle manifest.
 2. Add bounded context sizing and retrieval-quality evaluation datasets.
 3. Measure calibration, false vetoes and trade-frequency collapse against a
    no-memory baseline.
