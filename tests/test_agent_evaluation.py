@@ -1,10 +1,15 @@
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 from sensei.evaluation import (
     AgentEvaluationService,
     AgentInvocation,
     AgentInvocationLedger,
     AgentOutcome,
+    CounterfactualReplayProducer,
+    CounterfactualReplayResult,
+    AgentVariantDecision,
+    AgentVariantShadowRunner,
 )
 from sensei.memory import AgentMemoryRole
 from sensei.memory import ContextPackAuditTrail, DecisionMemoryService, MemoryQuery
@@ -162,3 +167,174 @@ def test_agent_evaluation_is_point_in_time_and_has_no_mutation_api(tmp_path):
     assert report.roles == {}
     assert not hasattr(service, "approve_trade")
     assert not hasattr(service, "promote_strategy")
+
+
+def test_veto_can_be_labeled_only_from_governed_counterfactual_evidence(tmp_path):
+    journal = OperationalJournal(tmp_path / "journal.sqlite3")
+    ledger = AgentInvocationLedger(journal)
+    context_pack_id, context_event_id = _context(
+        journal, AgentMemoryRole.COMMITTEE, "cycle:veto"
+    )
+    invocation = ledger.record(
+        AgentInvocation(
+            cycle_id="cycle:veto",
+            episode_id=None,
+            role=AgentMemoryRole.COMMITTEE,
+            context_pack_id=context_pack_id,
+            context_pack_audit_event_id=context_event_id,
+            prompt_id="prompt:committee:v1",
+            model_id="deterministic:committee:v1",
+            outcome=AgentOutcome.VETO,
+            confidence=0.75,
+            latency_ms=5,
+            cost_microunits=0,
+            occurred_at=NOW,
+        ),
+        command_id="record-veto",
+    )
+    evidence = journal.append(
+        EventAppend(
+            stream_id="counterfactual:veto",
+            event_type="CounterfactualOutcomeAttributed",
+            payload={
+                "invocation_event_id": invocation.event_id,
+                "methodology_id": "paper-replay:v1",
+                "horizon_closed": True,
+                "simulated_net_pnl": "125.50",
+                "positive": True,
+                "authority": "EVALUATION_ONLY",
+            },
+            idempotency_key="counterfactual:veto",
+            expected_version=0,
+            occurred_at=NOW + timedelta(days=5),
+        )
+    )
+
+    ledger.label_counterfactual(
+        invocation.event_id,
+        occurred_at=NOW + timedelta(days=5),
+        command_id="label-veto-counterfactual",
+        evidence_event_id=evidence.event_id,
+    )
+
+    committee = AgentEvaluationService(journal).report(
+        as_of=NOW + timedelta(days=6)
+    ).roles[AgentMemoryRole.COMMITTEE]
+    assert committee.false_vetoes == 1
+    assert committee.counterfactual_labels == 1
+
+
+def test_prompt_model_variants_are_compared_without_promotion_authority(tmp_path):
+    journal = OperationalJournal(tmp_path / "journal.sqlite3")
+    ledger = AgentInvocationLedger(journal)
+    for cycle, prompt in (("cycle:a", "prompt:analyst:champion"), ("cycle:b", "prompt:analyst:challenger")):
+        pack_id, audit_id = _context(journal, AgentMemoryRole.ANALYST, cycle)
+        ledger.record(
+            AgentInvocation(
+                cycle_id=cycle,
+                episode_id=None,
+                role=AgentMemoryRole.ANALYST,
+                context_pack_id=pack_id,
+                context_pack_audit_event_id=audit_id,
+                prompt_id=prompt,
+                model_id="model:test",
+                outcome=AgentOutcome.ABSTAIN,
+                confidence=None,
+                latency_ms=1,
+                cost_microunits=2,
+                occurred_at=NOW,
+            ),
+            command_id=cycle,
+        )
+
+    report = AgentEvaluationService(journal).variant_report(
+        role=AgentMemoryRole.ANALYST, as_of=NOW + timedelta(minutes=1)
+    )
+
+    assert set(report.variants) == {
+        "prompt:analyst:champion|model:test",
+        "prompt:analyst:challenger|model:test",
+    }
+    assert report.authority == "EVALUATION_ONLY"
+    assert not hasattr(report, "promote")
+
+
+def test_counterfactual_replay_producer_labels_mature_no_trade_invocations(tmp_path):
+    journal = OperationalJournal(tmp_path / "journal.sqlite3")
+    ledger = AgentInvocationLedger(journal)
+    pack_id, audit_id = _context(journal, AgentMemoryRole.COMMITTEE, "cycle:auto-veto")
+    ledger.record(
+        AgentInvocation(
+            cycle_id="cycle:auto-veto",
+            episode_id=None,
+            role=AgentMemoryRole.COMMITTEE,
+            context_pack_id=pack_id,
+            context_pack_audit_event_id=audit_id,
+            prompt_id="callable:test",
+            model_id="python:test",
+            outcome=AgentOutcome.VETO,
+            confidence=0.8,
+            latency_ms=1,
+            cost_microunits=0,
+            occurred_at=NOW,
+        ),
+        command_id="auto-veto",
+    )
+    market = journal.append(
+        EventAppend(
+            stream_id="market:closed-horizon",
+            event_type="DecisionMarketSnapshotRecorded",
+            payload={"snapshot_id": "snapshot:closed"},
+            idempotency_key="market:closed-horizon",
+            expected_version=0,
+            occurred_at=NOW + timedelta(days=5),
+        )
+    )
+
+    produced = CounterfactualReplayProducer(journal).run_pending(
+        as_of=NOW + timedelta(days=6),
+        methodology_id="paper-replay:v1",
+        replay=lambda invocation: CounterfactualReplayResult(
+            simulated_net_pnl=Decimal("25"),
+            horizon_closed_at=NOW + timedelta(days=5),
+            evidence_event_ids=(market.event_id,),
+        ),
+    )
+
+    assert len(produced) == 1
+    assert AgentEvaluationService(journal).report(
+        as_of=NOW + timedelta(days=6)
+    ).roles[AgentMemoryRole.COMMITTEE].false_vetoes == 1
+
+
+def test_champion_and_challenger_execute_only_as_shadow_invocations(tmp_path):
+    journal = OperationalJournal(tmp_path / "journal.sqlite3")
+    context = DecisionMemoryService(journal).build_context_pack(
+        MemoryQuery(role=AgentMemoryRole.ANALYST, as_of=NOW)
+    )
+
+    recorded = AgentVariantShadowRunner(journal).run(
+        trial_id="agent-trial:analyst:one",
+        role=AgentMemoryRole.ANALYST,
+        context=context,
+        occurred_at=NOW,
+        variants={
+            "champion": lambda pack: AgentVariantDecision(
+                "prompt:champion", "model:a", AgentOutcome.PROCEED, 0.7, 3
+            ),
+            "challenger": lambda pack: AgentVariantDecision(
+                "prompt:challenger", "model:b", AgentOutcome.ABSTAIN, None, 4
+            ),
+        },
+    )
+
+    assert len(recorded) == 2
+    report = AgentEvaluationService(journal).variant_report(
+        role=AgentMemoryRole.ANALYST,
+        as_of=NOW + timedelta(minutes=1),
+    )
+    assert set(report.variants) == {
+        "prompt:champion|model:a",
+        "prompt:challenger|model:b",
+    }
+    assert not hasattr(AgentVariantShadowRunner(journal), "execute_trade")

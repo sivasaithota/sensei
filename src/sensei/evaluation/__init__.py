@@ -4,9 +4,17 @@ from .models import (
     AgentEvaluationReport,
     AgentInvocation,
     AgentOutcome,
+    AgentVariantReport,
+    AgentVariantDecision,
+    CounterfactualReplayResult,
     RoleEvaluation,
 )
-from .service import AgentEvaluationService, AgentInvocationLedger
+from .service import (
+    AgentEvaluationService,
+    AgentInvocationLedger,
+    CounterfactualReplayProducer,
+    AgentVariantShadowRunner,
+)
 
 __all__ = [
     "AgentEvaluationReport",
@@ -14,5 +22,10 @@ __all__ = [
     "AgentInvocation",
     "AgentInvocationLedger",
     "AgentOutcome",
+    "AgentVariantReport",
+    "AgentVariantDecision",
+    "AgentVariantShadowRunner",
+    "CounterfactualReplayProducer",
+    "CounterfactualReplayResult",
     "RoleEvaluation",
 ]

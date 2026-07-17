@@ -14,6 +14,7 @@ from .models import (
     AgentMemoryRole,
     DecisionMemoryItem,
     MemoryContextPack,
+    MemoryBudget,
     MemoryKind,
     MemoryPolarity,
     MemoryQuery,
@@ -57,6 +58,8 @@ _LEARNING_EVENTS = frozenset(
         "ResearchLabDossierRecorded",
         "LockedConfirmationCompleted",
         "ReviewRecorded",
+        "DerivedMemoryInterpretationRecorded",
+        "DerivedMemoryStateTransitioned",
     }
 )
 _GOVERNANCE_EVENTS = frozenset(
@@ -268,19 +271,72 @@ class DecisionMemoryService:
             events_visible=len(valid_visible),
         )
 
-    def build_context_pack(self, query: MemoryQuery) -> MemoryContextPack:
+    def build_context_pack(
+        self, query: MemoryQuery, *, budget: MemoryBudget | None = None
+    ) -> MemoryContextPack:
         result = self.query(query)
+        selected = result.items
+        if budget is not None:
+            if not isinstance(budget, MemoryBudget):
+                raise TypeError("budget must be a MemoryBudget")
+            bounded = []
+            used = 0
+            for item in selected:
+                size = len(
+                    json.dumps(
+                        item.identity_payload(),
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        ensure_ascii=False,
+                        allow_nan=False,
+                    ).encode()
+                )
+                if len(bounded) >= budget.max_items or used + size > budget.max_bytes:
+                    continue
+                bounded.append(item)
+                used += size
+            selected = tuple(bounded)
         source_ids = tuple(
-            sorted({source for item in result.items for source in item.source_event_ids})
+            sorted({source for item in selected for source in item.source_event_ids})
         )
         return MemoryContextPack(
             context_pack_id=MemoryContextPack.content_id_for(
-                query, result.items, source_ids
+                query, selected, source_ids
             ),
             query=query,
-            items=result.items,
+            items=selected,
             source_event_ids=source_ids,
         )
+
+    def resolve_candidate_source_ids(
+        self, query: MemoryQuery, candidate_ids: Sequence[str]
+    ) -> tuple[DecisionMemoryItem, ...]:
+        """Revalidate external-index candidates without baseline rank truncation."""
+
+        if not isinstance(query, MemoryQuery):
+            raise TypeError("query must be a MemoryQuery")
+        if not self._journal.verify().ok:
+            raise JournalIntegrityError("candidate resolution requires an intact journal")
+        projected = {}
+        for event in self._journal.read_all():
+            known_at = max(event.occurred_at, event.recorded_at)
+            if known_at <= query.as_of:
+                item = _project(event, known_at)
+                if item is not None:
+                    projected[item.event_id] = item
+        allowed = _ROLE_KINDS[query.role]
+        resolved = []
+        for event_id in dict.fromkeys(candidate_ids):
+            item = projected.get(event_id)
+            if (
+                item is None
+                or item.kind not in allowed
+                or not _matches(item, query)
+                or _evidence_closure(item, projected, allowed) is None
+            ):
+                continue
+            resolved.append(item)
+        return tuple(resolved)
 
 
 class ContextPackAuditTrail:

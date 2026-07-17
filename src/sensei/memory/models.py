@@ -41,6 +41,18 @@ class MemoryPolarity(str, Enum):
 
 
 @dataclass(frozen=True)
+class MemoryBudget:
+    max_items: int = 20
+    max_bytes: int = 64_000
+
+    def __post_init__(self) -> None:
+        if type(self.max_items) is not int or not 1 <= self.max_items <= 100:
+            raise ValueError("max_items must be between 1 and 100")
+        if type(self.max_bytes) is not int or not 256 <= self.max_bytes <= 1_000_000:
+            raise ValueError("max_bytes must be between 256 and 1000000")
+
+
+@dataclass(frozen=True)
 class MemoryQuery:
     role: AgentMemoryRole
     as_of: datetime
@@ -151,6 +163,21 @@ class MemoryContextPack:
             self.query, self.items, self.source_event_ids
         ):
             raise ValueError("memory context pack ID does not match its content")
+
+    @property
+    def encoded_items_bytes(self) -> int:
+        return sum(
+            len(
+                json.dumps(
+                    item.identity_payload(),
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                    allow_nan=False,
+                ).encode()
+            )
+            for item in self.items
+        )
 
     @staticmethod
     def content_id_for(

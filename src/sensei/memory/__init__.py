@@ -4,6 +4,7 @@ from .models import (
     AgentMemoryRole,
     DecisionMemoryItem,
     MemoryContextPack,
+    MemoryBudget,
     MemoryKind,
     MemoryPolarity,
     MemoryQuery,
@@ -11,6 +12,18 @@ from .models import (
 )
 from .desk import DeskMemoryContexts, DeskMemoryCoordinator, DeskMemoryScope
 from .service import ContextPackAuditTrail, DecisionMemoryService
+from .quality import (
+    DerivedMemoryIndex,
+    MemoryQualityEvaluator,
+    MemoryQualityResult,
+    RetrievalExpectation,
+    RetrievalDataset,
+    RetrievalBenchmarkReport,
+    RetrievalBenchmarkRunner,
+    ShadowRetrievalComparator,
+    ShadowRetrievalComparison,
+)
+from .derived import DerivedMemoryRecord, DerivedMemoryRegistry, DerivedMemoryState
 
 __all__ = [
     "AgentMemoryRole",
@@ -21,8 +34,21 @@ __all__ = [
     "DeskMemoryScope",
     "ContextPackAuditTrail",
     "MemoryContextPack",
+    "MemoryBudget",
     "MemoryKind",
     "MemoryPolarity",
     "MemoryQuery",
     "MemoryQueryResult",
+    "DerivedMemoryIndex",
+    "MemoryQualityEvaluator",
+    "MemoryQualityResult",
+    "RetrievalExpectation",
+    "RetrievalDataset",
+    "RetrievalBenchmarkReport",
+    "RetrievalBenchmarkRunner",
+    "ShadowRetrievalComparator",
+    "ShadowRetrievalComparison",
+    "DerivedMemoryRecord",
+    "DerivedMemoryRegistry",
+    "DerivedMemoryState",
 ]

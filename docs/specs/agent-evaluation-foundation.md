@@ -20,8 +20,10 @@ The original decision fact never contains hindsight. A later
 the realized positive/negative label. Labels cannot predate their invocation
 and require exactly one point-in-time `OutcomeAttributed` event with canonical
 `realized_net_pnl`, reconciled P&L and the same Trade Episode identity.
-Invocations without a Trade Episode remain unlabeled until a separately
-governed counterfactual-replay evidence type is implemented.
+Invocations without a Trade Episode remain unlabeled until a horizon-closed
+`CounterfactualOutcomeAttributed` fact names the exact invocation, replay
+methodology and finite simulated P&L. Realized and counterfactual labels remain
+distinguishable.
 
 ## Projection
 
@@ -38,9 +40,22 @@ recording time. It reports per role:
 The report is `EVALUATION_ONLY` and explicitly cannot authorize trading or
 mutate strategy/risk.
 
+`variant_report()` groups the same metrics by exact prompt/model identity for
+champion-challenger shadow comparison. It cannot select or promote a variant.
+
+`AgentVariantShadowRunner` executes at least two variants against the same
+role-scoped context under child evaluation cycles. It records measured wall
+latency and adapter-supplied prompt/model/cost identity and exposes no execution
+authority. `CounterfactualReplayProducer` scans mature veto/abstention
+invocations and records labels only when a configured replay returns
+horizon-closed market evidence.
+
 ## Current boundary
 
-This PR provides the durable ledger and read-only evaluation projection. The
-next Desk integration must automatically record invocation facts around each
-role call, then label them only from reconciled Trade Episodes or registered
-counterfactual replay. Champion–challenger execution remains shadow-only.
+The live Desk automatically records invocation facts for all nine role outcomes.
+Realized labels still require reconciled Trade Episodes; no-trade labels require
+registered counterfactual evidence. Production adapters validate and materialize
+their role-scoped context before acting. Desk calls use exact callable identities
+for deterministic adapters, measured latency and zero provider cost; future
+paid-model adapters must supply their exact prompt/model/cost receipt.
+Champion-challenger execution remains shadow-only by construction.

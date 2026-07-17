@@ -10,6 +10,7 @@ from sensei.memory import (
     DecisionMemoryService,
     MemoryKind,
     MemoryContextPack,
+    MemoryBudget,
     MemoryPolarity,
     MemoryQuery,
 )
@@ -176,6 +177,30 @@ def test_context_pack_is_deterministic_auditable_and_non_authoritative(tmp_path)
     assert first.source_event_ids
     assert not hasattr(memory, "promote_strategy")
     assert not hasattr(memory, "change_risk_limit")
+
+
+def test_context_pack_budget_preserves_priority_and_never_exceeds_bytes(tmp_path):
+    memory, events, _journal = _memory(tmp_path)
+    query = MemoryQuery(
+        role=AgentMemoryRole.COMMITTEE,
+        as_of=BASE + timedelta(hours=4),
+        limit=10,
+    )
+    first_item_bytes = len(
+        __import__("json").dumps(
+            memory.query(query).items[0].identity_payload(),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    )
+
+    pack = memory.build_context_pack(
+        query,
+        budget=MemoryBudget(max_items=1, max_bytes=first_item_bytes),
+    )
+
+    assert [item.event_id for item in pack.items] == [events[1].event_id]
+    assert pack.encoded_items_bytes <= first_item_bytes
 
 
 def test_unknown_event_types_fail_closed(tmp_path):

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum
 from types import MappingProxyType
 from typing import Mapping
@@ -86,6 +87,7 @@ class RoleEvaluation:
     average_latency_ms: int
     total_cost_microunits: int
     brier_score: float | None
+    counterfactual_labels: int = 0
 
 
 @dataclass(frozen=True)
@@ -103,3 +105,47 @@ class AgentEvaluationReport:
         if self.can_authorize_trading or self.can_mutate_strategy or self.can_mutate_risk:
             raise ValueError("agent evaluation cannot carry mutation authority")
         object.__setattr__(self, "roles", MappingProxyType(dict(self.roles)))
+
+
+@dataclass(frozen=True)
+class AgentVariantReport:
+    as_of: datetime
+    variants: Mapping[str, RoleEvaluation]
+    authority: str = "EVALUATION_ONLY"
+
+    def __post_init__(self) -> None:
+        if self.authority != "EVALUATION_ONLY":
+            raise ValueError("agent variant reports are evaluation-only")
+        object.__setattr__(self, "variants", MappingProxyType(dict(self.variants)))
+
+
+@dataclass(frozen=True)
+class CounterfactualReplayResult:
+    simulated_net_pnl: Decimal
+    horizon_closed_at: datetime
+    evidence_event_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.simulated_net_pnl.is_finite():
+            raise ValueError("counterfactual P&L must be finite")
+        if self.horizon_closed_at.tzinfo is None or self.horizon_closed_at.utcoffset() is None:
+            raise ValueError("counterfactual horizon must be timezone-aware")
+        if not self.evidence_event_ids:
+            raise ValueError("counterfactual replay requires market evidence")
+
+
+@dataclass(frozen=True)
+class AgentVariantDecision:
+    prompt_id: str
+    model_id: str
+    outcome: AgentOutcome
+    confidence: float | None = None
+    cost_microunits: int = 0
+
+    def __post_init__(self) -> None:
+        if not self.prompt_id.strip() or not self.model_id.strip():
+            raise ValueError("variant prompt and model IDs are required")
+        if self.confidence is not None and not 0 <= self.confidence <= 1:
+            raise ValueError("variant confidence must be between zero and one")
+        if type(self.cost_microunits) is not int or self.cost_microunits < 0:
+            raise ValueError("variant cost must be a non-negative integer")

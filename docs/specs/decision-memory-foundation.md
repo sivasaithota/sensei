@@ -7,9 +7,20 @@ governance, risk and learning facts. Decision Memory is a deterministic,
 read-only projection that gives each desk role relevant prior context without
 creating a second mutable memory database.
 
-This foundation does not yet inject memory into live Desk cycles. That
-integration must record a `MemoryContextPackAssembled` event and bind its ID to
-the consuming cycle before memory can influence an agent judgment.
+The live Desk prepares one role-scoped context pack for all nine roles, passes
+the exact pack into each role adapter, binds pack and audit IDs to the durable
+cycle start, and records one evaluation-only invocation fact for every completed
+or skipped role. Completed-cycle replay reuses that evidence and never invokes
+the roles or rebuilds memory.
+
+Advisory judgment consumes the bounded context explicitly: the Analyst receives
+it in `AnalystBrief` and cites the highest-priority prior summaries in its
+narrative; the Committee receives the same role-scoped prior context in its
+regime/sign-off input. Canonical and safety roles (Historian, Reporter, Crowd
+Reader, Trader and Secretary) validate and materialize their packs but do not
+allow remembered interpretations to override current market, risk, governance,
+broker or journal truth. The Coach continues to learn from those journal facts
+through `OutcomeLearner` rather than treating retrieved prose as policy.
 
 ## Public boundary
 
@@ -30,6 +41,10 @@ mutation method.
 one role-scoped pack for every Desk role. Consumer identity includes the cycle
 and role, so repeated preparation is idempotent while two cycles may consume
 the same deterministic pack independently.
+
+`MemoryBudget` caps both item count and canonical encoded bytes. Selection keeps
+counter-evidence-first ordering; an oversized item is omitted rather than
+truncated into an unauditable summary.
 
 ## Memory classes
 
@@ -81,13 +96,23 @@ global order, immutable event identity, occurrence time, recording time and
 integrity verification before it can implement the same boundary. MCP, RAG,
 Hermes or Obsidian may be adapters or interfaces; none becomes an authority.
 
+Graph-derived retrieval follows the same rule. `DerivedMemoryIndex` is a narrow
+candidate-ID seam and `ShadowRetrievalComparator` is evaluation-only. A future
+Graphiti adapter may implement that seam, but unknown or role-invisible IDs are
+rejected and no index result enters a live context pack directly.
+
+Probabilistic interpretations use `DerivedMemoryRegistry` and the states
+`candidate`, `corroborated`, `contradicted`, `stale`, and `retired`. Every
+interpretation and transition requires immutable journal evidence and retains
+`RESEARCH_ONLY` authority.
+
 ## Required follow-up
 
-1. Pass the coordinator's already cycle-bound packs into each concrete role
-   adapter and include their audit IDs in the Desk cycle manifest.
-2. Add bounded context sizing and retrieval-quality evaluation datasets.
-3. Measure calibration, false vetoes and trade-frequency collapse against a
-   no-memory baseline.
-4. Add contradiction/staleness lifecycle for derived interpretations.
-5. Add PostgreSQL migrations, concurrency tests, backup/restore and encryption
+1. Populate representative production retrieval datasets; the versioned runner
+   and explicit no-memory/structured-memory baselines are implemented.
+2. Connect the counterfactual producer to the future deterministic Market Twin;
+   it already scans eligible invocations but cannot invent replay P&L.
+3. Accumulate champion/challenger and future Graphiti shadow evidence until
+   calibration, false-veto, latency, cost and trade-frequency gates pass.
+4. Add PostgreSQL migrations, concurrency tests, backup/restore and encryption
    for remote deployment.

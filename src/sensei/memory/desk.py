@@ -9,7 +9,7 @@ from typing import Mapping
 
 from sensei.operations import OperationalJournal
 
-from .models import AgentMemoryRole, MemoryContextPack, MemoryQuery
+from .models import AgentMemoryRole, MemoryBudget, MemoryContextPack, MemoryQuery
 from .service import ContextPackAuditTrail, DecisionMemoryService
 
 
@@ -21,6 +21,7 @@ class DeskMemoryScope:
     market_regime: str | None = None
     timeframe: str | None = None
     limit_per_role: int = 20
+    max_bytes_per_role: int = 64_000
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -34,6 +35,11 @@ class DeskMemoryScope:
                 raise ValueError(f"{label} must be a non-empty string")
         if type(self.limit_per_role) is not int or not 1 <= self.limit_per_role <= 100:
             raise ValueError("limit_per_role must be between 1 and 100")
+        if (
+            type(self.max_bytes_per_role) is not int
+            or not 256 <= self.max_bytes_per_role <= 1_000_000
+        ):
+            raise ValueError("max_bytes_per_role must be between 256 and 1000000")
 
 
 @dataclass(frozen=True)
@@ -95,7 +101,11 @@ class DeskMemoryCoordinator:
                     market_regime=scope.market_regime,
                     timeframe=scope.timeframe,
                     limit=scope.limit_per_role,
-                )
+                ),
+                budget=MemoryBudget(
+                    max_items=scope.limit_per_role,
+                    max_bytes=scope.max_bytes_per_role,
+                ),
             )
             event = self._audit.record(
                 pack,

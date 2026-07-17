@@ -66,7 +66,7 @@ def test_desk_status_includes_failed_closed_cycles(tmp_path):
     runtime, request, _, _, _, journal, _ = _runtime_fixture(tmp_path)
 
     class BrokenReporter:
-        def report(self, instrument_id, *, as_of):
+        def report(self, instrument_id, *, as_of, memory_context=None):
             raise RuntimeError("news unavailable")
 
     runtime.reporter = BrokenReporter()
