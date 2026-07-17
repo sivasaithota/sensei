@@ -15,6 +15,7 @@ from types import MappingProxyType
 from typing import Mapping, Protocol
 
 from sensei.operations.journal import JournalIntegrityError, OperationalJournal
+from sensei.errors import ActionableSchedulerError
 
 from .scheduling import (
     ScheduleDecision,
@@ -242,9 +243,14 @@ class UnattendedSchedulerRunner:
             exception_type = type(exc).__name__
             if _EXCEPTION_TYPE.fullmatch(exception_type) is None:
                 exception_type = "Exception"
+            reason_code = (
+                exc.reason_code if isinstance(exc, ActionableSchedulerError) else None
+            )
+            if not isinstance(reason_code, str) or _REASON_CODE.fullmatch(reason_code) is None:
+                reason_code = "TASK_HANDLER_FAILED"
             return TaskOutcome(
                 state=TaskOutcomeState.HALTED,
-                reason_codes=("TASK_HANDLER_FAILED",),
+                reason_codes=(reason_code,),
                 detail=f"handler raised {exception_type}",
             )
 

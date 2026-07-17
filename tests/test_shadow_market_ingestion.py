@@ -54,6 +54,7 @@ def test_ingestion_retries_and_publishes_eligible_shadow_universe(tmp_path):
         refresh=refresh,
         existing=lambda symbol: _bars("2026-07-15"),
         maximum_attempts=3,
+        inter_batch_delay_seconds=0,
     )
 
     outcome = session(_task(), NOW)
@@ -63,6 +64,46 @@ def test_ingestion_retries_and_publishes_eligible_shadow_universe(tmp_path):
     assert snapshot.eligible_symbols == ("A", "B")
     assert snapshot.failed_symbols == ()
     assert calls["B"] == 3
+
+
+def test_ingestion_retries_failed_symbols_in_paced_batches(tmp_path):
+    journal = OperationalJournal(tmp_path / "operations.sqlite3")
+    calls = []
+    sleeps = []
+    c_attempts = 0
+
+    def refresh_batch(symbols):
+        nonlocal c_attempts
+        calls.append(tuple(symbols))
+        if "C" in symbols:
+            c_attempts += 1
+        return {
+            symbol: (
+                None
+                if symbol == "C" and c_attempts < 3
+                else _bars("2026-07-16")
+            )
+            for symbol in symbols
+        }
+
+    session = MarketDataIngestionSession(
+        journal=journal,
+        universe=lambda: ("A", "B", "C", "D"),
+        refresh=lambda symbol: None,
+        refresh_batch=refresh_batch,
+        existing=lambda symbol: _bars("2026-07-15"),
+        batch_size=2,
+        maximum_attempts=3,
+        inter_batch_delay_seconds=0.5,
+        retry_backoff_seconds=2,
+        sleep=sleeps.append,
+    )
+
+    outcome = session(_task(), NOW)
+
+    assert outcome.state is TaskOutcomeState.COMPLETED
+    assert calls == [("A", "B"), ("C", "D"), ("C",), ("C",)]
+    assert sleeps == [0.5, 2, 4]
 
 
 def test_ingestion_excludes_long_stale_instrument_without_deleting_history(tmp_path):

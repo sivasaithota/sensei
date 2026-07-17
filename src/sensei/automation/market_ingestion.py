@@ -5,7 +5,8 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Callable, Sequence
+import time
+from typing import Callable, Mapping, Sequence
 
 import pandas as pd
 
@@ -55,13 +56,26 @@ class MarketDataIngestionSession:
         universe: Callable[[], Sequence[str]],
         refresh: Callable[[str], pd.DataFrame | None],
         existing: Callable[[str], pd.DataFrame],
+        refresh_batch: (
+            Callable[[Sequence[str]], Mapping[str, pd.DataFrame | None]] | None
+        ) = None,
+        batch_size: int = 50,
         maximum_attempts: int = 3,
+        inter_batch_delay_seconds: float = 0.5,
+        retry_backoff_seconds: float = 2.0,
+        sleep: Callable[[float], None] = time.sleep,
         minimum_completeness: float = 0.99,
         stale_exclusion_age: timedelta = timedelta(days=30),
         maximum_exclusion_fraction: float = 0.01,
     ) -> None:
         if maximum_attempts < 1:
             raise ValueError("maximum_attempts must be positive")
+        if type(batch_size) is not int or batch_size < 1:
+            raise ValueError("batch_size must be positive")
+        if retry_backoff_seconds < 0:
+            raise ValueError("retry_backoff_seconds must be nonnegative")
+        if inter_batch_delay_seconds < 0:
+            raise ValueError("inter_batch_delay_seconds must be nonnegative")
         if not 0 < minimum_completeness <= 1:
             raise ValueError("minimum_completeness must be in (0, 1]")
         if stale_exclusion_age <= timedelta(0):
@@ -71,8 +85,13 @@ class MarketDataIngestionSession:
         self._journal = journal
         self._universe = universe
         self._refresh = refresh
+        self._refresh_batch = refresh_batch
         self._existing = existing
+        self._batch_size = batch_size
         self._maximum_attempts = maximum_attempts
+        self._inter_batch_delay_seconds = inter_batch_delay_seconds
+        self._retry_backoff_seconds = retry_backoff_seconds
+        self._sleep = sleep
         self._minimum_completeness = minimum_completeness
         self._stale_exclusion_age = stale_exclusion_age
         self._maximum_exclusion_fraction = maximum_exclusion_fraction
@@ -98,22 +117,35 @@ class MarketDataIngestionSession:
                 ("MARKET_DATA_UNIVERSE_UNAVAILABLE",),
                 "market-data universe is empty or invalid",
             )
-        eligible, failed, excluded, attempts = [], [], [], {}
-        for symbol in symbols:
-            refreshed = None
-            used = 0
-            for used in range(1, self._maximum_attempts + 1):
-                try:
-                    candidate = self._refresh(symbol)
-                except Exception:
-                    candidate = None
-                if _covers(candidate, task.trading_date):
-                    refreshed = candidate
-                    break
-            attempts[symbol] = used
-            if refreshed is not None:
-                eligible.append(symbol)
-                continue
+        eligible, failed, excluded = [], [], []
+        attempts = {symbol: 0 for symbol in symbols}
+        pending = list(symbols)
+        for attempt in range(1, self._maximum_attempts + 1):
+            next_pending = []
+            batches = tuple(
+                tuple(pending[offset : offset + self._batch_size])
+                for offset in range(0, len(pending), self._batch_size)
+            )
+            for batch_index, batch in enumerate(batches):
+                candidates = self._refresh_candidates(batch)
+                for symbol in batch:
+                    attempts[symbol] += 1
+                    if _covers(candidates.get(symbol), task.trading_date):
+                        eligible.append(symbol)
+                    else:
+                        next_pending.append(symbol)
+                if (
+                    self._inter_batch_delay_seconds
+                    and batch_index < len(batches) - 1
+                ):
+                    self._sleep(self._inter_batch_delay_seconds)
+            pending = next_pending
+            if not pending:
+                break
+            if attempt < self._maximum_attempts and self._retry_backoff_seconds:
+                self._sleep(self._retry_backoff_seconds * (2 ** (attempt - 1)))
+
+        for symbol in pending:
             previous = _safe_existing(self._existing, symbol)
             latest = _latest_session(previous)
             if (
@@ -123,6 +155,8 @@ class MarketDataIngestionSession:
                 excluded.append(symbol)
             else:
                 failed.append(symbol)
+
+        eligible.sort()
 
         denominator = len(symbols) - len(excluded)
         completeness = len(eligible) / denominator if denominator else 0.0
@@ -167,6 +201,25 @@ class MarketDataIngestionSession:
             self._minimum_completeness,
             self._maximum_exclusion_fraction,
         )
+
+    def _refresh_candidates(
+        self, symbols: Sequence[str]
+    ) -> Mapping[str, pd.DataFrame | None]:
+        if self._refresh_batch is not None:
+            try:
+                result = self._refresh_batch(symbols)
+                if isinstance(result, Mapping):
+                    return result
+            except Exception:
+                pass
+            return {}
+        result = {}
+        for symbol in symbols:
+            try:
+                result[symbol] = self._refresh(symbol)
+            except Exception:
+                result[symbol] = None
+        return result
 
 
 def _outcome(snapshot, minimum, maximum_exclusion_fraction):

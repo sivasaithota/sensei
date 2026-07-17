@@ -21,9 +21,19 @@ from io import StringIO
 
 import httpx
 
+from sensei.errors import ActionableSchedulerError
 
-class RuntimeTrustError(RuntimeError):
+
+class RuntimeTrustError(ActionableSchedulerError):
     """Runtime authority material or a signed observation is not trustworthy."""
+
+    reason_code = "RUNTIME_TRUST_INPUT_UNAVAILABLE"
+
+
+class SurveillanceSourceUnavailable(RuntimeTrustError):
+    """No recent official regulatory-indicator source could be retrieved."""
+
+    reason_code = "SURVEILLANCE_SOURCE_UNAVAILABLE"
 
 
 class RuntimeSecretStore:
@@ -139,6 +149,7 @@ class VerifiedSurveillanceSource:
         observed_at: datetime,
         issuer_id: str,
         secret: bytes,
+        source_session: date | None = None,
     ) -> None:
         _aware(observed_at)
         normalized = _stages(stages)
@@ -149,6 +160,8 @@ class VerifiedSurveillanceSource:
             "observed_at": observed_at.isoformat(),
             "stages": normalized,
         }
+        if source_session is not None:
+            fact["source_session"] = source_session.isoformat()
         payload = {**fact, "signature": _sign(fact, secret)}
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -199,11 +212,22 @@ class NseSurveillanceRefresher:
 
     def refresh(self, *, session: date, observed_at: datetime) -> dict[str, int]:
         _aware(observed_at)
-        url = self.URL.format(day=session.strftime("%d%m%y"))
-        content = self._fetch(url)
-        stages = self.parse(content)
-        if not stages:
-            raise RuntimeTrustError("NSE regulatory indicator contained no active securities")
+        stages = None
+        source_session = session
+        for candidate in _recent_trading_sessions(session, limit=7):
+            url = self.URL.format(day=candidate.strftime("%d%m%y"))
+            try:
+                parsed = self.parse(self._fetch(url))
+            except RuntimeTrustError:
+                continue
+            if parsed:
+                stages = parsed
+                source_session = candidate
+                break
+        if stages is None:
+            raise SurveillanceSourceUnavailable(
+                "no recent official NSE surveillance file is available"
+            )
         VerifiedSurveillanceSource.publish(
             self._destination,
             stages=stages,
@@ -211,6 +235,7 @@ class NseSurveillanceRefresher:
             observed_at=observed_at,
             issuer_id=self._issuer_id,
             secret=self._secret,
+            source_session=source_session,
         )
         return stages
 
@@ -280,5 +305,16 @@ __all__ = [
     "NseSurveillanceRefresher",
     "RuntimeSecretStore",
     "RuntimeTrustError",
+    "SurveillanceSourceUnavailable",
     "VerifiedSurveillanceSource",
 ]
+
+
+def _recent_trading_sessions(session: date, *, limit: int) -> tuple[date, ...]:
+    result = []
+    candidate = session
+    while len(result) < limit:
+        if candidate.weekday() < 5:
+            result.append(candidate)
+        candidate -= timedelta(days=1)
+    return tuple(result)

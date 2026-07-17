@@ -12,6 +12,7 @@ occasionally gappy. Upgrade to a paid vendor before P2 (micro-live).
 from __future__ import annotations
 
 import time
+from datetime import timedelta
 from pathlib import Path
 
 import httpx
@@ -54,16 +55,71 @@ def download_symbol(symbol: str, start: str = "1996-01-01") -> pd.DataFrame | No
                      progress=False, multi_level_index=False)
     if df is None or df.empty:
         return None
-    df = df.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]]
-    df.index.name = "date"
-    # Yahoo occasionally emits NaN rows or zero-price rows; either poisons
-    # backtest stats (NaN expectancy) — drop them at the source.
-    df = df.dropna()
-    df = df[(df[["open", "high", "low", "close"]] > 0).all(axis=1)]
-    df["turnover"] = df["close"] * df["volume"]
+    df = _clean_prices(df)
     PRICES_DIR.mkdir(parents=True, exist_ok=True)
     df.to_parquet(PRICES_DIR / f"{symbol}.parquet")
     return df
+
+
+def download_symbols(symbols: list[str] | tuple[str, ...]) -> dict[str, pd.DataFrame | None]:
+    """Incrementally refresh a symbol batch with one Yahoo request."""
+
+    selected = tuple(dict.fromkeys(str(symbol).strip() for symbol in symbols))
+    if not selected or any(not symbol for symbol in selected):
+        return {}
+    existing = {}
+    starts = []
+    for symbol in selected:
+        path = PRICES_DIR / f"{symbol}.parquet"
+        if not path.is_file():
+            starts.append(pd.Timestamp("1996-01-01"))
+            continue
+        frame = load_prices(symbol)
+        existing[symbol] = frame
+        starts.append(pd.Timestamp(frame.index[-1]) - timedelta(days=7))
+    start = min(starts).date().isoformat()
+    tickers = [f"{symbol}.NS" for symbol in selected]
+    downloaded = yf.download(
+        tickers,
+        start=start,
+        auto_adjust=True,
+        progress=False,
+        group_by="ticker",
+        threads=True,
+    )
+    result = {}
+    for symbol, ticker in zip(selected, tickers, strict=True):
+        try:
+            candidate = (
+                downloaded[ticker]
+                if isinstance(downloaded.columns, pd.MultiIndex)
+                else downloaded
+            )
+            candidate = _clean_prices(candidate)
+            if candidate.empty:
+                result[symbol] = None
+                continue
+            combined = pd.concat((existing.get(symbol), candidate)).drop_duplicates(
+                keep="last"
+            ) if symbol in existing else candidate
+            combined = combined[~combined.index.duplicated(keep="last")].sort_index()
+            PRICES_DIR.mkdir(parents=True, exist_ok=True)
+            combined.to_parquet(PRICES_DIR / f"{symbol}.parquet")
+            result[symbol] = combined
+        except (KeyError, TypeError, ValueError):
+            result[symbol] = None
+    return result
+
+
+def _clean_prices(frame: pd.DataFrame) -> pd.DataFrame:
+    cleaned = frame.rename(columns=str.lower)[
+        ["open", "high", "low", "close", "volume"]
+    ].copy()
+    cleaned.index.name = "date"
+    cleaned = cleaned.dropna()
+    cleaned = cleaned[(cleaned[["open", "high", "low", "close"]] > 0).all(axis=1)]
+    cleaned["turnover"] = cleaned["close"] * cleaned["volume"]
+    return cleaned
 
 
 def download_universe(start: str = "1996-01-01", sleep: float = 0.5) -> dict[str, int]:

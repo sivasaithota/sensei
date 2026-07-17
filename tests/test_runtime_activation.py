@@ -163,3 +163,37 @@ def test_nse_regulatory_indicator_refreshes_signed_daily_surveillance(tmp_path):
     )
     assert source("INFY", date(2026, 7, 16)) == 0
     assert source("RISKY", date(2026, 7, 16)) == 3
+
+
+def test_surveillance_uses_latest_available_source_for_effective_session(tmp_path):
+    secrets = RuntimeSecretStore.bootstrap(tmp_path / "runtime-secrets.json")
+    destination = tmp_path / "surveillance.json"
+    requested = []
+    csv_bytes = b"101,INFY,N,A,EQ,100,100,100,100,100\n"
+
+    def fetch(url):
+        requested.append(url)
+        if "170726" in url:
+            raise RuntimeTrustError("official NSE surveillance download failed")
+        return csv_bytes
+
+    refresher = NseSurveillanceRefresher(
+        destination=destination,
+        issuer_id="market-surveillance",
+        secret=secrets["market-surveillance"],
+        fetch=fetch,
+    )
+
+    refresher.refresh(session=date(2026, 7, 17), observed_at=NOW)
+
+    payload = json.loads(destination.read_text())
+    assert payload["session"] == "2026-07-17"
+    assert payload["source_session"] == "2026-07-16"
+    source = VerifiedSurveillanceSource(
+        destination,
+        issuer_id="market-surveillance",
+        secret=secrets["market-surveillance"],
+        maximum_age=timedelta(minutes=15),
+        clock=lambda: NOW,
+    )
+    assert source("INFY", date(2026, 7, 17)) == 0

@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from sensei.errors import ActionableSchedulerError
 from sensei.automation.runner import (
     SchedulerRunResult,
     SchedulerTaskHandler,
@@ -246,6 +247,48 @@ def test_unexpected_handler_failure_is_sanitized_and_durably_halted(
     )
     assert "do-not-persist" not in serialized
     assert "broker password" not in serialized
+
+
+class ActionableTrustFailureHandler:
+    def handle(self, task: ScheduledTask, *, now: datetime) -> TaskOutcome:
+        class SurveillanceUnavailable(ActionableSchedulerError):
+            reason_code = "SURVEILLANCE_SOURCE_UNAVAILABLE"
+
+        raise SurveillanceUnavailable("official source returned 404")
+
+
+def test_actionable_handler_failure_preserves_specific_safe_reason(tmp_path: Path):
+    now = at_ist(date(2026, 7, 17), 9, 21)
+    runner = UnattendedSchedulerRunner(
+        journal=OperationalJournal(tmp_path / "operations.sqlite3"),
+        policy=SwingSessionPolicy(),
+        handlers=handlers(entry=ActionableTrustFailureHandler()),
+    )
+
+    result = runner.run_once(now)
+
+    outcome = result.task_results[0].outcome
+    assert outcome.reason_codes == ("SURVEILLANCE_SOURCE_UNAVAILABLE",)
+    assert outcome.detail == "handler raised SurveillanceUnavailable"
+
+
+class UntrustedReasonHandler:
+    def handle(self, task: ScheduledTask, *, now: datetime) -> TaskOutcome:
+        error = RuntimeError("untrusted")
+        error.reason_code = "FAKE_ACTIONABLE_REASON"
+        raise error
+
+
+def test_untrusted_handler_cannot_choose_durable_reason_code(tmp_path: Path):
+    runner = UnattendedSchedulerRunner(
+        journal=OperationalJournal(tmp_path / "operations.sqlite3"),
+        policy=SwingSessionPolicy(),
+        handlers=handlers(entry=UntrustedReasonHandler()),
+    )
+
+    result = runner.run_once(at_ist(date(2026, 7, 17), 9, 21))
+
+    assert result.task_results[0].outcome.reason_codes == ("TASK_HANDLER_FAILED",)
 
 
 class BlockingHandler:
