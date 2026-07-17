@@ -156,6 +156,13 @@ class _LifecycleMaintenanceHandler:
         self._market_ingestion = market_ingestion
 
     def handle(self, task: ScheduledTask, *, now: datetime) -> TaskOutcome:
+        # Existing exposure is protect-first work. Broad research ingestion and
+        # lifecycle maintenance may halt afterward, but can never suppress exits.
+        paper_outcome = (
+            self._paper_session(task, now) if self._paper_session is not None else None
+        )
+        if paper_outcome is not None and paper_outcome.state is TaskOutcomeState.HALTED:
+            return paper_outcome
         ingestion_outcome = (
             self._market_ingestion(task, now)
             if self._market_ingestion is not None
@@ -176,10 +183,6 @@ class _LifecycleMaintenanceHandler:
             command_id=f"scheduler:{task.task_id}:lifecycle",
         )
         if not report.results:
-            paper_outcome = (
-                self._paper_session(task, now)
-                if self._paper_session is not None else None
-            )
             return paper_outcome or TaskOutcome(
                 TaskOutcomeState.COMPLETED, ("NO_CANONICAL_PLANS",),
                 "lifecycle checked; no immutable plans are registered")
@@ -207,9 +210,6 @@ class _LifecycleMaintenanceHandler:
             for result in report.results
         )
         reason = "LIFECYCLE_RECONCILED" if not waiting else "LIFECYCLE_WAITING_EVIDENCE"
-        paper_outcome = (
-            self._paper_session(task, now) if self._paper_session is not None else None
-        )
         if paper_outcome is not None:
             return paper_outcome
         return TaskOutcome(
@@ -316,9 +316,14 @@ class GovernedSchedulerApplication:
         if entry_session is None and config.execution_backend in {
             "legacy_paper", "governed_paper"
         }:
-            from .paper_sessions import LegacyPaperSessions
+            from .paper_sessions import LegacyPaperSessions, refresh_held_position_bars
             from .migration import adopt_legacy_positions
-            from sensei.data.store import load_prices
+            from sensei.data.store import (
+                download_symbol,
+                download_symbols,
+                load_prices,
+                load_universe,
+            )
             from sensei.runtime import LegacyPositionAdoptionRegistry
 
             def reconcile_positions(now: datetime):
@@ -343,8 +348,16 @@ class GovernedSchedulerApplication:
                     command_id=f"scheduler-position-reconciliation:{now.isoformat()}",
                 )
 
+            def refresh_held_positions(trading_date: date) -> bool:
+                return refresh_held_position_bars(
+                    positions_path=config.legacy_positions_path,
+                    session=trading_date,
+                    refresh_batch=download_symbols,
+                )
+
             sessions = LegacyPaperSessions(
                 reconcile_positions=reconcile_positions,
+                refresh_held_positions=refresh_held_positions,
             )
             eod_session = sessions.eod
             manages_legacy_positions = True
@@ -391,19 +404,14 @@ class GovernedSchedulerApplication:
                 playbook_path=config.playbook_path,
                 ingestion_ledger=MarketDataIngestionLedger(journal),
             )
-            from sensei.data.store import (
-                download_symbol,
-                load_prices as load_ingestion_prices,
-                load_universe,
-            )
-
             market_ingestion = MarketDataIngestionSession(
                 journal=journal,
                 universe=lambda: tuple(
                     str(value) for value in load_universe()["symbol"]
                 ),
                 refresh=download_symbol,
-                existing=load_ingestion_prices,
+                refresh_batch=download_symbols,
+                existing=load_prices,
             )
         self.runner = UnattendedSchedulerRunner(
             journal=journal,
