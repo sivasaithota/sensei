@@ -52,6 +52,11 @@ def main() -> None:
     scheduler_p.add_argument("--now", default=None, help="aware ISO timestamp (test/manual)")
     scheduler_status_p = sub.add_parser("scheduler-status")
     scheduler_status_p.add_argument("--journal", default="data/operations.sqlite3")
+    scheduler_health_p = sub.add_parser("scheduler-health")
+    scheduler_health_p.add_argument("--journal", default="data/operations.sqlite3")
+    scheduler_health_p.add_argument("--config", default="config/scheduler.json")
+    scheduler_health_p.add_argument("--heartbeat", default="data/scheduler-heartbeat.json")
+    scheduler_health_p.add_argument("--lock", default="data/scheduler.lock")
     scheduler_bootstrap_p = sub.add_parser("scheduler-bootstrap")
     scheduler_bootstrap_p.add_argument("--journal", default="data/operations.sqlite3")
     scheduler_bootstrap_p.add_argument("--config", default="config/scheduler.json")
@@ -239,21 +244,55 @@ def main() -> None:
     if args.cmd == "scheduler-run-once":
         from pathlib import Path
         from sensei.automation import GovernedSchedulerApplication, SchedulerConfigurationError
+        from sensei.automation.liveness import (
+            SchedulerAlreadyRunning, SchedulerLease, deployed_commit,
+        )
 
         journal_path = Path(args.journal)
         try:
             now = datetime.fromisoformat(args.now) if args.now else datetime.now(timezone.utc)
             if now.tzinfo is None:
                 parser.error("--now must include a timezone offset")
-            app = GovernedSchedulerApplication.open(
-                journal_path,
-                config_path=Path(args.config) if args.config else None,
-            )
-            result = app.run_once(now)
-        except (SchedulerConfigurationError, ValueError) as exc:
+            with SchedulerLease(
+                heartbeat_path=journal_path.parent / "scheduler-heartbeat.json",
+                lock_path=journal_path.parent / "scheduler.lock",
+                deployed_commit=deployed_commit(),
+            ):
+                app = GovernedSchedulerApplication.open(
+                    journal_path,
+                    config_path=Path(args.config) if args.config else None,
+                )
+                result = app.run_once(now)
+        except (SchedulerAlreadyRunning, SchedulerConfigurationError, ValueError) as exc:
             parser.error(str(exc))
         print(json.dumps(result.to_dict(), indent=2))
         return
+
+    if args.cmd == "scheduler-health":
+        from pathlib import Path
+        from sensei.automation import SchedulerApplicationConfig
+        from sensei.automation.liveness import SchedulerWatchdog, deployed_commit
+        from sensei.automation.scheduling import SwingSessionPolicy
+
+        try:
+            config = SchedulerApplicationConfig.from_json(Path(args.config))
+            report = SchedulerWatchdog(
+                journal_path=Path(args.journal),
+                heartbeat_path=Path(args.heartbeat), lock_path=Path(args.lock),
+                expected_commit=deployed_commit(),
+                policy=SwingSessionPolicy(closed_dates=config.closed_dates),
+            ).inspect(now=datetime.now(timezone.utc))
+        except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            payload = {
+                "state": "OFFLINE",
+                "checked_at": datetime.now(timezone.utc).isoformat(),
+                "reason_codes": ["SCHEDULER_CONFIGURATION_INVALID"],
+                "heartbeat": {}, "lock_held": False, "detail": str(exc),
+            }
+            print(json.dumps(payload, indent=2))
+            raise SystemExit(2)
+        print(json.dumps(report.to_dict(), indent=2))
+        raise SystemExit(report.exit_code)
 
     if args.cmd == "scheduler-status":
         from pathlib import Path

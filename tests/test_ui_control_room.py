@@ -5,7 +5,7 @@ import socket
 import threading
 import time
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -251,3 +251,28 @@ def test_operations_page_shows_latest_entry_rehearsal(tmp_path, monkeypatch):
     assert "NO SIGNAL" in page
     assert "NO REAL ORDER" in page
     assert "0</b> production changes" in page
+
+
+def test_operations_page_shows_scheduler_liveness(tmp_path, monkeypatch):
+    import sensei.ui.server as ui
+    from sensei.automation.liveness import SchedulerLease, deployed_commit
+
+    monkeypatch.setattr(ui, "DATA_DIR", tmp_path / "data")
+    monkeypatch.setattr(ui, "CONFIG_DIR", tmp_path / "config")
+    ui.CONFIG_DIR.mkdir()
+    (ui.CONFIG_DIR / "scheduler.json").write_text('{"closed_dates":[]}')
+    OperationalJournal(ui.DATA_DIR / "operations.sqlite3")
+    health_now = datetime(2026, 7, 20, 8, 0, tzinfo=ZoneInfo("Asia/Kolkata"))
+    with SchedulerLease(
+        heartbeat_path=ui.DATA_DIR / "scheduler-heartbeat.json",
+        lock_path=ui.DATA_DIR / "scheduler.lock", now=lambda: health_now,
+        deployed_commit=deployed_commit(),
+    ):
+        pass
+
+    model = ui.dashboard_model(now=health_now + timedelta(seconds=30))
+    page = ui.render("/operations")
+
+    assert "Deployment watchdog" in page
+    assert model["scheduler_liveness"]["state"] == "HEALTHY"
+    assert "missed entry windows are reported, never retried" in page

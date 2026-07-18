@@ -11,5 +11,7 @@ data/surveillance.json
 data/operations.sqlite3
 data/operations.sqlite3-wal
 data/operations.sqlite3-shm
+data/scheduler-heartbeat.json
+data/scheduler.lock
 data/governance-artifacts/
 data/provenance/
