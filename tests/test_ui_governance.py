@@ -32,12 +32,13 @@ def test_dashboard_reports_governed_stage_shadow_and_position_reconciliation(tmp
 
     status = ui._governance_status()
     page = ui.render()
+    research = ui.render("/research")
 
     assert status["journal_ok"] is True
     assert status["plans"][0]["stage"] == "shadow"
     assert status["plans"][0]["shadow_sessions"] == 1
     assert status["positions_reconciled"] is True
-    assert "Strategy control room" in page
-    assert "1 / 5 sessions" in page
+    assert "Strategy control room" in research
+    assert "1 / 5 sessions" in research
     assert "BLOCKED FROM PAPER ENTRY" in page
     assert "Strategy authorization" in page

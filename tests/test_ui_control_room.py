@@ -89,6 +89,7 @@ def test_control_room_surfaces_scheduler_ingestion_and_strategy_progress(tmp_pat
 
     model = ui.dashboard_model()
     page = ui.render()
+    research = ui.render("/research")
 
     assert model["operations"]["ingestion"]["completeness"] == 0.998
     assert model["operations"]["ingestion"]["failed_symbols"] == ["JBCHEPHARM"]
@@ -97,7 +98,7 @@ def test_control_room_surfaces_scheduler_ingestion_and_strategy_progress(tmp_pat
     assert "Trading control room" in page
     assert "Position &amp; exit command center" in page
     assert "99.8%" in page
-    assert "1 / 5 sessions" in page
+    assert "1 / 5 sessions" in research
 
 
 def test_control_room_flags_stale_marks_and_unhealthy_ingestion(tmp_path, monkeypatch):
