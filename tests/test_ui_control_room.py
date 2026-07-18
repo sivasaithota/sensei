@@ -224,3 +224,30 @@ def test_stalled_browser_connection_cannot_block_dashboard_requests(tmp_path, mo
     assert response.status == 200
     assert "Trading control room" in body
     assert elapsed < 0.75
+
+
+def test_operations_page_shows_latest_entry_rehearsal(tmp_path, monkeypatch):
+    import sensei.ui.server as ui
+
+    monkeypatch.setattr(ui, "DATA_DIR", tmp_path)
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    (reports / "entry-rehearsal-latest.json").write_text(json.dumps({
+        "as_of": "2026-07-18T04:30:00+00:00",
+        "effective_entry_at": "2026-07-20T09:21:00+05:30",
+        "state": "NO_SIGNAL",
+        "reason_codes": ["NO_CANONICAL_SIGNAL"],
+        "detail": "no exact PAPER plan produced an executable entry",
+        "production_events_before": 89,
+        "production_events_after": 89,
+        "sandbox_events_added": 12,
+        "production_state_unchanged": True,
+        "real_order_submitted": False,
+    }))
+
+    page = ui.render("/operations")
+
+    assert "Entry rehearsal" in page
+    assert "NO SIGNAL" in page
+    assert "NO REAL ORDER" in page
+    assert "0</b> production changes" in page

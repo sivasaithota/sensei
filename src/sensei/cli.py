@@ -74,7 +74,29 @@ def main() -> None:
     readiness_p = sub.add_parser("paper-readiness")
     readiness_p.add_argument("--journal", default="data/operations.sqlite3")
     readiness_p.add_argument("--config", default="config/scheduler.json")
+    rehearsal_p = sub.add_parser("rehearse-entry")
+    rehearsal_p.add_argument("--journal", default="data/operations.sqlite3")
+    rehearsal_p.add_argument("--config", default="config/scheduler.json")
+    rehearsal_p.add_argument(
+        "--report", default="data/reports/entry-rehearsal-latest.json"
+    )
     args = parser.parse_args()
+
+    if args.cmd == "rehearse-entry":
+        from pathlib import Path
+        from sensei.runtime.rehearsal import PaperEntryRehearsal
+
+        report = PaperEntryRehearsal(
+            journal_path=Path(args.journal), config_path=Path(args.config),
+        ).run(as_of=datetime.now(timezone.utc))
+        payload = report.to_dict()
+        destination = Path(args.report)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        print(json.dumps(payload, indent=2))
+        return
 
     if args.cmd == "paper-readiness":
         from pathlib import Path
