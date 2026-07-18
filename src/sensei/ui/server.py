@@ -324,6 +324,12 @@ def dashboard_model(*, now: datetime | None = None) -> dict:
             f'Market ingestion is {ingestion["completeness"]:.1%}; '
             f'policy requires {_minimum_completeness():.1%}'
         )
+    from sensei.reporting.paper_readiness import build_readiness_report
+    readiness = build_readiness_report(
+        DATA_DIR / "operations.sqlite3", as_of=now,
+        config_path=CONFIG_DIR / "scheduler.json",
+        kill_switch_path=DATA_DIR / "KILL",
+    ).to_dict()
     return {
         "as_of": now.astimezone(IST).isoformat(),
         "mode": "PAPER", "kill_active": _kill_active(), "alerts": alerts,
@@ -341,6 +347,7 @@ def dashboard_model(*, now: datetime | None = None) -> dict:
             event for event in reversed(_audit_events()) if event.get("event") == "verdict"
         ][:12],
         "mistakes": _ledger()[-8:],
+        "readiness": readiness,
     }
 
 
@@ -410,10 +417,25 @@ def render() -> str:
     ingestion = model["operations"].get("ingestion")
     scheduler = model["operations"].get("scheduler")
     next_action = model["next_action"]
+    readiness = model["readiness"]
     alerts = "".join(
         f'<div class="alert"><span>!</span><div>{_e(message)}</div></div>'
         for message in model["alerts"]
     ) or '<div class="quiet-note">No active operational alerts.</div>'
+    readiness_checks = "".join(
+        f'<li class="readiness-check {"pass" if check["passed"] else "fail"}">'
+        f'<i>{"✓" if check["passed"] else "!"}</i><div><strong>{_e(check["label"])}</strong>'
+        f'<small>{_e(check["detail"])}</small></div></li>'
+        for check in readiness["checks"]
+    )
+    readiness_html = f'''
+      <article class="panel readiness-panel {readiness["state"].lower()}">
+        <div class="section-head"><div><p class="eyebrow">Pre-flight certificate</p>
+          <h2>{"READY FOR PAPER ENTRY" if readiness["state"] == "READY" else "BLOCKED FROM PAPER ENTRY"}</h2></div>
+          <span>{_e(readiness["state"])}</span></div>
+        <p class="readiness-next">Next entry window · {_e(_display_time(readiness["next_entry_at"]))}</p>
+        <ul class="readiness-list">{readiness_checks}</ul>
+      </article>'''
 
     position_cards = []
     for position in model["positions"]:
@@ -540,6 +562,7 @@ def render() -> str:
     <p class="lede">A read-only command view of capital, exit risk, governed strategies and unattended operations.</p></div>
     <div class="hero-side"><div class="desk-state {status_tone}"><i></i><div><small>Desk state</small><strong>{_e(status)}</strong><span>Updated {_e(model["as_of"][11:19])} IST</span></div></div>
       <div class="next-action"><small>Next scheduled action</small><strong>{_e(next_action["label"])}</strong><span>{_e(next_action["when"])}</span></div></div></section>
+  {readiness_html}
   <section class="metrics">
     <article><label>Marked equity</label><strong>{_money(summary["equity"])}</strong><span>Cash + priced holdings · {summary["unpriced_positions"]} unpriced</span></article>
     <article><label>Cash available</label><strong>{_money(summary["cash"])}</strong><span>{cash_share}</span></article>
@@ -587,8 +610,9 @@ _CSS = r'''
 .mistakes{list-style:none;padding:0;margin:14px 0 0}.mistakes li{border-bottom:1px solid var(--line);padding:14px 0}.mistakes li:last-child{border:0}.mistakes p{margin:0 0 6px;color:#d8c9a3;font-size:13px;line-height:1.5}.mistakes small{color:var(--muted);font-size:10px}
 #judgment{margin-top:22px;scroll-margin-top:100px}
 .timeline{max-height:520px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:12px}.timeline:focus-visible{outline:1px solid var(--green);outline-offset:6px;border-radius:4px}.timeline::-webkit-scrollbar{width:8px}.timeline::-webkit-scrollbar-track{background:#0d1311;border-radius:8px}.timeline::-webkit-scrollbar-thumb{background:#34443d;border-radius:8px}.timeline::-webkit-scrollbar-thumb:hover{background:#466054}
+.readiness-panel{margin-bottom:22px;border-left:3px solid var(--red)}.readiness-panel.ready{border-left-color:var(--green)}.readiness-next{color:var(--muted);font-size:12px}.readiness-list{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;list-style:none;padding:0;margin:18px 0 0}.readiness-check{display:flex;gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:#0d1311}.readiness-check>i{display:grid;place-items:center;flex:0 0 20px;height:20px;border-radius:50%;font-style:normal;font-weight:800;background:var(--red);color:#1b0c0a}.readiness-check.pass>i{background:var(--green);color:#07130c}.readiness-check strong,.readiness-check small{display:block}.readiness-check strong{font-size:11px}.readiness-check small{color:var(--muted);font-size:9px;margin-top:3px}
 @media(max-width:850px){header nav{display:none}.mode{margin-left:auto}.hero{display:block}.desk-state{margin-top:28px}.metrics{grid-template-columns:repeat(2,1fr)}.metrics article:nth-child(2){border-right:0}.metrics article:nth-child(-n+2){border-bottom:1px solid var(--line)}.two-col,.ops-grid{grid-template-columns:1fr}.price-grid{grid-template-columns:repeat(2,1fr)}.strategy-row{grid-template-columns:1fr auto}.strategy-row .progress-wrap{grid-column:1/-1}.section-title>p{display:none}}
-@media(max-width:520px){main{padding:34px 14px 60px}header{padding:0 14px}.hero h1{font-size:36px}.metrics{grid-template-columns:1fr}.metrics article{border-right:0!important;border-bottom:1px solid var(--line)!important}.metrics article:last-child{border-bottom:0!important}.position-head{display:block}.pnl{text-align:left;margin-top:12px}.price-grid{grid-template-columns:1fr 1fr}.exit-strip{display:block}.exit-strip span{display:block;margin-bottom:5px}.panel,.position-card{padding:18px}.section-title h2{font-size:23px}.timeline{max-height:440px}}
+@media(max-width:520px){main{padding:34px 14px 60px}header{padding:0 14px}.hero h1{font-size:36px}.metrics{grid-template-columns:1fr}.metrics article{border-right:0!important;border-bottom:1px solid var(--line)!important}.metrics article:last-child{border-bottom:0!important}.position-head{display:block}.pnl{text-align:left;margin-top:12px}.price-grid{grid-template-columns:1fr 1fr}.exit-strip{display:block}.exit-strip span{display:block;margin-bottom:5px}.panel,.position-card{padding:18px}.section-title h2{font-size:23px}.timeline{max-height:440px}.readiness-list{grid-template-columns:1fr}}
 '''
 
 

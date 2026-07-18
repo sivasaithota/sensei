@@ -71,7 +71,21 @@ def main() -> None:
     monitor_p = sub.add_parser("shadow-monitor")
     monitor_p.add_argument("--journal", default="data/operations.sqlite3")
     monitor_p.add_argument("--config", default="config/scheduler.json")
+    readiness_p = sub.add_parser("paper-readiness")
+    readiness_p.add_argument("--journal", default="data/operations.sqlite3")
+    readiness_p.add_argument("--config", default="config/scheduler.json")
     args = parser.parse_args()
+
+    if args.cmd == "paper-readiness":
+        from pathlib import Path
+        from sensei.reporting.paper_readiness import build_readiness_report
+
+        report = build_readiness_report(
+            Path(args.journal), as_of=datetime.now(timezone.utc),
+            config_path=Path(args.config),
+        )
+        print(json.dumps(report.to_dict(), indent=2))
+        return
 
     if args.cmd == "shadow-monitor":
         from pathlib import Path
