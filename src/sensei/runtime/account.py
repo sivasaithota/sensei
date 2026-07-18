@@ -168,6 +168,23 @@ class PaperAccountProjector:
             filled_cost_paise += (
                 receipt.cumulative_fill_quantity * average_price
             )
+            quality = receipt.execution_quality
+            if quality is not None:
+                charges = quality.get("charges")
+                if not isinstance(charges, Mapping):
+                    raise PaperAccountProjectionError(
+                        f"execution charges are malformed for {command.command_id}"
+                    )
+                total_charges = charges.get("total_paise")
+                if (
+                    isinstance(total_charges, bool)
+                    or not isinstance(total_charges, int)
+                    or total_charges < 0
+                ):
+                    raise PaperAccountProjectionError(
+                        f"execution charges are malformed for {command.command_id}"
+                    )
+                filled_cost_paise += total_charges
             included_reservations.add(
                 "reservation:" + command.intent_id.removeprefix("intent:")
             )

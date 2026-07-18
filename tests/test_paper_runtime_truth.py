@@ -10,6 +10,7 @@ from sensei.kernel import (
     ProtectionCommand,
     RecordingPaperGateway,
 )
+from sensei.execution.nse import NseExecutionModel, NseMarketObservation
 from sensei.operations import (
     ComponentState,
     HmacFactSigner,
@@ -109,6 +110,54 @@ def test_account_projector_marks_durable_fills_and_protected_risk(tmp_path):
     assert position.quantity == 4
     assert position.notional_paise == 608_000
     assert position.risk_to_stop_paise == 28_000
+
+
+def test_account_projector_deducts_durable_execution_charges(tmp_path):
+    observation = NseMarketObservation(
+        instrument_id="NSE:INFY",
+        observed_at=NOW,
+        reference_price_paise=150_000,
+        best_bid_paise=149_995,
+        best_ask_paise=150_000,
+        traded_volume=10_000,
+        lower_circuit_paise=120_000,
+        upper_circuit_paise=180_000,
+    )
+    gateway = RecordingPaperGateway(
+        OperationalJournal(tmp_path / "journal.sqlite3"),
+        execution_model=NseExecutionModel(base_impact_bps=0),
+        market_observation=lambda _instrument_id: observation,
+        clock=lambda: NOW,
+    )
+    entry = EntryCommand(
+        intent_id="intent:charged-infy",
+        instrument_id="NSE:INFY",
+        quantity=4,
+        limit_price_paise=151_000,
+    )
+    receipt = gateway.execute(entry)
+    gateway.execute(
+        ProtectionCommand(
+            intent_id=entry.intent_id,
+            instrument_id=entry.instrument_id,
+            quantity=entry.quantity,
+            stop_price_paise=145_000,
+            target_price_paise=160_000,
+        )
+    )
+    charges = receipt.execution_quality["charges"]["total_paise"]
+
+    snapshot = PaperAccountProjector(
+        gateway,
+        starting_capital_paise=10_000_000,
+        high_water_mark_paise=10_000_000,
+    ).project(captured_at=NOW, mark_prices_paise={"NSE:INFY": 152_000})
+
+    gross_cost = receipt.cumulative_fill_quantity * receipt.average_fill_price_paise
+    assert snapshot.available_cash_paise == 10_000_000 - gross_cost - charges
+    assert snapshot.marked_equity_paise == (
+        snapshot.available_cash_paise + 4 * 152_000
+    )
 
 
 def test_account_projector_keeps_a_new_high_water_mark_monotonic(tmp_path):

@@ -14,6 +14,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from sensei.agents.thesis import ApprovalRecord, TradeThesis
+from sensei.execution.nse import NseExecutionModel
 
 PAPER_DIR = Path(__file__).resolve().parents[3] / "data" / "paper"
 POSITIONS_FILE = PAPER_DIR / "positions.json"
@@ -54,12 +55,20 @@ class ClosedTrade:
     pnl: float
     narrative: str
     post_mortem: dict | None = None  # filled by the Coach
+    gross_pnl: float | None = None
+    charges: float = 0.0
+    execution_quality: dict | None = None
 
 
 class PaperBook:
     """The simulated account: cash, open positions, closed-trade log."""
 
-    def __init__(self, starting_cash: float = 50000):
+    def __init__(
+        self,
+        starting_cash: float = 50000,
+        *,
+        execution_model: NseExecutionModel | None = None,
+    ):
         PAPER_DIR.mkdir(parents=True, exist_ok=True)
         if POSITIONS_FILE.exists():
             state = json.loads(POSITIONS_FILE.read_text())
@@ -68,6 +77,7 @@ class PaperBook:
         else:
             self.cash = starting_cash
             self.positions = []
+        self._execution_model = execution_model
 
     def _save(self) -> None:
         POSITIONS_FILE.write_text(json.dumps(
@@ -130,7 +140,53 @@ class PaperBook:
             if exit_price is None:
                 remaining.append(pos)
                 continue
-            closed.append(self._close(pos, exit_price, reason, today))
+            if self._execution_model is None:
+                closed.append(self._close(pos, exit_price, reason, today))
+                continue
+            volume = int(bar.get("volume", pos.quantity * 100))
+            lower_circuit = round(float(bar.get("lower_circuit", 0.01)) * 100)
+            if reason in {"stop", "stop_gap"}:
+                fill = self._execution_model.simulate_stop_exit(
+                    quantity=pos.quantity,
+                    stop_price_paise=round(pos.stop_loss * 100),
+                    session_open_paise=round(float(bar["open"]) * 100),
+                    session_low_paise=round(float(bar["low"]) * 100),
+                    available_volume=volume,
+                    lower_circuit_paise=max(1, lower_circuit),
+                )
+            else:
+                fill = self._execution_model.simulate_exit(
+                    quantity=pos.quantity,
+                    reference_price_paise=round(exit_price * 100),
+                    available_volume=volume,
+                    reason_code=reason.upper(),
+                    lower_circuit_paise=max(1, lower_circuit),
+                )
+            if not fill.filled_quantity:
+                remaining.append(pos)
+                continue
+            quality = fill.to_payload()
+            quality["market_evidence"] = {
+                "source": "GOVERNED_EOD_SESSION_BAR",
+                "observed_at": datetime.combine(
+                    today, datetime.min.time(), tzinfo=timezone.utc
+                ).isoformat(),
+                "session_volume": volume,
+                "spread_is_estimated": True,
+                "circuit_is_estimated": "lower_circuit" not in bar,
+            }
+            closed.append(self._close(
+                pos,
+                fill.fill_price_paise / 100,
+                reason,
+                today,
+                quantity=fill.filled_quantity,
+                charges=fill.charges.total_paise / 100,
+                execution_quality=quality,
+            ))
+            if fill.filled_quantity < pos.quantity:
+                pos.quantity -= fill.filled_quantity
+                remaining.append(pos)
         self.positions = remaining
         self._save()
         return closed
@@ -145,16 +201,23 @@ class PaperBook:
         return trade
 
     def _close(self, pos: Position, exit_price: float, reason: str,
-               today: date) -> ClosedTrade:
+               today: date, *, quantity: int | None = None,
+               charges: float = 0.0,
+               execution_quality: dict | None = None) -> ClosedTrade:
+        quantity = pos.quantity if quantity is None else quantity
         sign = 1 if pos.direction == "BUY" else -1
-        pnl = sign * (exit_price - pos.entry_price) * pos.quantity
-        self.cash += exit_price * pos.quantity
+        gross_pnl = sign * (exit_price - pos.entry_price) * quantity
+        pnl = gross_pnl - charges
+        self.cash += exit_price * quantity - charges
         trade = ClosedTrade(thesis_id=pos.thesis_id, symbol=pos.symbol,
                             direction=pos.direction, entry_price=pos.entry_price,
-                            exit_price=exit_price, quantity=pos.quantity,
+                            exit_price=exit_price, quantity=quantity,
                             opened=pos.opened, closed=today.isoformat(),
                             exit_reason=reason, pnl=round(pnl, 2),
-                            narrative=pos.narrative)
+                            narrative=pos.narrative,
+                            gross_pnl=round(gross_pnl, 2),
+                            charges=round(charges, 2),
+                            execution_quality=execution_quality)
         with CLOSED_FILE.open("a") as f:
             f.write(json.dumps(asdict(trade)) + "\n")
         return trade

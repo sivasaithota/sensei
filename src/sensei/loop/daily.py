@@ -65,7 +65,10 @@ def _todays_bars(symbols: list[str]) -> dict[str, dict]:
     for sym in symbols:
         df = load_prices(sym)
         last = df.iloc[-1]
-        bars[sym] = {k: float(last[k]) for k in ("open", "high", "low", "close")}
+        bars[sym] = {
+            k: float(last[k])
+            for k in ("open", "high", "low", "close", "volume")
+        }
     return bars
 
 
@@ -75,7 +78,14 @@ def run_day(*, refresh: bool = True, client: anthropic.Anthropic | None = None,
     """One full trading day. Returns a summary dict."""
     today = today or date.today()
     cfg = RiskConfig.load("config/risk.yaml")
-    book = PaperBook(cfg.capital)
+    from sensei.execution.nse import NseExecutionModel
+    book = PaperBook(
+        cfg.capital,
+        execution_model=NseExecutionModel(
+            max_volume_participation_bps=100,
+            base_impact_bps=5,
+        ),
+    )
     summary: dict = {"date": today.isoformat(), "closed": [], "opened": [],
                      "declined": [], "vetoed": [], "signals": 0}
 

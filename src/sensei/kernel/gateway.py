@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Protocol
 
+from sensei.execution.nse import NseExecutionModel, NseMarketObservation
+
 from sensei.operations.journal import (
     EventAppend,
     JournalConflict,
@@ -48,6 +50,7 @@ class GatewayReceipt:
     broker_reference: str
     cumulative_fill_quantity: int = 0
     average_fill_price_paise: int | None = None
+    execution_quality: Mapping[str, object] | None = None
 
     def __post_init__(self) -> None:
         if not self.command_id.startswith("command:"):
@@ -66,6 +69,12 @@ class GatewayReceipt:
             )
         elif self.average_fill_price_paise is not None:
             raise ValueError("zero fill must not carry an average fill price")
+        if self.execution_quality is not None and not isinstance(
+            self.execution_quality, Mapping
+        ):
+            raise TypeError("execution_quality must be a mapping")
+        if self.execution_quality is not None:
+            _validate_execution_quality(self)
 
     def to_payload(self) -> dict[str, object]:
         return {
@@ -74,6 +83,7 @@ class GatewayReceipt:
             "broker_reference": self.broker_reference,
             "cumulative_fill_quantity": self.cumulative_fill_quantity,
             "average_fill_price_paise": self.average_fill_price_paise,
+            "execution_quality": self.execution_quality,
         }
 
 
@@ -106,14 +116,22 @@ class RecordingPaperGateway:
         journal: OperationalJournal | None = None,
         *,
         auto_fill_at_limit: bool = False,
+        execution_model: NseExecutionModel | None = None,
+        market_observation: Callable[[str], NseMarketObservation] | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         if journal is not None and not isinstance(journal, OperationalJournal):
             raise TypeError("journal must be an OperationalJournal")
         if not isinstance(auto_fill_at_limit, bool):
             raise TypeError("auto_fill_at_limit must be a boolean")
+        if auto_fill_at_limit and execution_model is not None:
+            raise ValueError("execution model replaces optimistic limit auto-fill")
+        if (execution_model is None) != (market_observation is None):
+            raise ValueError("execution model and market observation must be configured together")
         self._journal = journal
         self._auto_fill_at_limit = auto_fill_at_limit
+        self._execution_model = execution_model
+        self._market_observation = market_observation
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._commands: list[BrokerCommand] = []
         self._receipts: dict[str, GatewayReceipt] = {}
@@ -229,7 +247,7 @@ class RecordingPaperGateway:
         existing = self._receipts.get(command.command_id)
         if existing is not None:
             return existing
-        fill_quantity, fill_price, _ = self._planned_entry_fill(
+        fill_quantity, fill_price, _, quality = self._planned_entry_fill(
             command,
             consume_queued=True,
         )
@@ -239,6 +257,7 @@ class RecordingPaperGateway:
             broker_reference=f"paper:{len(self._commands) + 1}",
             cumulative_fill_quantity=fill_quantity,
             average_fill_price_paise=fill_price if fill_quantity else None,
+            execution_quality=quality,
         )
         self._commands.append(command)
         self._receipts[command.command_id] = receipt
@@ -254,7 +273,7 @@ class RecordingPaperGateway:
                 )
             return existing.receipt
 
-        fill_quantity, fill_price, queued_fill = self._planned_entry_fill(
+        fill_quantity, fill_price, queued_fill, quality = self._planned_entry_fill(
             command,
             consume_queued=False,
         )
@@ -265,6 +284,7 @@ class RecordingPaperGateway:
             broker_reference=f"paper:{digest}",
             cumulative_fill_quantity=fill_quantity,
             average_fill_price_paise=fill_price if fill_quantity else None,
+            execution_quality=quality,
         )
         append = EventAppend(
             stream_id=f"{_DURABLE_STREAM_PREFIX}{digest}",
@@ -306,9 +326,9 @@ class RecordingPaperGateway:
         command: BrokerCommand,
         *,
         consume_queued: bool,
-    ) -> tuple[int, int | None, bool]:
+    ) -> tuple[int, int | None, bool, Mapping[str, object] | None]:
         if not isinstance(command, EntryCommand):
-            return 0, None, False
+            return 0, None, False, None
         if self._queued_entry_fills:
             fill_quantity, queued_price = self._queued_entry_fills[0]
             if fill_quantity > command.quantity:
@@ -316,10 +336,22 @@ class RecordingPaperGateway:
             if consume_queued:
                 self._queued_entry_fills.pop(0)
             fill_price = queued_price if fill_quantity else None
-            return fill_quantity, fill_price, True
+            return fill_quantity, fill_price, True, None
+        if self._execution_model is not None and self._market_observation is not None:
+            observation = self._market_observation(command.instrument_id)
+            fill = self._execution_model.simulate_entry(
+                quantity=command.quantity,
+                limit_price_paise=command.limit_price_paise,
+                observation=observation,
+                now=self._clock(),
+            )
+            return (
+                fill.filled_quantity, fill.fill_price_paise, False,
+                fill.to_payload(),
+            )
         if self._auto_fill_at_limit:
-            return command.quantity, command.limit_price_paise, False
-        return 0, None, False
+            return command.quantity, command.limit_price_paise, False, None
+        return 0, None, False, None
 
     def _durable_record_for(self, command_id: str) -> _ExecutionRecord | None:
         assert self._journal is not None
@@ -387,7 +419,15 @@ def _record_from_event(event: JournalEvent) -> _ExecutionRecord:
             average_fill_price_paise=(
                 int(average) if average is not None else None
             ),
+            execution_quality=(
+                dict(receipt_payload["execution_quality"])
+                if isinstance(receipt_payload.get("execution_quality"), Mapping)
+                else None
+            ),
         )
+        if isinstance(command, EntryCommand) and receipt.execution_quality is not None:
+            if receipt.execution_quality["side"] != "BUY":
+                raise ValueError("entry execution quality must use BUY side")
     except (KeyError, TypeError, ValueError) as exc:
         raise JournalIntegrityError(
             "paper gateway event cannot be reconstructed"
@@ -402,6 +442,78 @@ def _record_from_event(event: JournalEvent) -> _ExecutionRecord:
             "paper gateway durable identities do not match command content"
         )
     return _ExecutionRecord(command=command, receipt=receipt)
+
+
+def _validate_execution_quality(receipt: GatewayReceipt) -> None:
+    quality = receipt.execution_quality
+    assert quality is not None
+    required = {
+        "filled_quantity", "requested_quantity", "unfilled_quantity",
+        "fill_price_paise", "reference_price_paise", "slippage_paise",
+        "reason_code", "side", "charges", "net_cash_flow_paise",
+        "market_evidence",
+    }
+    if set(quality) != required:
+        raise ValueError("execution_quality schema is invalid")
+    if quality["filled_quantity"] != receipt.cumulative_fill_quantity:
+        raise ValueError("execution quality fill quantity does not match receipt")
+    if quality["fill_price_paise"] != receipt.average_fill_price_paise:
+        raise ValueError("execution quality fill price does not match receipt")
+    requested = quality["requested_quantity"]
+    unfilled = quality["unfilled_quantity"]
+    if (
+        type(requested) is not int
+        or type(unfilled) is not int
+        or requested < receipt.cumulative_fill_quantity
+        or unfilled != requested - receipt.cumulative_fill_quantity
+    ):
+        raise ValueError("execution quality quantities are invalid")
+    if quality["side"] not in {"BUY", "SELL"}:
+        raise ValueError("execution quality side is invalid")
+    evidence = quality["market_evidence"]
+    if evidence is not None and (
+        not isinstance(evidence, Mapping)
+        or not isinstance(evidence.get("source"), str)
+        or not evidence["source"].strip()
+        or not isinstance(evidence.get("observed_at"), str)
+    ):
+        raise ValueError("execution quality market evidence is invalid")
+    charges = quality["charges"]
+    component_names = {
+        "stt_paise", "exchange_paise", "sebi_paise", "stamp_duty_paise",
+        "gst_paise", "ipft_paise",
+    }
+    if not isinstance(charges, Mapping) or set(charges) != component_names | {
+        "total_paise", "schedule_id"
+    }:
+        raise ValueError("execution quality charges are invalid")
+    if charges["schedule_id"] != "NSE_CASH_DELIVERY_2026-03-01":
+        raise ValueError("execution quality charge schedule is invalid")
+    if any(type(charges[name]) is not int or charges[name] < 0 for name in component_names):
+        raise ValueError("execution quality charge components are invalid")
+    if charges["total_paise"] != sum(charges[name] for name in component_names):
+        raise ValueError("execution quality charge total is invalid")
+    fill_price = quality["fill_price_paise"]
+    reference = quality["reference_price_paise"]
+    filled = receipt.cumulative_fill_quantity
+    if filled:
+        if type(reference) is not int or reference <= 0:
+            raise ValueError("execution quality reference price is invalid")
+        direction = 1 if quality["side"] == "BUY" else -1
+        expected_slippage = direction * (fill_price - reference) * filled
+        gross = fill_price * filled
+        expected_cash_flow = (
+            -(gross + charges["total_paise"])
+            if quality["side"] == "BUY"
+            else gross - charges["total_paise"]
+        )
+    else:
+        expected_slippage = 0
+        expected_cash_flow = 0
+    if quality["slippage_paise"] != expected_slippage:
+        raise ValueError("execution quality slippage is invalid")
+    if quality["net_cash_flow_paise"] != expected_cash_flow:
+        raise ValueError("execution quality cash flow is invalid")
 
 
 def _command_digest(command_id: str) -> str:

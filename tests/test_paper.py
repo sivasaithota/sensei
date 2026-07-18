@@ -77,6 +77,36 @@ def test_gap_through_stop_fills_at_open_not_the_unavailable_stop():
     assert closed[0].pnl == pytest.approx((90 - 100) * 50)
 
 
+def test_realistic_exit_is_partial_adverse_and_charge_aware():
+    from sensei.execution.nse import NseExecutionModel
+    from sensei.paper.engine import PaperBook
+
+    book = PaperBook(
+        50000,
+        execution_model=NseExecutionModel(
+            max_volume_participation_bps=100,
+            base_impact_bps=5,
+        ),
+    )
+    book.open_from(make_record(), fill_price=100.0, today=date(2026, 7, 1))
+
+    closed = book.mark_to_market(
+        {"INFY": {
+            "open": 90, "high": 92, "low": 88, "close": 89,
+            "volume": 2_000,
+        }},
+        today=date(2026, 7, 2),
+    )
+
+    assert closed[0].quantity == 20
+    assert closed[0].exit_price < 90
+    assert closed[0].charges > 0
+    assert closed[0].pnl == pytest.approx(
+        closed[0].gross_pnl - closed[0].charges
+    )
+    assert book.positions[0].quantity == 30
+
+
 def test_target_exit_and_pnl():
     from sensei.paper.engine import PaperBook
     book = PaperBook(50000)
