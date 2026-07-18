@@ -348,6 +348,9 @@ def dashboard_model(*, now: datetime | None = None) -> dict:
         ][:12],
         "mistakes": _ledger()[-8:],
         "readiness": readiness,
+        "rehearsal": _json(
+            DATA_DIR / "reports" / "entry-rehearsal-latest.json", None
+        ),
     }
 
 
@@ -418,6 +421,7 @@ def render(path: str = "/") -> str:
     scheduler = model["operations"].get("scheduler")
     next_action = model["next_action"]
     readiness = model["readiness"]
+    rehearsal = model["rehearsal"]
     alerts = "".join(
         f'<div class="alert"><span>!</span><div>{_e(message)}</div></div>'
         for message in model["alerts"]
@@ -436,6 +440,46 @@ def render(path: str = "/") -> str:
         <p class="readiness-next">Next entry window · {_e(_display_time(readiness["next_entry_at"]))}</p>
         <ul class="readiness-list">{readiness_checks}</ul>
       </article>'''
+    rehearsal_diagnostics = (
+        rehearsal.get("diagnostics", {}) if isinstance(rehearsal, dict) else {}
+    )
+    rehearsal_intent = rehearsal_diagnostics.get("intent") or {}
+    proposed_trade = "No executable trade intent reached risk admission"
+    if rehearsal_intent:
+        proposed_trade = (
+            f'{rehearsal_intent.get("instrument_id", "?")} · '
+            f'{rehearsal_intent.get("quantity", 0)} shares · entry '
+            f'₹{int(rehearsal_intent.get("limit_price_paise", 0)) / 100:,.2f} · '
+            f'stop ₹{int(rehearsal_intent.get("stop_price_paise", 0)) / 100:,.2f} · '
+            f'target ₹{int(rehearsal_intent.get("target_price_paise", 0)) / 100:,.2f}'
+        )
+    rehearsal_verdicts = "".join(
+        f'<li><b>{_e(item.get("level", "?"))} · {_e(item.get("agent", "?"))}</b> '
+        f'{"approved" if item.get("approved") else "vetoed"} — '
+        f'{_e(item.get("reasoning", "No reason recorded"))}</li>'
+        for item in rehearsal_diagnostics.get("committee_verdicts", ())
+    ) or '<li>No committee stage was reached.</li>'
+    rehearsal_html = (
+        '<article class="panel"><div class="section-head"><div><p class="eyebrow">Entry rehearsal</p>'
+        '<h2>No rehearsal recorded</h2></div></div><p class="quiet-note">Run <span class="mono">sensei rehearse-entry</span> to exercise the disposable production path.</p></article>'
+        if not isinstance(rehearsal, dict) else f'''
+        <article class="panel rehearsal {str(rehearsal.get("state", "BLOCKED")).lower()}">
+          <div class="section-head"><div><p class="eyebrow">Entry rehearsal</p>
+            <h2>{_e(rehearsal.get("state", "BLOCKED").replace("_", " "))}</h2></div>
+            <span>NO REAL ORDER</span></div>
+          <p>{_e(rehearsal.get("detail", "No diagnostic detail"))}</p>
+          <p class="rehearsal-proposal"><b>Proposed trade</b> {_e(proposed_trade)}</p>
+          <div class="rehearsal-facts"><span><b>{_e(", ".join(rehearsal.get("reason_codes", ())) or "none")}</b> outcome</span>
+            <span><b>{int(rehearsal.get("sandbox_events_added", 0))}</b> sandbox events</span>
+            <span><b>{int(rehearsal_diagnostics.get("risk_reservations", 0))}</b> risk reservations</span>
+            <span><b>{len(rehearsal_diagnostics.get("committee_verdicts", ()))}</b> committee verdicts</span>
+            <span><b>{int(rehearsal_diagnostics.get("sandbox_gateway_commands", 0))}</b> sandbox gateway commands</span>
+            <span><b>{0 if rehearsal.get("production_state_unchanged") else "!"}</b> production changes</span></div>
+          <details><summary>Committee and risk trace</summary><ul class="rehearsal-trace">{rehearsal_verdicts}</ul>
+            <p>Risk outcome: {_e(rehearsal.get("detail", "No risk outcome"))}</p></details>
+          <small>Evaluated {_e(_display_time(rehearsal.get("as_of")))} · effective window {_e(_display_time(rehearsal.get("effective_entry_at"))) if rehearsal.get("effective_entry_at") else "unavailable"}</small>
+        </article>'''
+    )
 
     position_cards = []
     for position in model["positions"]:
@@ -587,7 +631,7 @@ def render(path: str = "/") -> str:
         "/research": ("Research", f'''{statebar}
   <section id="strategies"><div class="section-title"><div><p class="eyebrow">Governed research</p><h2>Strategy control room</h2></div><p>Known strategies are not tradable until evidence earns authorization.</p></div><div class="panel strategy-list">{strategies_html}</div></section>
   <section id="playbook">{playbook_html}</section>'''),
-        "/operations": ("Operations", f'''{statebar}
+        "/operations": ("Operations", f'''{statebar}{rehearsal_html}
   <section id="operations" class="ops-grid"><article class="panel"><div class="section-head"><div><p class="eyebrow">Automation</p><h2>Operations timeline</h2></div></div><p class="scheduler-line">{scheduler_html}</p><ol class="timeline" tabindex="0" aria-label="Scrollable operations timeline">{timeline}</ol></article>
     <article class="panel"><div class="section-head"><div><p class="eyebrow">Outcomes</p><h2>Recently closed</h2></div></div>{_svg_equity(model["closed"])}<table><thead><tr><th>Symbol</th><th>Closed</th><th>Reason</th><th class="num">P&amp;L</th></tr></thead><tbody>{closed_rows}</tbody></table>
       <div class="integrity"><span>Journal integrity</span><strong>{'Verified' if model['operations'].get('journal_ok') else 'Unavailable'}</strong><small>{model['operations'].get('events', 0)} immutable events checked</small></div></article></section>'''),
@@ -647,6 +691,7 @@ _CSS = r'''
 #judgment{margin-top:22px;scroll-margin-top:100px}
 .timeline{max-height:520px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:12px}.timeline:focus-visible{outline:1px solid var(--green);outline-offset:6px;border-radius:4px}.timeline::-webkit-scrollbar{width:8px}.timeline::-webkit-scrollbar-track{background:#0d1311;border-radius:8px}.timeline::-webkit-scrollbar-thumb{background:#34443d;border-radius:8px}.timeline::-webkit-scrollbar-thumb:hover{background:#466054}
 .readiness-panel{margin-bottom:22px;border-left:3px solid var(--red)}.readiness-panel.ready{border-left-color:var(--green)}.readiness-next{color:var(--muted);font-size:12px}.readiness-list{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;list-style:none;padding:0;margin:18px 0 0}.readiness-check{display:flex;gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:#0d1311}.readiness-check>i{display:grid;place-items:center;flex:0 0 20px;height:20px;border-radius:50%;font-style:normal;font-weight:800;background:var(--red);color:#1b0c0a}.readiness-check.pass>i{background:var(--green);color:#07130c}.readiness-check strong,.readiness-check small{display:block}.readiness-check strong{font-size:11px}.readiness-check small{color:var(--muted);font-size:9px;margin-top:3px}
+.rehearsal{margin-bottom:22px;border-left:3px solid var(--amber)}.rehearsal.would_trade{border-left-color:var(--green)}.rehearsal>p,.rehearsal>small{color:var(--muted)}.rehearsal-proposal{background:#0d1311;border:1px solid var(--line);border-radius:8px;padding:10px}.rehearsal-proposal b{color:var(--text);margin-right:8px}.rehearsal-facts{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.rehearsal-facts span{border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--muted);font-size:10px}.rehearsal-facts b{color:var(--text);display:block;font-size:11px}.rehearsal-trace{color:var(--muted);font-size:11px}.rehearsal-trace b{color:var(--text)}
 @media(max-width:850px){header nav{display:none}.mode{margin-left:auto}.hero{display:block}.desk-state{margin-top:28px}.metrics{grid-template-columns:repeat(2,1fr)}.metrics article:nth-child(2){border-right:0}.metrics article:nth-child(-n+2){border-bottom:1px solid var(--line)}.two-col,.ops-grid{grid-template-columns:1fr}.price-grid{grid-template-columns:repeat(2,1fr)}.strategy-row{grid-template-columns:1fr auto}.strategy-row .progress-wrap{grid-column:1/-1}.section-title>p{display:none}}
 @media(max-width:520px){main{padding:34px 14px 60px}header{padding:0 14px}.hero h1{font-size:36px}.metrics{grid-template-columns:1fr}.metrics article{border-right:0!important;border-bottom:1px solid var(--line)!important}.metrics article:last-child{border-bottom:0!important}.position-head{display:block}.pnl{text-align:left;margin-top:12px}.price-grid{grid-template-columns:1fr 1fr}.exit-strip{display:block}.exit-strip span{display:block;margin-bottom:5px}.panel,.position-card{padding:18px}.section-title h2{font-size:23px}.timeline{max-height:440px}.readiness-list{grid-template-columns:1fr}}
 '''
