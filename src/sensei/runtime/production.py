@@ -10,6 +10,8 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from sensei.execution.nse import NseExecutionModel, NseMarketObservation
+
 from sensei.agents.chain import ApprovalChain
 from sensei.automation.governed_entry import AuthorizedPlan, CanonicalSignalPlanner
 from sensei.automation.runner import TaskOutcome, TaskOutcomeState
@@ -146,7 +148,13 @@ class ProductionPaperSession:
             journal_path=self._journal_path,
             gateway_factory=lambda journal: RecordingPaperGateway(
                 journal,
-                auto_fill_at_limit=True,
+                execution_model=NseExecutionModel(
+                    max_volume_participation_bps=100,
+                    base_impact_bps=5,
+                ),
+                market_observation=lambda instrument_id: (
+                    self._execution_observation(instrument_id, now)
+                ),
                 clock=lambda: now,
             ),
             compose=compose,
@@ -428,6 +436,35 @@ class ProductionPaperSession:
             f"{instrument_id}:{paise}:{now.isoformat()}".encode()
         ).hexdigest()
         return ExecutableQuote(instrument_id, snapshot, paise, now)
+
+    def _execution_observation(self, instrument_id, now):
+        symbol = instrument_id.split(":")[-1]
+        from sensei.loop.openexec import live_market_snapshot
+
+        snapshot = live_market_snapshot(symbol)
+        if snapshot is None or snapshot["last_price"] <= 0:
+            raise RuntimeTrustError(
+                f"fresh execution observation unavailable for {instrument_id}"
+            )
+        reference = round(snapshot["last_price"] * 100)
+        volume = int(max(0, snapshot["session_volume"]))
+        half_spread = max(5, round(reference * 0.0005))
+        return NseMarketObservation(
+            instrument_id=(
+                instrument_id if instrument_id.startswith("NSE:")
+                else f"NSE:{instrument_id}"
+            ),
+            observed_at=now,
+            reference_price_paise=reference,
+            best_bid_paise=max(1, reference - half_spread),
+            best_ask_paise=reference,
+            traded_volume=volume,
+            lower_circuit_paise=max(1, round(reference * 0.8)),
+            upper_circuit_paise=round(reference * 1.2),
+            evidence_source="YAHOO_FAST_INFO_SESSION_SNAPSHOT",
+            spread_is_estimated=True,
+            circuit_is_estimated=True,
+        )
 
     def _turnover(self, instrument_id):
         frame = self._bars(instrument_id)

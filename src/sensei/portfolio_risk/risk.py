@@ -264,9 +264,11 @@ class PortfolioRisk:
             "cumulative_fill_quantity",
             "average_fill_price_paise",
         }
+        allowed_receipt_fields = receipt_fields | {"execution_quality"}
         if (
             not isinstance(receipt, Mapping)
-            or set(receipt) != receipt_fields
+            or not receipt_fields.issubset(receipt)
+            or not set(receipt).issubset(allowed_receipt_fields)
             or receipt.get("accepted") is not True
         ):
             raise RiskRejected("terminal evidence receipt was not accepted")
@@ -389,7 +391,8 @@ class PortfolioRisk:
         entry_receipt = entry_completed.payload.get("receipt")
         if (
             not isinstance(entry_receipt, Mapping)
-            or set(entry_receipt) != receipt_fields
+            or not receipt_fields.issubset(entry_receipt)
+            or not set(entry_receipt).issubset(allowed_receipt_fields)
             or entry_receipt.get("accepted") is not True
             or entry_completed.causation_id != entry_command_id
             or entry_completed.correlation_id != reservation.intent.intent_id

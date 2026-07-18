@@ -56,6 +56,20 @@ def live_price(symbol: str) -> float | None:
         return None
 
 
+def live_market_snapshot(symbol: str) -> dict[str, float] | None:
+    """Fetch one internally consistent Yahoo quote/liquidity snapshot."""
+    import yfinance as yf
+    try:
+        info = yf.Ticker(f"{symbol}.NS").fast_info
+        price = info.get("last_price") or info.get("lastPrice")
+        volume = info.get("last_volume") or info.get("lastVolume")
+        if not price or volume is None:
+            return None
+        return {"last_price": float(price), "session_volume": float(volume)}
+    except Exception:
+        return None
+
+
 def execute_pending(
     today: date | None = None,
     *,
