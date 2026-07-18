@@ -10,6 +10,14 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from sensei.data.news import (
+    NewsRiskBook,
+    NewsRiskPolicy,
+    NewsSecretStore,
+    RssNewsRefresher,
+    record_news_refresh_failure,
+)
+from sensei.operations import OperationalJournal
 from sensei.execution.nse import NseExecutionModel, NseMarketObservation
 
 from sensei.agents.chain import ApprovalChain
@@ -114,6 +122,34 @@ class ProductionPaperSession:
 
     def __call__(self, task: ScheduledTask, now: datetime) -> TaskOutcome:
         secrets = RuntimeSecretStore.load(self._config.runtime_secrets_path)
+        instruments = self._instruments()
+        news_refresh_failed = False
+        try:
+            news_secret = NewsSecretStore.load_or_create(
+                self._config.news_secret_path
+            )
+            RssNewsRefresher(
+                book=NewsRiskBook(
+                    self._config.news_snapshot_path,
+                    secret=news_secret,
+                ),
+                issuer_id="market-news",
+                secret=news_secret,
+                journal=OperationalJournal(self._journal_path),
+            ).refresh(
+                feeds=dict(self._config.news_feeds),
+                known_instruments=instruments,
+                observed_at=now,
+            )
+        except Exception as exc:
+            # Entry admission will consume UNKNOWN. This handler never manages
+            # exits, so bounded feed latency cannot suppress safety work.
+            news_refresh_failed = True
+            record_news_refresh_failure(
+                OperationalJournal(self._journal_path),
+                occurred_at=now,
+                error=exc,
+            )
         surveillance = VerifiedSurveillanceSource(
             self._config.surveillance_path,
             issuer_id="market-surveillance",
@@ -121,7 +157,6 @@ class ProductionPaperSession:
             maximum_age=timedelta(minutes=30),
             clock=lambda: now,
         )
-        instruments = self._instruments()
         snapshot_complete = bool(instruments) and all(
             surveillance(instrument.split(":")[-1], task.trading_date) is not None
             for instrument in instruments
@@ -141,6 +176,7 @@ class ProductionPaperSession:
                 secrets=secrets,
                 now=now,
                 command_id=task.task_id,
+                news_refresh_failed=news_refresh_failed,
             )
             return composition
 
@@ -182,7 +218,10 @@ class ProductionPaperSession:
             result.cycles[-1].reason,
         )
 
-    def _compose(self, *, journal, gateway, secrets, now, command_id):
+    def _compose(
+        self, *, journal, gateway, secrets, now, command_id,
+        news_refresh_failed: bool,
+    ):
         risk_config = RiskConfig.load(self._risk_path)
         limits = _risk_limits(risk_config)
         component_secrets = {
@@ -305,6 +344,18 @@ class ProductionPaperSession:
             maximum_age=timedelta(minutes=30),
             clock=lambda: now,
         )
+        try:
+            news_secret = NewsSecretStore.load(self._config.news_secret_path)
+            news_book = NewsRiskBook(
+                self._config.news_snapshot_path,
+                secret=news_secret,
+            )
+            news_snapshot = news_book.latest()
+        except (OSError, ValueError):
+            news_snapshot = None
+        if news_refresh_failed:
+            news_snapshot = None
+        news_policy = NewsRiskPolicy(minimum_available_feeds=2)
         committee = ApprovalChainCommittee(
             ApprovalChain(RiskRails(risk_config)),
             verdict_authority,
@@ -320,7 +371,14 @@ class ProductionPaperSession:
                 trace_authority,
                 HmacFactSigner("historian", secrets["historian"]),
             ),
-            reporter=EarningsReporter(surveillance=surveillance),
+            reporter=EarningsReporter(
+                surveillance=surveillance,
+                news_risk=lambda instrument_id, as_of: news_policy.assess(
+                    news_snapshot,
+                    instrument_id=instrument_id,
+                    as_of=as_of,
+                ),
+            ),
             crowd_reader=RegimeCrowdReader(reader=self._regime),
             analyst=GovernedAnalyst(),
             committee=committee,

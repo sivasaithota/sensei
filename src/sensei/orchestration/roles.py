@@ -13,6 +13,7 @@ from sensei.data.regime import Regime, compute_regime
 from sensei.learning.outcomes import LearningObservation, OutcomeLearner
 from sensei.operations import HmacFactSigner
 from sensei.reporting.operations import OperationalReporter
+from sensei.data.news import NewsRiskDecision, NewsRiskLevel
 from sensei.strategy import (
     DecisionTraceAuthority,
     PlanEvaluationRequest,
@@ -84,9 +85,11 @@ class EarningsReporter:
         *,
         event_window: Callable[[str, date], tuple[bool, str]] = in_no_trade_window,
         surveillance: Callable[[str, date], int | None] | None = None,
+        news_risk: Callable[[str, datetime], NewsRiskDecision] | None = None,
     ) -> None:
         self._event_window = event_window
         self._surveillance = surveillance or (lambda _symbol, _day: None)
+        self._news_risk = news_risk
 
     def report(self, instrument_id: str, *, as_of: datetime) -> EventBrief:
         _aware(as_of)
@@ -102,11 +105,32 @@ class EarningsReporter:
             stage = None
         else:
             reason = f"{event_reason}; surveillance stage {stage}"
+        news_level = "NOT_CONFIGURED"
+        news_event_ids: tuple[str, ...] = ()
+        news_snapshot_digest = None
+        news_snapshot_observed_at = None
+        if self._news_risk is not None:
+            news = self._news_risk(instrument_id, as_of)
+            if not isinstance(news, NewsRiskDecision):
+                blocked = True
+                reason += "; news risk response invalid"
+                news_level = NewsRiskLevel.UNKNOWN.value
+            else:
+                blocked = blocked or news.blocked
+                reason += f"; {news.reason}"
+                news_level = news.level.value
+                news_event_ids = news.event_ids
+                news_snapshot_digest = news.snapshot_digest
+                news_snapshot_observed_at = news.snapshot_observed_at
         return EventBrief(
             instrument_id=instrument_id,
             blocked=blocked,
             reason=reason,
             surveillance_stage=stage,
+            news_level=news_level,
+            news_event_ids=news_event_ids,
+            news_snapshot_digest=news_snapshot_digest,
+            news_snapshot_observed_at=news_snapshot_observed_at,
         )
 
 

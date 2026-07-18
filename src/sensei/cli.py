@@ -32,6 +32,11 @@ def main() -> None:
     sub.add_parser("resume")
     sub.add_parser("status")
     sub.add_parser("playbook")
+    news_refresh_p = sub.add_parser("news-refresh")
+    news_refresh_p.add_argument("--config", default="config/scheduler.json")
+    news_refresh_p.add_argument("--journal", default="data/operations.sqlite3")
+    news_status_p = sub.add_parser("news-status")
+    news_status_p.add_argument("--config", default="config/scheduler.json")
     desk_p = sub.add_parser("desk-status")
     desk_p.add_argument(
         "--journal",
@@ -86,6 +91,50 @@ def main() -> None:
         "--report", default="data/reports/entry-rehearsal-latest.json"
     )
     args = parser.parse_args()
+
+    if args.cmd in {"news-refresh", "news-status"}:
+        from pathlib import Path
+        from sensei.automation.application import SchedulerApplicationConfig
+        from sensei.data.news import NewsRiskBook, NewsSecretStore, RssNewsRefresher
+        from sensei.operations import OperationalJournal
+
+        config = SchedulerApplicationConfig.from_json(Path(args.config))
+        news_secret = NewsSecretStore.load_or_create(config.news_secret_path)
+        book = NewsRiskBook(
+            config.news_snapshot_path,
+            secret=news_secret,
+        )
+        if args.cmd == "news-refresh":
+            snapshot = RssNewsRefresher(
+                book=book,
+                issuer_id="market-news",
+                secret=news_secret,
+                journal=(
+                    OperationalJournal(Path(args.journal))
+                    if Path(args.journal).is_file()
+                    else None
+                ),
+            ).refresh(
+                feeds=dict(config.news_feeds),
+                known_instruments=tuple(
+                    f"NSE:{path.stem}"
+                    for path in config.prices_path.glob("*.parquet")
+                ),
+                observed_at=datetime.now(timezone.utc),
+            )
+        else:
+            snapshot = book.latest()
+        if snapshot is None:
+            print(json.dumps({"state": "UNAVAILABLE"}, indent=2))
+        else:
+            print(json.dumps({
+                "state": "VERIFIED",
+                "observed_at": snapshot.observed_at.isoformat(),
+                "events": len(snapshot.events),
+                "successful_sources": list(snapshot.successful_sources),
+                "failed_sources": list(snapshot.failed_sources),
+            }, indent=2))
+        return
 
     if args.cmd == "rehearse-entry":
         from pathlib import Path

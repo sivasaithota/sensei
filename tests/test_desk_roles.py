@@ -169,6 +169,26 @@ def test_reporter_fails_closed_when_event_or_surveillance_truth_is_unknown():
     assert "surveillance" in brief.reason
 
 
+def test_reporter_blocks_entry_on_verified_news_risk():
+    from sensei.data.news import NewsRiskDecision, NewsRiskLevel
+
+    reporter = EarningsReporter(
+        event_window=lambda symbol, on: (False, "earnings clear"),
+        surveillance=lambda symbol, on: 0,
+        news_risk=lambda instrument, as_of: NewsRiskDecision(
+            NewsRiskLevel.BLOCK,
+            "critical news risk: exchange closure [NSE]",
+            ("news:" + "a" * 64,),
+        ),
+    )
+
+    brief = reporter.report("NSE:INFY", as_of=NOW)
+
+    assert brief.blocked is True
+    assert brief.news_level == "BLOCK"
+    assert brief.news_event_ids == ("news:" + "a" * 64,)
+
+
 def test_coach_discovers_reviewed_closed_episodes_and_proposes_only_after_recurrence(
     tmp_path,
 ):

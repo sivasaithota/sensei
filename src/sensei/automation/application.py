@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Callable, Mapping
 
@@ -61,6 +61,26 @@ class SchedulerApplicationConfig:
     legacy_positions_path: Path = Path("data/paper/positions.json")
     runtime_secrets_path: Path = Path("data/runtime-secrets.json")
     surveillance_path: Path = Path("data/surveillance.json")
+    news_snapshot_path: Path = Path("data/news-risk.json")
+    news_secret_path: Path = Path("data/news-risk-secret")
+    news_feeds: Mapping[str, str] = field(default_factory=lambda: {
+        "FED": "https://www.federalreserve.gov/feeds/press_all.xml",
+        "ECB": "https://www.ecb.europa.eu/rss/press.html",
+        "BOE": "https://www.bankofengland.co.uk/rss/news",
+        "PIB_INDIA": "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3",
+        "RBI_RELEASES": "https://rbi.org.in/pressreleases_rss.xml",
+        "RBI_NOTIFICATIONS": "https://rbi.org.in/notifications_rss.xml",
+        "GOOGLE_NEWS_RISK": (
+            "https://news.google.com/rss/search?q=war+OR+sanctions+OR+"
+            "market+closure+OR+capital+controls+when:1d&hl=en-IN&gl=IN&ceid=IN:en"
+        ),
+        "GOOGLE_NEWS_NSE_SEBI": (
+            "https://news.google.com/rss/search?q=(site:nseindia.com+OR+"
+            "site:sebi.gov.in)+(trading+suspension+OR+accounting+fraud+OR+"
+            "insolvency+OR+bankruptcy+OR+SEBI+order+OR+NSE+circular)+"
+            "when:1d&hl=en-IN&gl=IN&ceid=IN:en"
+        ),
+    })
     risk_path: Path = Path("config/risk.yaml")
     playbook_path: Path = Path("data/playbook/current.json")
     prices_path: Path = Path("data/prices")
@@ -82,6 +102,9 @@ class SchedulerApplicationConfig:
         raw = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(raw, dict):
             raise ValueError("scheduler config must be a JSON object")
+        runtime_secrets_path = Path(
+            raw.get("runtime_secrets_path", str(cls.runtime_secrets_path))
+        )
         producers = {
             kind: frozenset(
                 str(value)
@@ -104,12 +127,26 @@ class SchedulerApplicationConfig:
             legacy_positions_path=Path(
                 raw.get("legacy_positions_path", str(cls.legacy_positions_path))
             ),
-            runtime_secrets_path=Path(
-                raw.get("runtime_secrets_path", str(cls.runtime_secrets_path))
-            ),
+            runtime_secrets_path=runtime_secrets_path,
             surveillance_path=Path(
                 raw.get("surveillance_path", str(cls.surveillance_path))
             ),
+            news_snapshot_path=Path(
+                raw.get(
+                    "news_snapshot_path",
+                    str(runtime_secrets_path.parent / "news-risk.json"),
+                )
+            ),
+            news_secret_path=Path(
+                raw.get(
+                    "news_secret_path",
+                    str(runtime_secrets_path.parent / "news-risk-secret"),
+                )
+            ),
+            news_feeds={
+                str(source): str(url)
+                for source, url in raw.get("news_feeds", cls().news_feeds).items()
+            },
             risk_path=Path(raw.get("risk_path", str(cls.risk_path))),
             playbook_path=Path(raw.get("playbook_path", str(cls.playbook_path))),
             prices_path=Path(raw.get("prices_path", str(cls.prices_path))),
@@ -464,7 +501,54 @@ class GovernedSchedulerApplication:
         )
 
     def run_once(self, now: datetime) -> SchedulerRunResult:
-        return self.runner.run_once(now)
+        # Safety work always runs first. News refresh may fail closed for the
+        # next entry, but can never delay or suppress exits/EOD maintenance.
+        result = self.runner.run_once(now)
+        try:
+            self._refresh_news_if_due(now)
+        except Exception as exc:
+            self._record_news_refresh_failure(now, exc)
+        return result
+
+    def _record_news_refresh_failure(self, now: datetime, error: Exception) -> None:
+        from sensei.data.news import record_news_refresh_failure
+
+        record_news_refresh_failure(
+            self.journal, occurred_at=now, error=error,
+        )
+
+    def _refresh_news_if_due(self, now: datetime) -> None:
+        if self.config.execution_backend != "governed_paper":
+            return
+        from sensei.data.news import (
+            NewsRiskBook,
+            NewsSecretStore,
+            RssNewsRefresher,
+        )
+
+        secret = NewsSecretStore.load_or_create(self.config.news_secret_path)
+        book = NewsRiskBook(self.config.news_snapshot_path, secret=secret)
+        try:
+            latest = book.latest()
+        except ValueError:
+            latest = None
+        if latest is not None and timedelta(0) <= now - latest.observed_at < timedelta(
+            minutes=30
+        ):
+            return
+        RssNewsRefresher(
+            book=book,
+            issuer_id="market-news",
+            secret=secret,
+            journal=self.journal,
+        ).refresh(
+            feeds=dict(self.config.news_feeds),
+            known_instruments=tuple(
+                f"NSE:{path.stem}"
+                for path in self.config.prices_path.glob("*.parquet")
+            ),
+            observed_at=now,
+        )
 
 
 def _legacy_positions_exist(path: Path) -> bool:
