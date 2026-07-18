@@ -238,6 +238,27 @@ def _position_model(position: dict, *, expected_session: str | None) -> dict:
     }
 
 
+def _promotion_eta(sessions_done: int, target: int, now: datetime) -> str | None:
+    """Expected PAPER-eligibility date given remaining forward sessions."""
+    remaining = target - sessions_done
+    if remaining <= 0:
+        return None
+    closed = {date.fromisoformat(v)
+              for v in _scheduler_config().get("closed_dates", ())}
+    d = now.astimezone(IST).date()
+    # today's session counts only if the EOD hasn't happened yet
+    if now.astimezone(IST).time() >= time(18, 30):
+        d += timedelta(days=1)
+    counted = 0
+    while counted < remaining:
+        if d.weekday() < 5 and d not in closed:
+            counted += 1
+            if counted == remaining:
+                break
+        d += timedelta(days=1)
+    return d.strftime("%a %d %b")
+
+
 def _next_scheduled_action(now: datetime) -> dict:
     local = now.astimezone(IST)
     closed = {
@@ -347,6 +368,41 @@ def _status_label(model: dict) -> tuple[str, str]:
     return "Desk observing", "neutral"
 
 
+def _svg_equity(closed: list[dict], capital: float = 50_000.0) -> str:
+    points = [capital]
+    for trade in sorted(closed, key=lambda t: str(t.get("closed", ""))):
+        points.append(points[-1] + float(trade.get("pnl", 0)))
+    if len(points) < 2:
+        return '<p class="quiet-note">Equity curve appears after the first closed trade.</p>'
+    w, h, pad = 560, 120, 8
+    lo, hi = min(points), max(points)
+    rng = (hi - lo) or 1.0
+    step = (w - 2 * pad) / (len(points) - 1)
+    pts = " ".join(
+        f"{pad + i * step:.1f},{h - pad - (v - lo) / rng * (h - 2 * pad):.1f}"
+        for i, v in enumerate(points))
+    color = "var(--green)" if points[-1] >= points[0] else "var(--red)"
+    return (f'<svg viewBox="0 0 {w} {h}" class="equity-curve" role="img" '
+            f'aria-label="Realized equity curve">'
+            f'<polyline points="{pts}" fill="none" stroke="{color}" '
+            f'stroke-width="2" stroke-linejoin="round"/></svg>')
+
+
+def _risk_meter(position: dict) -> str:
+    """Where the mark sits between stop (0%) and target (100%)."""
+    mark, stop, target = position["mark"], float(position["stop_loss"]), position["target"]
+    if mark is None or target is None or target <= stop:
+        return ""
+    frac = max(0.0, min(1.0, (mark - stop) / (target - stop)))
+    entry_frac = max(0.0, min(1.0, (float(position["entry_price"]) - stop) / (target - stop)))
+    tone = "meter-danger" if frac < 0.2 else "meter-ok"
+    return (f'<div class="risk-meter" title="stop → target">'
+            f'<span class="rm-label">stop</span>'
+            f'<div class="rm-track"><i class="rm-entry" style="left:{entry_frac*100:.1f}%"></i>'
+            f'<b class="rm-mark {tone}" style="left:{frac*100:.1f}%"></b></div>'
+            f'<span class="rm-label">target</span></div>')
+
+
 def render() -> str:
     model = dashboard_model()
     summary = model["summary"]
@@ -390,20 +446,26 @@ def render() -> str:
             <div><label>Stop buffer</label><strong>{stop_buffer}</strong><small>stop ₹{position["stop_loss"]:,.2f}</small></div>
             <div><label>Target</label><strong>{_e(target_text)}</strong><small>{'—' if position['target'] is None else f'₹{position["target"]:,.2f}'}</small></div>
           </div>
+          {_risk_meter(position)}
           <div class="exit-strip"><span>Exit plan</span><strong>{_e(position["exit_plan"])}</strong></div>
           <details><summary>Why this position is open</summary><p>{_e(position.get("narrative", "No thesis narrative recorded."))}</p></details>
         </article>''')
     positions_html = "".join(position_cards) or '<div class="empty">No open positions.</div>'
 
     strategy_cards = []
+    now_dt = datetime.now().astimezone()
     for strategy in model["strategies"]:
         progress = min(100, strategy["shadow_sessions"] / strategy["shadow_target"] * 100)
+        eta = (_promotion_eta(strategy["shadow_sessions"], strategy["shadow_target"], now_dt)
+               if strategy["stage"] == "shadow" else None)
+        eta_text = (f' · PAPER-eligible ~{eta}' if eta else
+                    '' if strategy["stage"] != "shadow" else ' · eligibility pending')
         strategy_cards.append(f'''
         <article class="strategy-row">
           <div><strong>{_e(strategy["name"].replace("_", " "))}</strong><small class="mono">{_e(strategy["plan_id"][:18])}…</small></div>
           <span class="stage">{_e(strategy["stage"]).upper()}</span>
           <div class="progress-wrap"><div class="progress"><i style="width:{progress:.0f}%"></i></div>
-            <small>{strategy["shadow_sessions"]} / {strategy["shadow_target"]} sessions · {strategy["signals"]} signals</small></div>
+            <small>{strategy["shadow_sessions"]} / {strategy["shadow_target"]} sessions · {strategy["signals"]} signals{_e(eta_text)}</small></div>
         </article>''')
     strategies_html = "".join(strategy_cards) or '<div class="empty">No governed strategies registered.</div>'
 
@@ -431,6 +493,19 @@ def render() -> str:
         f'{_e(scheduler["occurred_at_display"])}'
     )
 
+    verdict_rows = "".join(f'''
+      <article class="verdict {'approved' if v.get('approved') else 'vetoed'}">
+        <div class="verdict-head"><span class="verdict-badge">{'✓ APPROVED' if v.get('approved') else '✕ VETO'}</span>
+          <strong>{_e(v.get('level', '?'))} · {_e(v.get('agent', '?'))}</strong>
+          <small>{_e(str(v.get('thesis_id', ''))[:22])} · {_e(str(v.get('ts', ''))[:16])}</small></div>
+        <p>{_e(str(v.get('reasoning', ''))[:340])}{'…' if len(str(v.get('reasoning', ''))) > 340 else ''}</p>
+      </article>''' for v in model["verdicts"]) or '<div class="empty">No committee verdicts recorded yet.</div>'
+
+    mistake_items = "".join(
+        f'<li><p>{_e(m.get("pattern", ""))}</p><small class="mono">{_e(m.get("thesis_id", ""))} · {_e(str(m.get("ts", ""))[:10])}</small></li>'
+        for m in reversed(model["mistakes"])
+    ) or '<li class="empty">No repeated mistake patterns logged — the ledger fills as the Coach reviews closed trades.</li>'
+
     closed_rows = "".join(f'''<tr><td><strong>{_e(trade.get("symbol", "—"))}</strong></td>
       <td>{_e(trade.get("closed", "—"))}</td><td>{_e(trade.get("exit_reason", "—"))}</td>
       <td class="num {_tone(float(trade.get('pnl', 0)))}">{_money(float(trade.get("pnl", 0)), True)}</td></tr>'''
@@ -451,11 +526,14 @@ def render() -> str:
         if valuation_complete else "One or more holdings are unpriced"
     )
 
+    tab_title = ("⛔ Sensei · HALTED" if model["kill_active"] else
+                 f"Sensei · {len(model['alerts'])} alert{'s' if len(model['alerts']) != 1 else ''}"
+                 if model["alerts"] else "Sensei · control room")
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="60">
-<title>Sensei · Trading control room</title><style>{_CSS}</style></head><body>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{_e(tab_title)}</title><style>{_CSS}</style></head><body>
 <header><a class="brand" href="#top"><span>千</span><div>Sensei<small>Indian equities · paper desk</small></div></a>
-  <nav><a href="#positions">Positions</a><a href="#strategies">Strategies</a><a href="#operations">Operations</a></nav>
+  <nav><a href="#positions">Positions</a><a href="#strategies">Strategies</a><a href="#operations">Operations</a><a href="#judgment">Judgment</a></nav>
   <div class="mode"><i></i>PAPER</div></header>
 <main id="top">
   <section class="hero"><div><p class="eyebrow">Trading control room</p><h1>Know what the desk is doing.<br><span>Understand why.</span></h1>
@@ -473,14 +551,41 @@ def render() -> str:
   <section id="positions"><div class="section-title"><div><p class="eyebrow">Risk first</p><h2>Position &amp; exit command center</h2></div><p>Every holding shows the mechanical path out—not just the path in.</p></div>{positions_html}</section>
   <section id="strategies"><div class="section-title"><div><p class="eyebrow">Governed research</p><h2>Strategy control room</h2></div><p>Known strategies are not tradable until evidence earns authorization.</p></div><div class="panel strategy-list">{strategies_html}</div></section>
   <section id="operations" class="ops-grid"><article class="panel"><div class="section-head"><div><p class="eyebrow">Automation</p><h2>Operations timeline</h2></div></div><p class="scheduler-line">{scheduler_html}</p><ol class="timeline" tabindex="0" aria-label="Scrollable operations timeline">{timeline}</ol></article>
-    <article class="panel"><div class="section-head"><div><p class="eyebrow">Outcomes</p><h2>Recently closed</h2></div></div><table><thead><tr><th>Symbol</th><th>Closed</th><th>Reason</th><th class="num">P&amp;L</th></tr></thead><tbody>{closed_rows}</tbody></table>
+    <article class="panel"><div class="section-head"><div><p class="eyebrow">Outcomes</p><h2>Recently closed</h2></div></div>{_svg_equity(model["closed"])}<table><thead><tr><th>Symbol</th><th>Closed</th><th>Reason</th><th class="num">P&amp;L</th></tr></thead><tbody>{closed_rows}</tbody></table>
       <div class="integrity"><span>Journal integrity</span><strong>{'Verified' if model['operations'].get('journal_ok') else 'Unavailable'}</strong><small>{model['operations'].get('events', 0)} immutable events checked</small></div></article></section>
-</main><footer>Sensei control room · read-only · refreshes every 60 seconds · local data</footer></body></html>'''
+  <section id="judgment" class="ops-grid"><article class="panel"><div class="section-head"><div><p class="eyebrow">Explainability</p><h2>Committee verdicts</h2></div><span>last {len(model["verdicts"])}</span></div><div class="verdict-list">{verdict_rows}</div></article>
+    <article class="panel"><div class="section-head"><div><p class="eyebrow">Learning</p><h2>Mistake ledger</h2></div></div><ul class="mistakes">{mistake_items}</ul></article></section>
+</main><footer>Sensei control room · read-only · live-updates every 45 seconds · local data</footer>
+<script>
+(function () {{
+  async function refresh() {{
+    try {{
+      const res = await fetch(location.href, {{cache: "no-store"}});
+      if (!res.ok) return;
+      const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+      const next = doc.querySelector("main");
+      const cur = document.querySelector("main");
+      if (next && cur) {{
+        const open = new Set([...document.querySelectorAll("details[open]")].map((d, i) => i));
+        cur.replaceWith(next);
+        [...document.querySelectorAll("details")].forEach((d, i) => {{ if (open.has(i)) d.open = true; }});
+      }}
+      if (doc.title) document.title = doc.title;
+    }} catch (e) {{ /* transient — next tick retries */ }}
+  }}
+  setInterval(refresh, 45000);
+}})();
+</script></body></html>'''
 
 
 _CSS = r'''
 :root{--bg:#0b0f0e;--surface:#111715;--surface2:#161e1b;--line:#25302c;--text:#f2f5f3;--muted:#94a19b;--green:#62d394;--red:#ff7b72;--amber:#f2c66d;--cyan:#71c4c2;--shadow:0 18px 55px rgba(0,0,0,.24)}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 76% -10%,rgba(51,118,89,.14),transparent 34%),var(--bg);color:var(--text);font:15px/1.55 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.025;background-image:linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px);background-size:40px 40px}header{height:72px;padding:0 max(24px,calc((100vw - 1240px)/2));display:flex;align-items:center;border-bottom:1px solid var(--line);background:rgba(11,15,14,.88);backdrop-filter:blur(18px);position:sticky;top:0;z-index:10}.brand{display:flex;align-items:center;gap:12px;color:var(--text);text-decoration:none;font-weight:700;letter-spacing:.02em}.brand>span{display:grid;place-items:center;width:37px;height:37px;border:1px solid #375346;border-radius:10px;color:var(--green);font-family:serif;font-size:20px;background:#142019}.brand div{line-height:1.1}.brand small{display:block;color:var(--muted);font-size:10px;font-weight:500;margin-top:5px;text-transform:uppercase;letter-spacing:.12em}nav{display:flex;gap:26px;margin:auto}nav a{color:var(--muted);text-decoration:none;font-size:13px}nav a:hover{color:var(--text)}.mode{font:700 11px/1 ui-monospace,monospace;letter-spacing:.12em;border:1px solid var(--line);border-radius:999px;padding:9px 12px;color:var(--green)}.mode i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:7px;box-shadow:0 0 10px var(--green)}main{max-width:1240px;margin:auto;padding:58px 24px 80px}.hero{display:flex;justify-content:space-between;align-items:flex-end;gap:40px;margin-bottom:42px}.eyebrow{margin:0 0 10px;color:var(--green);font:700 10px/1.2 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.18em}.hero h1{font-size:clamp(34px,5vw,62px);line-height:1.02;letter-spacing:-.055em;margin:0;max-width:800px;font-weight:650}.hero h1 span{color:#7e8b85}.lede{color:var(--muted);font-size:16px;max-width:610px;margin:22px 0 0}.hero-side{display:grid;gap:10px;min-width:250px}.desk-state,.next-action{border:1px solid var(--line);border-radius:16px;padding:16px 18px;background:var(--surface);box-shadow:var(--shadow)}.desk-state{display:flex;gap:12px}.desk-state>i{width:9px;height:9px;border-radius:50%;margin-top:7px;background:var(--muted)}.desk-state.good>i{background:var(--green);box-shadow:0 0 14px var(--green)}.desk-state.warn>i{background:var(--amber)}.desk-state.danger>i{background:var(--red)}.desk-state small,.desk-state span,.next-action small,.next-action span{display:block;color:var(--muted);font-size:11px}.desk-state strong,.next-action strong{display:block;margin:2px 0;font-size:16px}.next-action{border-color:#294438}.next-action small{color:var(--green);text-transform:uppercase;letter-spacing:.08em;font-size:9px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow);margin-bottom:22px}.metrics article{padding:22px 24px;border-right:1px solid var(--line)}.metrics article:last-child{border:0}label{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}.metrics strong{display:block;font-size:25px;letter-spacing:-.03em;margin:7px 0 2px}.metrics span{color:var(--muted);font-size:11px}.positive{color:var(--green)!important}.negative{color:var(--red)!important}.two-col,.ops-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:22px;margin-bottom:66px}.panel{border:1px solid var(--line);border-radius:18px;background:var(--surface);padding:24px;box-shadow:var(--shadow)}.section-head,.section-title{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}.section-head h2,.section-title h2{margin:0;font-size:19px;letter-spacing:-.02em}.section-head>span{color:var(--muted);font-size:11px;border:1px solid var(--line);padding:5px 9px;border-radius:999px}.alert{display:flex;align-items:flex-start;gap:12px;margin-top:14px;background:#201b12;border:1px solid #3b321f;border-radius:10px;padding:12px;color:#e7d6ae;font-size:13px}.alert>span{display:grid;place-items:center;flex:0 0 20px;height:20px;border-radius:50%;background:var(--amber);color:#1c160a;font-weight:800}.quiet-note,.empty{color:var(--muted);padding:20px 0}.ingestion-health>strong{font-size:40px;letter-spacing:-.04em;margin-top:16px;display:inline-block}.ingestion-health.good>strong{color:var(--green)}.ingestion-health.bad>strong{color:var(--red)}.ingestion-health>span{color:var(--muted);margin-left:8px}.ingestion-health>small{display:block;color:var(--muted);margin-top:6px}.ingestion-health p{margin:8px 0 0;color:var(--muted);font-size:11px}.ingestion-health b{color:var(--text);margin-right:6px}.section-title{align-items:flex-end;margin:0 0 20px}.section-title h2{font-size:27px}.section-title>p{color:var(--muted);max-width:420px;margin:0;font-size:13px;text-align:right}#positions,#strategies{scroll-margin-top:100px;margin-bottom:66px}.position-card{border:1px solid var(--line);border-radius:18px;background:linear-gradient(135deg,var(--surface),#101613);padding:24px;margin-bottom:14px;box-shadow:var(--shadow)}.position-head{display:flex;justify-content:space-between;align-items:flex-start}.symbol{font-size:22px;font-weight:750;letter-spacing:-.02em}.pill,.stage{font:700 10px/1 ui-monospace,monospace;letter-spacing:.08em;color:var(--cyan);border:1px solid #264b49;background:#11201f;border-radius:999px;padding:7px 9px;margin-left:10px}.pnl{text-align:right;font-size:20px;font-weight:700}.pnl small{display:block;font-size:11px;margin-top:2px}.price-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0}.price-grid>div{border-left:1px solid var(--line);padding-left:16px}.price-grid label{margin-bottom:5px}.price-grid strong{display:block;font-size:15px}.price-grid small{display:block;color:var(--muted);font-size:10px;margin-top:2px}.mark-warning{color:var(--amber);font-size:8px;border:1px solid #5b4826;border-radius:4px;padding:2px 4px;margin-left:4px}.exit-strip{display:flex;gap:16px;align-items:center;background:#0c1210;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:12px}.exit-strip span{color:var(--green);font:700 10px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.1em}.exit-strip strong{font-weight:550}details{border-top:1px solid var(--line);margin-top:18px;padding-top:14px}summary{color:var(--muted);font-size:12px;cursor:pointer}details p{color:#bdc7c2;font-size:13px;max-width:980px}.strategy-list{padding:5px 24px}.strategy-row{display:grid;grid-template-columns:1.5fr .4fr 1fr;align-items:center;gap:20px;padding:18px 0;border-bottom:1px solid var(--line)}.strategy-row:last-child{border:0}.strategy-row strong{display:block;text-transform:capitalize}.strategy-row small{display:block;color:var(--muted);font-size:10px;margin-top:4px}.strategy-row .stage{justify-self:start;margin:0}.progress{height:5px;border-radius:9px;background:#26302c;overflow:hidden;margin-bottom:6px}.progress i{display:block;height:100%;background:var(--green);border-radius:9px}.ops-grid{grid-template-columns:1.2fr .8fr;margin:0;scroll-margin-top:100px}.scheduler-line{color:var(--muted);font-size:12px;border-bottom:1px solid var(--line);padding-bottom:14px}.timeline{list-style:none;padding:0;margin:18px 0 0}.timeline li{display:flex;gap:14px;position:relative;padding-bottom:18px}.timeline li>i{flex:0 0 8px;height:8px;border-radius:50%;background:var(--green);margin-top:7px;box-shadow:0 0 0 4px rgba(98,211,148,.08)}.timeline li:not(:last-child):before{content:"";position:absolute;left:3px;top:17px;bottom:0;border-left:1px solid var(--line)}.timeline strong{display:block;font-size:12px}.timeline small{color:var(--muted);font-size:10px}.timeline p{margin:2px 0;color:#b4c0ba;font-size:11px}table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px}th{color:var(--muted);font-weight:500;text-align:left;padding:9px 6px;border-bottom:1px solid var(--line)}td{padding:12px 6px;border-bottom:1px solid var(--line)}.num{text-align:right}.integrity{margin-top:20px;border-radius:10px;background:#0d1311;padding:14px}.integrity span,.integrity small{display:block;color:var(--muted);font-size:10px}.integrity strong{display:block;color:var(--green);margin:2px 0}footer{border-top:1px solid var(--line);color:#617069;text-align:center;padding:24px;font-size:10px;text-transform:uppercase;letter-spacing:.1em}.muted{color:var(--muted)}.mono{font-family:ui-monospace,monospace}
+.risk-meter{display:flex;align-items:center;gap:10px;margin:0 0 14px}.rm-label{color:var(--muted);font:700 9px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.1em}.rm-track{position:relative;flex:1;height:6px;border-radius:9px;background:linear-gradient(90deg,rgba(255,123,114,.35),#26302c 30%,rgba(98,211,148,.35))}.rm-entry{position:absolute;top:-3px;width:1px;height:12px;background:var(--muted);opacity:.7}.rm-mark{position:absolute;top:-3px;width:12px;height:12px;border-radius:50%;transform:translateX(-6px);border:2px solid var(--bg)}.rm-mark.meter-ok{background:var(--green);box-shadow:0 0 10px rgba(98,211,148,.5)}.rm-mark.meter-danger{background:var(--red);box-shadow:0 0 10px rgba(255,123,114,.6)}
+.equity-curve{width:100%;margin:14px 0 4px;background:#0c1210;border:1px solid var(--line);border-radius:10px;padding:8px}
+.verdict-list{max-height:560px;overflow-y:auto;overscroll-behavior:contain;padding-right:10px;margin-top:14px}.verdict{border:1px solid var(--line);border-left:3px solid var(--muted);border-radius:10px;padding:14px 16px;margin-bottom:12px;background:#0e1412}.verdict.approved{border-left-color:var(--green)}.verdict.vetoed{border-left-color:var(--red)}.verdict-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.verdict-badge{font:800 9px ui-monospace,monospace;letter-spacing:.1em;padding:4px 7px;border-radius:5px}.verdict.approved .verdict-badge{color:var(--green);background:rgba(98,211,148,.1)}.verdict.vetoed .verdict-badge{color:var(--red);background:rgba(255,123,114,.1)}.verdict-head strong{font-size:12px}.verdict-head small{color:var(--muted);font-size:10px;margin-left:auto}.verdict p{margin:8px 0 0;color:#b4c0ba;font-size:12px;line-height:1.5}
+.mistakes{list-style:none;padding:0;margin:14px 0 0}.mistakes li{border-bottom:1px solid var(--line);padding:14px 0}.mistakes li:last-child{border:0}.mistakes p{margin:0 0 6px;color:#d8c9a3;font-size:13px;line-height:1.5}.mistakes small{color:var(--muted);font-size:10px}
+#judgment{margin-top:22px;scroll-margin-top:100px}
 .timeline{max-height:520px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:12px}.timeline:focus-visible{outline:1px solid var(--green);outline-offset:6px;border-radius:4px}.timeline::-webkit-scrollbar{width:8px}.timeline::-webkit-scrollbar-track{background:#0d1311;border-radius:8px}.timeline::-webkit-scrollbar-thumb{background:#34443d;border-radius:8px}.timeline::-webkit-scrollbar-thumb:hover{background:#466054}
 @media(max-width:850px){header nav{display:none}.mode{margin-left:auto}.hero{display:block}.desk-state{margin-top:28px}.metrics{grid-template-columns:repeat(2,1fr)}.metrics article:nth-child(2){border-right:0}.metrics article:nth-child(-n+2){border-bottom:1px solid var(--line)}.two-col,.ops-grid{grid-template-columns:1fr}.price-grid{grid-template-columns:repeat(2,1fr)}.strategy-row{grid-template-columns:1fr auto}.strategy-row .progress-wrap{grid-column:1/-1}.section-title>p{display:none}}
 @media(max-width:520px){main{padding:34px 14px 60px}header{padding:0 14px}.hero h1{font-size:36px}.metrics{grid-template-columns:1fr}.metrics article{border-right:0!important;border-bottom:1px solid var(--line)!important}.metrics article:last-child{border-bottom:0!important}.position-head{display:block}.pnl{text-align:left;margin-top:12px}.price-grid{grid-template-columns:1fr 1fr}.exit-strip{display:block}.exit-strip span{display:block;margin-bottom:5px}.panel,.position-card{padding:18px}.section-title h2{font-size:23px}.timeline{max-height:440px}}
