@@ -1,96 +1,164 @@
-"""Local dashboard — `sensei ui` (PRD §4.9 owner surface).
-
-Stdlib-only HTTP server on localhost. Renders everything from the data
-directory on each request: no state, no build step, no external assets
-(the repo is local-only; the dashboard is too).
-"""
+"""Sensei's local, read-only trading control room."""
 
 from __future__ import annotations
 
 import html
 import json
-from datetime import date
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from collections.abc import Mapping
+from datetime import date, datetime, time, timedelta
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
+CONFIG_DIR = Path(__file__).resolve().parents[3] / "config"
+IST = ZoneInfo("Asia/Kolkata")
+
+
+def _json(path: Path, default):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return default
+
+
+def _jsonl(path: Path, limit: int | None = None) -> list[dict]:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    if limit is not None:
+        lines = lines[-limit:]
+    result = []
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            result.append(value)
+    return result
 
 
 def _positions() -> tuple[float, list[dict]]:
-    f = DATA_DIR / "paper" / "positions.json"
-    if not f.exists():
-        return 50000.0, []
-    state = json.loads(f.read_text())
-    return state["cash"], state["positions"]
+    state = _json(DATA_DIR / "paper" / "positions.json", {})
+    return float(state.get("cash", 50_000)), list(state.get("positions", ()))
 
 
 def _closed() -> list[dict]:
-    f = DATA_DIR / "paper" / "closed_trades.jsonl"
-    if not f.exists():
-        return []
-    return [json.loads(l) for l in f.read_text().splitlines() if l.strip()]
+    return _jsonl(DATA_DIR / "paper" / "closed_trades.jsonl")
 
 
-def _last_close(symbol: str) -> float | None:
-    f = DATA_DIR / "prices" / f"{symbol}.parquet"
-    if not f.exists():
-        return None
-    import pandas as pd
-    return float(pd.read_parquet(f, columns=["close"])["close"].iloc[-1])
+def _price_snapshot(symbol: str) -> tuple[float | None, str | None]:
+    path = DATA_DIR / "prices" / f"{symbol}.parquet"
+    if not path.is_file():
+        return None, None
+    try:
+        import pandas as pd
+
+        frame = pd.read_parquet(path, columns=["close"])
+        if frame.empty:
+            return None, None
+        session = pd.Timestamp(frame.index[-1]).date().isoformat()
+        return float(frame["close"].iloc[-1]), session
+    except (OSError, KeyError, ValueError, TypeError):
+        return None, None
 
 
 def _audit_events(limit: int = 200) -> list[dict]:
-    f = DATA_DIR / "audit.jsonl"
-    if not f.exists():
-        return []
-    lines = f.read_text().splitlines()
-    return [json.loads(l) for l in lines[-limit:] if l.strip()]
+    return _jsonl(DATA_DIR / "audit.jsonl", limit)
 
 
 def _ledger() -> list[dict]:
-    f = DATA_DIR / "mistake_ledger.jsonl"
-    if not f.exists():
-        return []
-    return [json.loads(l) for l in f.read_text().splitlines() if l.strip()]
+    return _jsonl(DATA_DIR / "mistake_ledger.jsonl")
 
 
 def _playbook() -> dict | None:
-    f = DATA_DIR / "playbook" / "current.json"
-    return json.loads(f.read_text()) if f.exists() else None
+    value = _json(DATA_DIR / "playbook" / "current.json", None)
+    return value if isinstance(value, dict) else None
 
 
 def _kill_active() -> bool:
     return (DATA_DIR / "KILL").exists()
 
 
+def _scheduler_config() -> dict:
+    value = _json(CONFIG_DIR / "scheduler.json", {})
+    return value if isinstance(value, dict) else {}
+
+
+def _minimum_completeness() -> float:
+    return float(_scheduler_config().get("shadow_trial", {}).get(
+        "minimum_data_completeness", 0.99
+    ))
+
+
+def _shadow_session_target() -> int:
+    return int(_scheduler_config().get("shadow_trial", {}).get("minimum_sessions", 5))
+
+
+def _display_time(value: datetime | str) -> str:
+    parsed = datetime.fromisoformat(value) if isinstance(value, str) else value
+    return parsed.astimezone(IST).strftime("%d %b · %H:%M IST")
+
+
 def _governance_status() -> dict:
     journal_path = DATA_DIR / "operations.sqlite3"
     if not journal_path.is_file():
-        return {"available": False, "plans": [], "alerts": ["Governed journal missing"]}
+        return {
+            "available": False, "plans": [], "alerts": ["Governed journal missing"],
+            "timeline": [], "ingestion": None, "scheduler": None,
+        }
     from sensei.operations import OperationalJournal
 
-    journal = OperationalJournal(journal_path)
+    journal = OperationalJournal.open_read_only(journal_path)
     verification = journal.verify()
     events = journal.read_all() if verification.ok else ()
-    plans = {}
-    stages = {}
-    shadows = {}
-    scheduler = None
+    plans, stages, shadows, signal_counts = {}, {}, {}, {}
+    scheduler = ingestion = None
     adopted = reconciled = False
+    timeline = []
     for event in events:
+        payload = event.payload
         if event.event_type == "StrategyPlanRegistered":
-            plans[str(event.payload["plan_id"])] = str(event.payload["source_rule_name"])
+            plans[str(payload["plan_id"])] = str(payload["source_rule_name"])
         elif event.event_type == "StrategyLifecycleTransitioned":
-            stages[str(event.payload["plan_version_id"])] = str(event.payload["target_stage"])
+            stages[str(payload["plan_version_id"])] = str(payload["target_stage"])
         elif event.event_type == "ShadowSessionObserved":
-            plan_id = str(event.payload["plan_id"])
+            plan_id = str(payload["plan_id"])
             shadows[plan_id] = shadows.get(plan_id, 0) + 1
+            evaluations = payload.get("evaluations", ())
+            observed_signals = sum(
+                1 for item in evaluations
+                if isinstance(item, Mapping)
+                and isinstance(item.get("trace"), Mapping)
+                and item["trace"].get("action") == "enter_long"
+            )
+            signal_counts[plan_id] = signal_counts.get(plan_id, 0) + int(
+                payload.get("signal_count", observed_signals)
+            )
+        elif event.event_type == "MarketDataIngestionCompleted":
+            ingestion = event
         elif event.event_type in {"SchedulerTaskCompleted", "SchedulerTaskHalted"}:
             scheduler = event
         elif event.event_type == "LegacyPaperPositionsAdopted":
             adopted = True
         elif event.event_type == "LegacyPaperPositionsReconciled":
             reconciled = True
+        if event.event_type in {
+            "SchedulerTaskCompleted", "SchedulerTaskHalted",
+            "MarketDataIngestionCompleted", "StrategyLifecycleTransitioned",
+            "ShadowSessionObserved",
+        }:
+            timeline.append({
+                "type": event.event_type,
+                "occurred_at": event.occurred_at.isoformat(),
+                "occurred_at_display": _display_time(event.occurred_at),
+                "reason_codes": list(payload.get("reason_codes", ())),
+                "session": payload.get("session"),
+            })
     alerts = []
     if not verification.ok:
         alerts.append("Operational journal integrity failed")
@@ -98,197 +166,332 @@ def _governance_status() -> dict:
         alerts.append("Latest scheduler task halted")
     if adopted and not reconciled:
         alerts.append("Legacy positions adopted but not reconciled")
+    ingestion_model = None if ingestion is None else {
+        "session": ingestion.payload.get("session"),
+        "completeness": float(ingestion.payload.get("completeness", 0)),
+        "eligible_count": len(ingestion.payload.get("eligible_symbols", ())),
+        "failed_symbols": list(ingestion.payload.get("failed_symbols", ())),
+        "excluded_symbols": list(ingestion.payload.get("excluded_symbols", ())),
+        "occurred_at": ingestion.occurred_at.isoformat(),
+    }
+    scheduler_model = None if scheduler is None else {
+        "state": scheduler.event_type.removeprefix("SchedulerTask").upper(),
+        "occurred_at": scheduler.occurred_at.isoformat(),
+        "occurred_at_display": _display_time(scheduler.occurred_at),
+        "reason_codes": list(scheduler.payload.get("reason_codes", ())),
+        "task_kind": scheduler.payload.get("task_kind", "scheduler task"),
+    }
+    strategy_models = [
+        {
+            "name": name,
+            "plan_id": plan_id,
+            "stage": stages.get(plan_id, "registered"),
+            "shadow_sessions": shadows.get(plan_id, 0),
+            "shadow_target": _shadow_session_target(),
+            "signals": signal_counts.get(plan_id, 0),
+        }
+        for plan_id, name in sorted(plans.items(), key=lambda item: item[1])
+    ]
     return {
-        "available": True,
-        "journal_ok": verification.ok,
-        "events": verification.events_checked,
-        "plans": [
-            {"name": name, "plan_id": plan_id, "stage": stages.get(plan_id, "registered"),
-             "shadow_sessions": shadows.get(plan_id, 0)}
-            for plan_id, name in sorted(plans.items(), key=lambda item: item[1])
-        ],
-        "scheduler": None if scheduler is None else {
-            "state": scheduler.event_type.removeprefix("SchedulerTask").upper(),
-            "occurred_at": scheduler.occurred_at.isoformat(),
-            "reason_codes": scheduler.payload.get("reason_codes", ()),
-        },
-        "positions_adopted": adopted,
-        "positions_reconciled": reconciled,
-        "alerts": alerts,
+        "available": True, "journal_ok": verification.ok,
+        "events": verification.events_checked, "plans": strategy_models,
+        "strategies": strategy_models, "scheduler": scheduler_model,
+        "ingestion": ingestion_model, "positions_adopted": adopted,
+        "positions_reconciled": reconciled, "alerts": alerts,
+        "timeline": list(reversed(timeline[-12:])),
     }
 
 
-def _equity_curve() -> list[tuple[str, float]]:
-    """Equity after each closed trade (realized only), starting at capital."""
-    capital = 50000.0
-    points = [("start", capital)]
-    for t in sorted(_closed(), key=lambda t: t["closed"]):
-        capital += t["pnl"]
-        points.append((t["closed"], capital))
-    return points
+def _position_model(position: dict, *, expected_session: str | None) -> dict:
+    entry = float(position["entry_price"])
+    quantity = int(position["quantity"])
+    stop = float(position["stop_loss"])
+    targets = position.get("targets") or []
+    target = float(targets[0]) if targets else None
+    mark, data_session = _price_snapshot(str(position["symbol"]))
+    sign = -1 if str(position.get("direction", "BUY")).upper() == "SELL" else 1
+    pnl = None if mark is None else sign * (mark - entry) * quantity
+    sessions_held = int(position.get("sessions_held", 1))
+    max_hold = int(position.get("max_hold_days", 0))
+    remaining = max(0, max_hold - sessions_held) if max_hold else None
+    stop_distance = ((mark - stop) / mark * 100) if mark else None
+    target_distance = ((target - mark) / mark * 100) if mark and target else None
+    parts = [f"Stop ₹{stop:,.2f}"]
+    if target is not None:
+        parts.append(f"Target ₹{target:,.2f}")
+    if remaining is not None:
+        parts.append(f"Time exit in {remaining} sessions")
+    return {
+        **position, "mark": mark, "data_session": data_session,
+        "unrealized_pnl": None if pnl is None else round(pnl, 2),
+        "unrealized_pct": None if mark is None else round((mark - entry) / entry * sign * 100, 2),
+        "market_value": None if mark is None else round(mark * quantity, 2),
+        "stop_distance_pct": None if stop_distance is None else round(stop_distance, 2),
+        "target": target,
+        "target_distance_pct": None if target_distance is None else round(target_distance, 2),
+        "sessions_remaining": remaining, "exit_plan": " · ".join(parts),
+        "mark_state": (
+            "MISSING" if data_session is None else
+            "STALE" if expected_session and data_session < expected_session else
+            "CURRENT"
+        ),
+    }
 
 
-def _svg_equity(points: list[tuple[str, float]]) -> str:
-    if len(points) < 2:
-        return "<p class='muted'>Equity curve appears after the first closed trade.</p>"
-    w, h, pad = 640, 160, 10
-    vals = [v for _, v in points]
-    lo, hi = min(vals), max(vals)
-    rng = (hi - lo) or 1.0
-    step = (w - 2 * pad) / (len(vals) - 1)
-    pts = " ".join(f"{pad + i * step:.1f},{h - pad - (v - lo) / rng * (h - 2 * pad):.1f}"
-                   for i, v in enumerate(vals))
-    color = "#0a7d33" if vals[-1] >= vals[0] else "#b3261e"
-    return (f'<svg viewBox="0 0 {w} {h}" style="width:100%;max-width:{w}px">'
-            f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2"/>'
-            f'</svg>')
+def _next_scheduled_action(now: datetime) -> dict:
+    local = now.astimezone(IST)
+    closed = {
+        date.fromisoformat(value)
+        for value in _scheduler_config().get("closed_dates", ())
+    }
+
+    def trading_day(value: date) -> bool:
+        return value.weekday() < 5 and value not in closed
+
+    candidate = local.date()
+    if trading_day(candidate) and local.time() < time(9, 20):
+        label, at = "Entry session", time(9, 20)
+    elif trading_day(candidate) and local.time() < time(18, 30):
+        label, at = "End-of-day session", time(18, 30)
+    elif trading_day(candidate) and local.time() < time(19, 30):
+        label, at = "Passive shadow monitor", time(19, 30)
+    else:
+        candidate += timedelta(days=1)
+        while not trading_day(candidate):
+            candidate += timedelta(days=1)
+        label, at = "Entry session", time(9, 20)
+    scheduled = datetime.combine(candidate, at, tzinfo=IST)
+    return {
+        "label": label, "at": scheduled.isoformat(),
+        "when": scheduled.strftime("%a %d %b · %H:%M IST"),
+    }
 
 
-def _e(x) -> str:
-    return html.escape(str(x))
+def dashboard_model(*, now: datetime | None = None) -> dict:
+    now = now or datetime.now().astimezone()
+    cash, raw_positions = _positions()
+    governance = _governance_status()
+    ingestion = governance.get("ingestion")
+    expected_session = ingestion.get("session") if ingestion else None
+    positions = [
+        _position_model(position, expected_session=expected_session)
+        for position in raw_positions
+    ]
+    closed = _closed()
+    realized = sum(float(trade.get("pnl", 0)) for trade in closed)
+    unrealized = sum(
+        position["unrealized_pnl"] for position in positions
+        if position["unrealized_pnl"] is not None
+    )
+    invested = sum(float(position["entry_price"]) * int(position["quantity"])
+                   for position in positions)
+    market_value = sum(
+        position["market_value"] for position in positions
+        if position["market_value"] is not None
+    )
+    alerts = list(governance.get("alerts", ()))
+    if _kill_active():
+        alerts.insert(0, "Kill switch active — new trading is halted")
+    missing = [p["symbol"] for p in positions if p["mark_state"] == "MISSING"]
+    stale = [p["symbol"] for p in positions if p["mark_state"] == "STALE"]
+    if missing:
+        alerts.append("Missing market marks: " + ", ".join(missing))
+    if stale:
+        alerts.append("Stale market marks: " + ", ".join(stale))
+    if ingestion and ingestion["completeness"] < _minimum_completeness():
+        alerts.append(
+            f'Market ingestion is {ingestion["completeness"]:.1%}; '
+            f'policy requires {_minimum_completeness():.1%}'
+        )
+    return {
+        "as_of": now.astimezone(IST).isoformat(),
+        "mode": "PAPER", "kill_active": _kill_active(), "alerts": alerts,
+        "summary": {
+            "equity": round(cash + market_value, 2), "cash": round(cash, 2),
+            "invested": round(invested, 2), "market_value": round(market_value, 2),
+            "unrealized": round(unrealized, 2), "realized": round(realized, 2),
+            "open_positions": len(positions), "closed_trades": len(closed),
+            "unpriced_positions": sum(p["market_value"] is None for p in positions),
+        },
+        "positions": positions, "closed": list(reversed(closed[-20:])),
+        "strategies": governance.get("strategies", ()), "operations": governance,
+        "next_action": _next_scheduled_action(now),
+        "playbook": _playbook(), "verdicts": [
+            event for event in reversed(_audit_events()) if event.get("event") == "verdict"
+        ][:12],
+        "mistakes": _ledger()[-8:],
+    }
+
+
+def _e(value) -> str:
+    return html.escape(str(value))
+
+
+def _money(value: float, signed: bool = False) -> str:
+    sign = "+" if signed and value >= 0 else ""
+    return f"{sign}₹{value:,.0f}"
+
+
+def _tone(value: float) -> str:
+    return "positive" if value >= 0 else "negative"
+
+
+def _status_label(model: dict) -> tuple[str, str]:
+    if model["kill_active"]:
+        return "Trading halted", "danger"
+    if model["alerts"]:
+        return "Attention needed", "warn"
+    scheduler = model["operations"].get("scheduler")
+    if scheduler and scheduler["state"] == "COMPLETED":
+        return "Desk operational", "good"
+    return "Desk observing", "neutral"
 
 
 def render() -> str:
-    cash, positions = _positions()
-    closed = _closed()
-    unrealized = 0.0
-    pos_rows = []
-    for p in positions:
-        last = _last_close(p["symbol"])
-        mkt = (last or p["entry_price"]) * p["quantity"]
-        upnl = (last - p["entry_price"]) * p["quantity"] if last else 0.0
-        unrealized += upnl
-        cls = "pos" if upnl >= 0 else "neg"
-        pos_rows.append(
-            f"<tr><td><b>{_e(p['symbol'])}</b></td><td>{_e(p['direction'])} {p['quantity']}</td>"
-            f"<td>₹{p['entry_price']:.2f}</td><td>{f'₹{last:.2f}' if last else '—'}</td>"
-            f"<td>₹{p['stop_loss']:.2f}</td><td class='{cls}'>₹{upnl:+,.0f}</td>"
-            f"<td>{_e(p['opened'])}</td></tr>"
-            f"<tr class='thesis'><td colspan='7'>{_e(p['narrative'])}</td></tr>")
+    model = dashboard_model()
+    summary = model["summary"]
+    status, status_tone = _status_label(model)
+    ingestion = model["operations"].get("ingestion")
+    scheduler = model["operations"].get("scheduler")
+    next_action = model["next_action"]
+    alerts = "".join(
+        f'<div class="alert"><span>!</span><div>{_e(message)}</div></div>'
+        for message in model["alerts"]
+    ) or '<div class="quiet-note">No active operational alerts.</div>'
 
-    realized = sum(t["pnl"] for t in closed)
-    invested = sum(p["entry_price"] * p["quantity"] for p in positions)
-    equity = cash + invested + unrealized
-    wins = sum(1 for t in closed if t["pnl"] > 0)
+    position_cards = []
+    for position in model["positions"]:
+        priced = position["mark"] is not None
+        target_text = (
+            "No target" if position["target"] is None else
+            "Unavailable" if not priced else
+            f'{position["target_distance_pct"]:+.1f}% away'
+        )
+        data_text = position["data_session"] or "mark unavailable"
+        mark_warning = (
+            f'<span class="mark-warning">{_e(position["mark_state"])}</span>'
+            if position["mark_state"] != "CURRENT" else ""
+        )
+        pnl_text = "Unavailable" if not priced else _money(position["unrealized_pnl"], True)
+        pnl_pct = "No current valuation" if not priced else f'{position["unrealized_pct"]:+.2f}%'
+        mark_text = "—" if not priced else f'₹{position["mark"]:,.2f}'
+        stop_buffer = "Unavailable" if not priced else f'{position["stop_distance_pct"]:.1f}%'
+        position_cards.append(f'''
+        <article class="position-card">
+          <div class="position-head">
+            <div><span class="symbol">{_e(position["symbol"])}</span>
+              <span class="pill">{_e(position.get("direction", "BUY"))} · {position["quantity"]} shares</span></div>
+            <div class="pnl {'muted' if not priced else _tone(position["unrealized_pnl"])}">{pnl_text}
+              <small>{pnl_pct}</small></div>
+          </div>
+          <div class="price-grid">
+            <div><label>Entry</label><strong>₹{position["entry_price"]:,.2f}</strong></div>
+            <div><label>Latest mark {mark_warning}</label><strong>{mark_text}</strong><small>{_e(data_text)}</small></div>
+            <div><label>Stop buffer</label><strong>{stop_buffer}</strong><small>stop ₹{position["stop_loss"]:,.2f}</small></div>
+            <div><label>Target</label><strong>{_e(target_text)}</strong><small>{'—' if position['target'] is None else f'₹{position["target"]:,.2f}'}</small></div>
+          </div>
+          <div class="exit-strip"><span>Exit plan</span><strong>{_e(position["exit_plan"])}</strong></div>
+          <details><summary>Why this position is open</summary><p>{_e(position.get("narrative", "No thesis narrative recorded."))}</p></details>
+        </article>''')
+    positions_html = "".join(position_cards) or '<div class="empty">No open positions.</div>'
 
-    closed_rows = "".join(
-        f"<tr><td>{_e(t['symbol'])}</td><td>{_e(t['opened'])} → {_e(t['closed'])}</td>"
-        f"<td>₹{t['entry_price']:.2f} → ₹{t['exit_price']:.2f}</td>"
-        f"<td>{_e(t['exit_reason'])}</td>"
-        f"<td class='{'pos' if t['pnl'] >= 0 else 'neg'}'>₹{t['pnl']:+,.0f}</td></tr>"
-        for t in reversed(closed[-30:])) or "<tr><td colspan='5' class='muted'>None yet</td></tr>"
+    strategy_cards = []
+    for strategy in model["strategies"]:
+        progress = min(100, strategy["shadow_sessions"] / strategy["shadow_target"] * 100)
+        strategy_cards.append(f'''
+        <article class="strategy-row">
+          <div><strong>{_e(strategy["name"].replace("_", " "))}</strong><small class="mono">{_e(strategy["plan_id"][:18])}…</small></div>
+          <span class="stage">{_e(strategy["stage"]).upper()}</span>
+          <div class="progress-wrap"><div class="progress"><i style="width:{progress:.0f}%"></i></div>
+            <small>{strategy["shadow_sessions"]} / {strategy["shadow_target"]} sessions · {strategy["signals"]} signals</small></div>
+        </article>''')
+    strategies_html = "".join(strategy_cards) or '<div class="empty">No governed strategies registered.</div>'
 
-    verdict_rows = []
-    for ev in reversed([e for e in _audit_events() if e.get("event") == "verdict"][-24:]):
-        ok = "✅" if ev.get("approved") else "⛔"
-        verdict_rows.append(
-            f"<tr><td>{_e(ev['ts'][:16])}</td><td>{_e(ev.get('thesis_id', ''))}</td>"
-            f"<td>{ok} {_e(ev['level'])}:{_e(ev['agent'])}</td>"
-            f"<td class='reason'>{_e(ev['reasoning'][:280])}</td></tr>")
-    verdicts = "".join(verdict_rows) or "<tr><td colspan='4' class='muted'>None yet</td></tr>"
+    timeline = "".join(f'''
+      <li><i></i><div><strong>{_e(item["type"].replace("SchedulerTask", "Scheduler ").replace("MarketData", "Market data ").replace("ShadowSession", "Shadow session "))}</strong>
+      <small>{_e(item["occurred_at_display"])}</small>
+      <p>{_e(", ".join(item["reason_codes"]) or item.get("session") or "Recorded successfully")}</p></div></li>'''
+      for item in model["operations"].get("timeline", ())) or '<li class="empty">No operational events yet.</li>'
 
-    ledger_items = "".join(f"<li>{_e(e['pattern'])} <span class='muted'>({_e(e['thesis_id'])})</span></li>"
-                           for e in _ledger()) or "<li class='muted'>Empty — no repeated mistakes logged</li>"
-
-    pb = _playbook()
-    pb_rows = ""
-    if pb:
-        for s in pb["strategies"]:
-            badge = "<span class='badge ok'>ADOPTED</span>" if s["adopted"] else "<span class='badge'>rejected</span>"
-            o = s["out_of_sample"]
-            pb_rows += (f"<tr><td>{_e(s['name'])} {badge}</td><td>{o['trades']}</td>"
-                        f"<td>{o['hit_rate']:.0%}</td><td>{o['expectancy_pct']:+.2f}%</td></tr>")
-
-    kill = ("<div class='kill'>⛔ KILL-SWITCH ACTIVE — trading halted</div>"
-            if _kill_active() else "")
-    governance = _governance_status()
-    governance_alerts = "".join(
-        f"<div class='warning'>⚠ {_e(message)}</div>"
-        for message in governance.get("alerts", ())
+    ingestion_bad = bool(
+        ingestion and ingestion["completeness"] < _minimum_completeness()
     )
-    plan_rows = "".join(
-        f"<tr><td>{_e(item['name'])}</td><td>{_e(item['stage']).upper()}</td>"
-        f"<td>{item['shadow_sessions']}/20</td><td class='mono'>{_e(item['plan_id'][:20])}…</td></tr>"
-        for item in governance.get("plans", ())
-    ) or "<tr><td colspan='4' class='muted'>No governed plans registered</td></tr>"
-    scheduler = governance.get("scheduler")
-    scheduler_text = (
-        "No terminal scheduler task yet" if scheduler is None else
-        f"{scheduler['state']} · {scheduler['occurred_at'][:19]} · "
-        f"{', '.join(scheduler['reason_codes']) or 'no reason code'}"
+    failed_preview = [] if not ingestion else ingestion["failed_symbols"][:5]
+    excluded_preview = [] if not ingestion else ingestion["excluded_symbols"][:5]
+    ingestion_html = '<span class="muted">No ingestion recorded</span>' if not ingestion else f'''
+      <div class="ingestion-health {'bad' if ingestion_bad else 'good'}">
+        <strong>{ingestion["completeness"]:.1%}</strong><span>complete</span>
+        <small>{ingestion["eligible_count"]} eligible · {len(ingestion["failed_symbols"])} failed · session {_e(ingestion["session"])}</small>
+        <p><b>Failed ({len(ingestion["failed_symbols"])})</b> {_e(", ".join(failed_preview) or "None")}{"…" if len(ingestion["failed_symbols"]) > 5 else ""}</p>
+        <p><b>Excluded ({len(ingestion["excluded_symbols"])})</b> {_e(", ".join(excluded_preview) or "None")}{"…" if len(ingestion["excluded_symbols"]) > 5 else ""}</p>
+        <details><summary>Complete symbol detail</summary><p>{_e(", ".join(ingestion["failed_symbols"] + ingestion["excluded_symbols"]) or "No failures or exclusions")}</p></details>
+      </div>'''
+    scheduler_html = "No scheduler result" if not scheduler else (
+        f'{_e(scheduler["state"])} · {_e(scheduler["task_kind"])} · '
+        f'{_e(scheduler["occurred_at_display"])}'
     )
 
-    return f"""<!doctype html><html><head><meta charset="utf-8">
-<meta http-equiv="refresh" content="60">
-<title>Sensei — paper trading</title>
-<style>
- body {{ font-family: -apple-system, sans-serif; margin: 2rem auto; max-width: 900px;
-        padding: 0 1rem; color: #1c1c1e; }}
- h1 {{ font-size: 1.4rem; }} h2 {{ font-size: 1.05rem; margin-top: 2rem; }}
- table {{ border-collapse: collapse; width: 100%; font-size: .85rem; }}
- td, th {{ text-align: left; padding: .4rem .6rem; border-bottom: 1px solid #eee; }}
- .cards {{ display: flex; gap: 1rem; flex-wrap: wrap; }}
- .card {{ background: #f5f5f7; border-radius: 10px; padding: .8rem 1.2rem; min-width: 130px; }}
- .card .v {{ font-size: 1.3rem; font-weight: 600; }} .card .k {{ font-size: .75rem; color: #666; }}
- .pos {{ color: #0a7d33; }} .neg {{ color: #b3261e; }} .muted {{ color: #999; }}
- .thesis td {{ font-size: .75rem; color: #555; background: #fafafa; }}
- .reason {{ font-size: .75rem; color: #555; }}
- .badge {{ font-size: .65rem; background: #ddd; border-radius: 4px; padding: 1px 6px; }}
- .badge.ok {{ background: #0a7d33; color: white; }}
- .kill {{ background: #b3261e; color: white; padding: .6rem 1rem; border-radius: 8px;
-          font-weight: 600; margin-bottom: 1rem; }}
- .warning {{ background: #fff3cd; color: #664d03; padding: .6rem 1rem;
-             border-radius: 8px; margin-bottom: .5rem; }}
- .mono {{ font-family: ui-monospace, monospace; font-size: .72rem; }}
-</style></head><body>
-<h1>Sensei <span class="muted">· paper trading (P1) · {date.today().isoformat()}</span></h1>
-{kill}
-{governance_alerts}
-<div class="cards">
- <div class="card"><div class="v">₹{equity:,.0f}</div><div class="k">Equity</div></div>
- <div class="card"><div class="v">₹{cash:,.0f}</div><div class="k">Cash</div></div>
- <div class="card"><div class="v">₹{invested:,.0f}</div><div class="k">Invested</div></div>
- <div class="card"><div class="v {'pos' if unrealized >= 0 else 'neg'}">₹{unrealized:+,.0f}</div><div class="k">Unrealized P&L</div></div>
- <div class="card"><div class="v {'pos' if realized >= 0 else 'neg'}">₹{realized:+,.0f}</div><div class="k">Realized P&L</div></div>
- <div class="card"><div class="v">{wins}/{len(closed)}</div><div class="k">Wins / closed</div></div>
-</div>
+    closed_rows = "".join(f'''<tr><td><strong>{_e(trade.get("symbol", "—"))}</strong></td>
+      <td>{_e(trade.get("closed", "—"))}</td><td>{_e(trade.get("exit_reason", "—"))}</td>
+      <td class="num {_tone(float(trade.get('pnl', 0)))}">{_money(float(trade.get("pnl", 0)), True)}</td></tr>'''
+      for trade in model["closed"]) or '<tr><td colspan="4" class="empty">No closed trades yet.</td></tr>'
+    valuation_complete = summary["unpriced_positions"] == 0
+    cash_share = (
+        f'{summary["cash"] / summary["equity"]:.0%} of equity'
+        if valuation_complete and summary["equity"] > 0 else "Percentage unavailable"
+    )
+    exposure_value = _money(summary["market_value"]) if valuation_complete else "Unavailable"
+    exposure_note = (
+        f'{summary["open_positions"]} positions'
+        if valuation_complete else f'Cost basis {_money(summary["invested"])}'
+    )
+    unrealized_value = _money(summary["unrealized"], True) if valuation_complete else "Unavailable"
+    unrealized_note = (
+        f'Realized {_money(summary["realized"], True)}'
+        if valuation_complete else "One or more holdings are unpriced"
+    )
 
-<h2>Governed operations</h2>
-<div class="cards">
- <div class="card"><div class="v">{'OK' if governance.get('journal_ok') else '—'}</div><div class="k">Journal integrity</div></div>
- <div class="card"><div class="v">{governance.get('events', 0)}</div><div class="k">Governed events</div></div>
- <div class="card"><div class="v">{'YES' if governance.get('positions_reconciled') else 'NO'}</div><div class="k">Legacy positions reconciled</div></div>
-</div>
-<p>{_e(scheduler_text)}</p>
-<table><tr><th>Canonical strategy</th><th>Stage</th><th>Shadow</th><th>Plan</th></tr>{plan_rows}</table>
+    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="60">
+<title>Sensei · Trading control room</title><style>{_CSS}</style></head><body>
+<header><a class="brand" href="#top"><span>千</span><div>Sensei<small>Indian equities · paper desk</small></div></a>
+  <nav><a href="#positions">Positions</a><a href="#strategies">Strategies</a><a href="#operations">Operations</a></nav>
+  <div class="mode"><i></i>PAPER</div></header>
+<main id="top">
+  <section class="hero"><div><p class="eyebrow">Trading control room</p><h1>Know what the desk is doing.<br><span>Understand why.</span></h1>
+    <p class="lede">A read-only command view of capital, exit risk, governed strategies and unattended operations.</p></div>
+    <div class="hero-side"><div class="desk-state {status_tone}"><i></i><div><small>Desk state</small><strong>{_e(status)}</strong><span>Updated {_e(model["as_of"][11:19])} IST</span></div></div>
+      <div class="next-action"><small>Next scheduled action</small><strong>{_e(next_action["label"])}</strong><span>{_e(next_action["when"])}</span></div></div></section>
+  <section class="metrics">
+    <article><label>Marked equity</label><strong>{_money(summary["equity"])}</strong><span>Cash + priced holdings · {summary["unpriced_positions"]} unpriced</span></article>
+    <article><label>Cash available</label><strong>{_money(summary["cash"])}</strong><span>{cash_share}</span></article>
+    <article><label>Open exposure</label><strong>{exposure_value}</strong><span>{exposure_note}</span></article>
+    <article><label>Unrealized P&amp;L</label><strong class="{'muted' if not valuation_complete else _tone(summary['unrealized'])}">{unrealized_value}</strong><span>{unrealized_note}</span></article>
+  </section>
+  <section class="two-col"><article class="panel"><div class="section-head"><div><p class="eyebrow">Attention</p><h2>What needs watching</h2></div><span>{len(model["alerts"])} active</span></div>{alerts}</article>
+    <article class="panel ingestion"><div class="section-head"><div><p class="eyebrow">Market data</p><h2>Latest ingestion</h2></div></div>{ingestion_html}</article></section>
+  <section id="positions"><div class="section-title"><div><p class="eyebrow">Risk first</p><h2>Position &amp; exit command center</h2></div><p>Every holding shows the mechanical path out—not just the path in.</p></div>{positions_html}</section>
+  <section id="strategies"><div class="section-title"><div><p class="eyebrow">Governed research</p><h2>Strategy control room</h2></div><p>Known strategies are not tradable until evidence earns authorization.</p></div><div class="panel strategy-list">{strategies_html}</div></section>
+  <section id="operations" class="ops-grid"><article class="panel"><div class="section-head"><div><p class="eyebrow">Automation</p><h2>Operations timeline</h2></div></div><p class="scheduler-line">{scheduler_html}</p><ol class="timeline" tabindex="0" aria-label="Scrollable operations timeline">{timeline}</ol></article>
+    <article class="panel"><div class="section-head"><div><p class="eyebrow">Outcomes</p><h2>Recently closed</h2></div></div><table><thead><tr><th>Symbol</th><th>Closed</th><th>Reason</th><th class="num">P&amp;L</th></tr></thead><tbody>{closed_rows}</tbody></table>
+      <div class="integrity"><span>Journal integrity</span><strong>{'Verified' if model['operations'].get('journal_ok') else 'Unavailable'}</strong><small>{model['operations'].get('events', 0)} immutable events checked</small></div></article></section>
+</main><footer>Sensei control room · read-only · refreshes every 60 seconds · local data</footer></body></html>'''
 
-<h2>Equity curve (realized)</h2>
-{_svg_equity(_equity_curve())}
 
-<h2>Open positions</h2>
-<table><tr><th>Symbol</th><th>Side/Qty</th><th>Entry</th><th>Last</th><th>Stop</th><th>Unrl P&L</th><th>Opened</th></tr>
-{''.join(pos_rows) or "<tr><td colspan='7' class='muted'>None</td></tr>"}</table>
-
-<h2>Closed trades (last 30)</h2>
-<table><tr><th>Symbol</th><th>Held</th><th>Entry → Exit</th><th>Reason</th><th>P&L</th></tr>
-{closed_rows}</table>
-
-<h2>Recent approval-chain verdicts</h2>
-<table><tr><th>When</th><th>Thesis</th><th>Verdict</th><th>Reasoning</th></tr>
-{verdicts}</table>
-
-<h2>Signal Playbook <span class="muted">v{_e(pb['version']) if pb else '—'}</span></h2>
-<table><tr><th>Strategy</th><th>OOS trades</th><th>Hit rate</th><th>Expectancy</th></tr>
-{pb_rows}</table>
-
-<h2>Mistake ledger</h2>
-<ul>{ledger_items}</ul>
-
-<p class="muted">Auto-refreshes every 60s · reads ./data · local only</p>
-</body></html>"""
+_CSS = r'''
+:root{--bg:#0b0f0e;--surface:#111715;--surface2:#161e1b;--line:#25302c;--text:#f2f5f3;--muted:#94a19b;--green:#62d394;--red:#ff7b72;--amber:#f2c66d;--cyan:#71c4c2;--shadow:0 18px 55px rgba(0,0,0,.24)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 76% -10%,rgba(51,118,89,.14),transparent 34%),var(--bg);color:var(--text);font:15px/1.55 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.025;background-image:linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px);background-size:40px 40px}header{height:72px;padding:0 max(24px,calc((100vw - 1240px)/2));display:flex;align-items:center;border-bottom:1px solid var(--line);background:rgba(11,15,14,.88);backdrop-filter:blur(18px);position:sticky;top:0;z-index:10}.brand{display:flex;align-items:center;gap:12px;color:var(--text);text-decoration:none;font-weight:700;letter-spacing:.02em}.brand>span{display:grid;place-items:center;width:37px;height:37px;border:1px solid #375346;border-radius:10px;color:var(--green);font-family:serif;font-size:20px;background:#142019}.brand div{line-height:1.1}.brand small{display:block;color:var(--muted);font-size:10px;font-weight:500;margin-top:5px;text-transform:uppercase;letter-spacing:.12em}nav{display:flex;gap:26px;margin:auto}nav a{color:var(--muted);text-decoration:none;font-size:13px}nav a:hover{color:var(--text)}.mode{font:700 11px/1 ui-monospace,monospace;letter-spacing:.12em;border:1px solid var(--line);border-radius:999px;padding:9px 12px;color:var(--green)}.mode i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:7px;box-shadow:0 0 10px var(--green)}main{max-width:1240px;margin:auto;padding:58px 24px 80px}.hero{display:flex;justify-content:space-between;align-items:flex-end;gap:40px;margin-bottom:42px}.eyebrow{margin:0 0 10px;color:var(--green);font:700 10px/1.2 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.18em}.hero h1{font-size:clamp(34px,5vw,62px);line-height:1.02;letter-spacing:-.055em;margin:0;max-width:800px;font-weight:650}.hero h1 span{color:#7e8b85}.lede{color:var(--muted);font-size:16px;max-width:610px;margin:22px 0 0}.hero-side{display:grid;gap:10px;min-width:250px}.desk-state,.next-action{border:1px solid var(--line);border-radius:16px;padding:16px 18px;background:var(--surface);box-shadow:var(--shadow)}.desk-state{display:flex;gap:12px}.desk-state>i{width:9px;height:9px;border-radius:50%;margin-top:7px;background:var(--muted)}.desk-state.good>i{background:var(--green);box-shadow:0 0 14px var(--green)}.desk-state.warn>i{background:var(--amber)}.desk-state.danger>i{background:var(--red)}.desk-state small,.desk-state span,.next-action small,.next-action span{display:block;color:var(--muted);font-size:11px}.desk-state strong,.next-action strong{display:block;margin:2px 0;font-size:16px}.next-action{border-color:#294438}.next-action small{color:var(--green);text-transform:uppercase;letter-spacing:.08em;font-size:9px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow);margin-bottom:22px}.metrics article{padding:22px 24px;border-right:1px solid var(--line)}.metrics article:last-child{border:0}label{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}.metrics strong{display:block;font-size:25px;letter-spacing:-.03em;margin:7px 0 2px}.metrics span{color:var(--muted);font-size:11px}.positive{color:var(--green)!important}.negative{color:var(--red)!important}.two-col,.ops-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:22px;margin-bottom:66px}.panel{border:1px solid var(--line);border-radius:18px;background:var(--surface);padding:24px;box-shadow:var(--shadow)}.section-head,.section-title{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}.section-head h2,.section-title h2{margin:0;font-size:19px;letter-spacing:-.02em}.section-head>span{color:var(--muted);font-size:11px;border:1px solid var(--line);padding:5px 9px;border-radius:999px}.alert{display:flex;align-items:flex-start;gap:12px;margin-top:14px;background:#201b12;border:1px solid #3b321f;border-radius:10px;padding:12px;color:#e7d6ae;font-size:13px}.alert>span{display:grid;place-items:center;flex:0 0 20px;height:20px;border-radius:50%;background:var(--amber);color:#1c160a;font-weight:800}.quiet-note,.empty{color:var(--muted);padding:20px 0}.ingestion-health>strong{font-size:40px;letter-spacing:-.04em;margin-top:16px;display:inline-block}.ingestion-health.good>strong{color:var(--green)}.ingestion-health.bad>strong{color:var(--red)}.ingestion-health>span{color:var(--muted);margin-left:8px}.ingestion-health>small{display:block;color:var(--muted);margin-top:6px}.ingestion-health p{margin:8px 0 0;color:var(--muted);font-size:11px}.ingestion-health b{color:var(--text);margin-right:6px}.section-title{align-items:flex-end;margin:0 0 20px}.section-title h2{font-size:27px}.section-title>p{color:var(--muted);max-width:420px;margin:0;font-size:13px;text-align:right}#positions,#strategies{scroll-margin-top:100px;margin-bottom:66px}.position-card{border:1px solid var(--line);border-radius:18px;background:linear-gradient(135deg,var(--surface),#101613);padding:24px;margin-bottom:14px;box-shadow:var(--shadow)}.position-head{display:flex;justify-content:space-between;align-items:flex-start}.symbol{font-size:22px;font-weight:750;letter-spacing:-.02em}.pill,.stage{font:700 10px/1 ui-monospace,monospace;letter-spacing:.08em;color:var(--cyan);border:1px solid #264b49;background:#11201f;border-radius:999px;padding:7px 9px;margin-left:10px}.pnl{text-align:right;font-size:20px;font-weight:700}.pnl small{display:block;font-size:11px;margin-top:2px}.price-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0}.price-grid>div{border-left:1px solid var(--line);padding-left:16px}.price-grid label{margin-bottom:5px}.price-grid strong{display:block;font-size:15px}.price-grid small{display:block;color:var(--muted);font-size:10px;margin-top:2px}.mark-warning{color:var(--amber);font-size:8px;border:1px solid #5b4826;border-radius:4px;padding:2px 4px;margin-left:4px}.exit-strip{display:flex;gap:16px;align-items:center;background:#0c1210;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:12px}.exit-strip span{color:var(--green);font:700 10px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.1em}.exit-strip strong{font-weight:550}details{border-top:1px solid var(--line);margin-top:18px;padding-top:14px}summary{color:var(--muted);font-size:12px;cursor:pointer}details p{color:#bdc7c2;font-size:13px;max-width:980px}.strategy-list{padding:5px 24px}.strategy-row{display:grid;grid-template-columns:1.5fr .4fr 1fr;align-items:center;gap:20px;padding:18px 0;border-bottom:1px solid var(--line)}.strategy-row:last-child{border:0}.strategy-row strong{display:block;text-transform:capitalize}.strategy-row small{display:block;color:var(--muted);font-size:10px;margin-top:4px}.strategy-row .stage{justify-self:start;margin:0}.progress{height:5px;border-radius:9px;background:#26302c;overflow:hidden;margin-bottom:6px}.progress i{display:block;height:100%;background:var(--green);border-radius:9px}.ops-grid{grid-template-columns:1.2fr .8fr;margin:0;scroll-margin-top:100px}.scheduler-line{color:var(--muted);font-size:12px;border-bottom:1px solid var(--line);padding-bottom:14px}.timeline{list-style:none;padding:0;margin:18px 0 0}.timeline li{display:flex;gap:14px;position:relative;padding-bottom:18px}.timeline li>i{flex:0 0 8px;height:8px;border-radius:50%;background:var(--green);margin-top:7px;box-shadow:0 0 0 4px rgba(98,211,148,.08)}.timeline li:not(:last-child):before{content:"";position:absolute;left:3px;top:17px;bottom:0;border-left:1px solid var(--line)}.timeline strong{display:block;font-size:12px}.timeline small{color:var(--muted);font-size:10px}.timeline p{margin:2px 0;color:#b4c0ba;font-size:11px}table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px}th{color:var(--muted);font-weight:500;text-align:left;padding:9px 6px;border-bottom:1px solid var(--line)}td{padding:12px 6px;border-bottom:1px solid var(--line)}.num{text-align:right}.integrity{margin-top:20px;border-radius:10px;background:#0d1311;padding:14px}.integrity span,.integrity small{display:block;color:var(--muted);font-size:10px}.integrity strong{display:block;color:var(--green);margin:2px 0}footer{border-top:1px solid var(--line);color:#617069;text-align:center;padding:24px;font-size:10px;text-transform:uppercase;letter-spacing:.1em}.muted{color:var(--muted)}.mono{font-family:ui-monospace,monospace}
+.timeline{max-height:520px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:12px}.timeline:focus-visible{outline:1px solid var(--green);outline-offset:6px;border-radius:4px}.timeline::-webkit-scrollbar{width:8px}.timeline::-webkit-scrollbar-track{background:#0d1311;border-radius:8px}.timeline::-webkit-scrollbar-thumb{background:#34443d;border-radius:8px}.timeline::-webkit-scrollbar-thumb:hover{background:#466054}
+@media(max-width:850px){header nav{display:none}.mode{margin-left:auto}.hero{display:block}.desk-state{margin-top:28px}.metrics{grid-template-columns:repeat(2,1fr)}.metrics article:nth-child(2){border-right:0}.metrics article:nth-child(-n+2){border-bottom:1px solid var(--line)}.two-col,.ops-grid{grid-template-columns:1fr}.price-grid{grid-template-columns:repeat(2,1fr)}.strategy-row{grid-template-columns:1fr auto}.strategy-row .progress-wrap{grid-column:1/-1}.section-title>p{display:none}}
+@media(max-width:520px){main{padding:34px 14px 60px}header{padding:0 14px}.hero h1{font-size:36px}.metrics{grid-template-columns:1fr}.metrics article{border-right:0!important;border-bottom:1px solid var(--line)!important}.metrics article:last-child{border-bottom:0!important}.position-head{display:block}.pnl{text-align:left;margin-top:12px}.price-grid{grid-template-columns:1fr 1fr}.exit-strip{display:block}.exit-strip span{display:block;margin-bottom:5px}.panel,.position-card{padding:18px}.section-title h2{font-size:23px}.timeline{max-height:440px}}
+'''
 
 
 class _Handler(BaseHTTPRequestHandler):
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(5)
+
     def do_GET(self):
         body = render().encode()
         self.send_response(200)
@@ -301,6 +504,17 @@ class _Handler(BaseHTTPRequestHandler):
         pass
 
 
+def create_server(port: int = 8642) -> ThreadingHTTPServer:
+    """Create a concurrent local server; idle clients cannot block the desk UI."""
+
+    server = ThreadingHTTPServer(("127.0.0.1", port), _Handler)
+    server.daemon_threads = True
+    return server
+
+
 def serve(port: int = 8642) -> None:
-    print(f"Sensei dashboard → http://localhost:{port}  (Ctrl-C to stop)")
-    HTTPServer(("127.0.0.1", port), _Handler).serve_forever()
+    print(f"Sensei control room → http://localhost:{port}  (Ctrl-C to stop)")
+    create_server(port).serve_forever()
+
+
+__all__ = ["create_server", "dashboard_model", "render", "serve"]

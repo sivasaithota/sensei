@@ -37,5 +37,5 @@ def test_dashboard_reports_governed_stage_shadow_and_position_reconciliation(tmp
     assert status["plans"][0]["stage"] == "shadow"
     assert status["plans"][0]["shadow_sessions"] == 1
     assert status["positions_reconciled"] is True
-    assert "Governed operations" in page
-    assert "1/20" in page
+    assert "Strategy control room" in page
+    assert "1 / 5 sessions" in page
