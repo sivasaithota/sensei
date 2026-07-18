@@ -89,6 +89,30 @@ def _scheduler_config() -> dict:
     return value if isinstance(value, dict) else {}
 
 
+def _scheduler_liveness(now: datetime) -> dict:
+    from sensei.automation import SchedulerApplicationConfig
+    from sensei.automation.liveness import SchedulerWatchdog, deployed_commit
+    from sensei.automation.scheduling import SwingSessionPolicy
+
+    try:
+        config = SchedulerApplicationConfig.from_json(
+            CONFIG_DIR / "scheduler.json"
+        )
+        return SchedulerWatchdog(
+            journal_path=DATA_DIR / "operations.sqlite3",
+            heartbeat_path=DATA_DIR / "scheduler-heartbeat.json",
+            lock_path=DATA_DIR / "scheduler.lock",
+            expected_commit=deployed_commit(),
+            policy=SwingSessionPolicy(closed_dates=config.closed_dates),
+        ).inspect(now=now).to_dict()
+    except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        return {
+            "state": "OFFLINE", "checked_at": now.isoformat(),
+            "reason_codes": ["SCHEDULER_HEALTH_UNAVAILABLE"],
+            "heartbeat": {}, "lock_held": False, "detail": str(exc),
+        }
+
+
 def _minimum_completeness() -> float:
     return float(_scheduler_config().get("shadow_trial", {}).get(
         "minimum_data_completeness", 0.99
@@ -351,6 +375,7 @@ def dashboard_model(*, now: datetime | None = None) -> dict:
         "rehearsal": _json(
             DATA_DIR / "reports" / "entry-rehearsal-latest.json", None
         ),
+        "scheduler_liveness": _scheduler_liveness(now),
     }
 
 
@@ -422,6 +447,7 @@ def render(path: str = "/") -> str:
     next_action = model["next_action"]
     readiness = model["readiness"]
     rehearsal = model["rehearsal"]
+    liveness = model["scheduler_liveness"]
     alerts = "".join(
         f'<div class="alert"><span>!</span><div>{_e(message)}</div></div>'
         for message in model["alerts"]
@@ -480,6 +506,20 @@ def render(path: str = "/") -> str:
           <small>Evaluated {_e(_display_time(rehearsal.get("as_of")))} · effective window {_e(_display_time(rehearsal.get("effective_entry_at"))) if rehearsal.get("effective_entry_at") else "unavailable"}</small>
         </article>'''
     )
+    heartbeat = liveness.get("heartbeat", {})
+    liveness_reasons = ", ".join(liveness.get("reason_codes", ())) or "No active liveness faults"
+    liveness_html = f'''
+      <article class="panel liveness {str(liveness.get("state", "OFFLINE")).lower()}">
+        <div class="section-head"><div><p class="eyebrow">Deployment watchdog</p>
+          <h2>Scheduler {_e(liveness.get("state", "OFFLINE"))}</h2></div>
+          <span>{"LOCKED · RUNNING" if liveness.get("lock_held") else _e(heartbeat.get("phase", "NO HEARTBEAT"))}</span></div>
+        <p>{_e(liveness_reasons)}</p>
+        <div class="rehearsal-facts"><span><b>{_e(heartbeat.get("hostname", "unknown"))}</b> host</span>
+          <span><b>{_e(str(heartbeat.get("deployed_commit", "unknown"))[:12])}</b> deployed commit</span>
+          <span><b>{_e(heartbeat.get("timezone", "unknown"))}</b> timezone</span>
+          <span><b>{_e(_display_time(heartbeat["observed_at"]) if heartbeat.get("observed_at") else "never")}</b> last wake</span></div>
+        <small>Passive only · missed entry windows are reported, never retried.</small>
+      </article>'''
 
     position_cards = []
     for position in model["positions"]:
@@ -631,7 +671,7 @@ def render(path: str = "/") -> str:
         "/research": ("Research", f'''{statebar}
   <section id="strategies"><div class="section-title"><div><p class="eyebrow">Governed research</p><h2>Strategy control room</h2></div><p>Known strategies are not tradable until evidence earns authorization.</p></div><div class="panel strategy-list">{strategies_html}</div></section>
   <section id="playbook">{playbook_html}</section>'''),
-        "/operations": ("Operations", f'''{statebar}{rehearsal_html}
+        "/operations": ("Operations", f'''{statebar}<div class="two-col">{liveness_html}{rehearsal_html}</div>
   <section id="operations" class="ops-grid"><article class="panel"><div class="section-head"><div><p class="eyebrow">Automation</p><h2>Operations timeline</h2></div></div><p class="scheduler-line">{scheduler_html}</p><ol class="timeline" tabindex="0" aria-label="Scrollable operations timeline">{timeline}</ol></article>
     <article class="panel"><div class="section-head"><div><p class="eyebrow">Outcomes</p><h2>Recently closed</h2></div></div>{_svg_equity(model["closed"])}<table><thead><tr><th>Symbol</th><th>Closed</th><th>Reason</th><th class="num">P&amp;L</th></tr></thead><tbody>{closed_rows}</tbody></table>
       <div class="integrity"><span>Journal integrity</span><strong>{'Verified' if model['operations'].get('journal_ok') else 'Unavailable'}</strong><small>{model['operations'].get('events', 0)} immutable events checked</small></div></article></section>'''),
@@ -692,6 +732,7 @@ _CSS = r'''
 .timeline{max-height:520px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:12px}.timeline:focus-visible{outline:1px solid var(--green);outline-offset:6px;border-radius:4px}.timeline::-webkit-scrollbar{width:8px}.timeline::-webkit-scrollbar-track{background:#0d1311;border-radius:8px}.timeline::-webkit-scrollbar-thumb{background:#34443d;border-radius:8px}.timeline::-webkit-scrollbar-thumb:hover{background:#466054}
 .readiness-panel{margin-bottom:22px;border-left:3px solid var(--red)}.readiness-panel.ready{border-left-color:var(--green)}.readiness-next{color:var(--muted);font-size:12px}.readiness-list{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;list-style:none;padding:0;margin:18px 0 0}.readiness-check{display:flex;gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:#0d1311}.readiness-check>i{display:grid;place-items:center;flex:0 0 20px;height:20px;border-radius:50%;font-style:normal;font-weight:800;background:var(--red);color:#1b0c0a}.readiness-check.pass>i{background:var(--green);color:#07130c}.readiness-check strong,.readiness-check small{display:block}.readiness-check strong{font-size:11px}.readiness-check small{color:var(--muted);font-size:9px;margin-top:3px}
 .rehearsal{margin-bottom:22px;border-left:3px solid var(--amber)}.rehearsal.would_trade{border-left-color:var(--green)}.rehearsal>p,.rehearsal>small{color:var(--muted)}.rehearsal-proposal{background:#0d1311;border:1px solid var(--line);border-radius:8px;padding:10px}.rehearsal-proposal b{color:var(--text);margin-right:8px}.rehearsal-facts{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.rehearsal-facts span{border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--muted);font-size:10px}.rehearsal-facts b{color:var(--text);display:block;font-size:11px}.rehearsal-trace{color:var(--muted);font-size:11px}.rehearsal-trace b{color:var(--text)}
+.liveness{border-left:3px solid var(--red)}.liveness.healthy{border-left-color:var(--green)}.liveness.degraded{border-left-color:var(--amber)}.liveness>p,.liveness>small{color:var(--muted)}
 @media(max-width:850px){header nav{display:none}.mode{margin-left:auto}.hero{display:block}.desk-state{margin-top:28px}.metrics{grid-template-columns:repeat(2,1fr)}.metrics article:nth-child(2){border-right:0}.metrics article:nth-child(-n+2){border-bottom:1px solid var(--line)}.two-col,.ops-grid{grid-template-columns:1fr}.price-grid{grid-template-columns:repeat(2,1fr)}.strategy-row{grid-template-columns:1fr auto}.strategy-row .progress-wrap{grid-column:1/-1}.section-title>p{display:none}}
 @media(max-width:520px){main{padding:34px 14px 60px}header{padding:0 14px}.hero h1{font-size:36px}.metrics{grid-template-columns:1fr}.metrics article{border-right:0!important;border-bottom:1px solid var(--line)!important}.metrics article:last-child{border-bottom:0!important}.position-head{display:block}.pnl{text-align:left;margin-top:12px}.price-grid{grid-template-columns:1fr 1fr}.exit-strip{display:block}.exit-strip span{display:block;margin-bottom:5px}.panel,.position-card{padding:18px}.section-title h2{font-size:23px}.timeline{max-height:440px}.readiness-list{grid-template-columns:1fr}}
 '''

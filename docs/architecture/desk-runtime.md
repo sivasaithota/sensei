@@ -144,3 +144,21 @@ call the contained legacy commands; they are not silently redirected into this
 governed runtime. Production scheduling should be added only after those
 adapters exist and the bounded `run_session(...)` seam passes paper-soak and
 restart drills. Live and micro-live remain out of scope.
+
+## Scheduler liveness
+
+Every `scheduler-run-once` wakeup holds an OS file lease, preventing concurrent
+scheduler instances, and atomically publishes its instance, phase, deployed
+commit, host, timezone and observation time. `sensei scheduler-health` is a
+passive deployment health check: exit 0 is healthy, 1 is degraded and 2 is
+offline. It verifies heartbeat age, process-lock coherence, code identity,
+journal integrity and missed NSE windows without running or retrying a task.
+The default seven-minute age limit is calibrated to the repository's five-minute
+launchd interval. Docker and systemd may use the same command as their health
+probe; their process manager owns restart policy. A missed entry is reported
+and never replayed, while the next normal wakeup may still perform independently
+eligible EOD maintenance.
+Exit 1 is an alert signal and should not automatically kill a coherent running
+task. A run that holds the lease for ten minutes is degraded before the entry
+cutoff; exit 2 is reserved for offline or untrustworthy state and may be used by
+the deployment manager's bounded restart policy.
