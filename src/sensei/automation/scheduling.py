@@ -12,7 +12,7 @@ import json
 import re
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from enum import StrEnum
 from typing import Mapping
 from zoneinfo import ZoneInfo
@@ -240,6 +240,32 @@ class SwingSessionPolicy:
         if type(trading_date) is not date:
             raise TypeError("trading_date must be a date")
         return trading_date.weekday() < 5 and trading_date not in self.closed_dates
+
+    def latest_eod_open_session(self, now: datetime) -> date:
+        """Return the latest trading date whose EOD window has opened."""
+
+        _aware("now", now)
+        local = now.astimezone(_IST)
+        candidate = local.date()
+        end_of_day_at = self._windows[1].opens_at
+        if not self.is_trading_day(candidate) or local.time() < end_of_day_at:
+            candidate -= timedelta(days=1)
+        while not self.is_trading_day(candidate):
+            candidate -= timedelta(days=1)
+        return candidate
+
+    def next_entry_at(self, now: datetime) -> datetime:
+        """Return the next configured entry-window opening in IST."""
+
+        _aware("now", now)
+        local = now.astimezone(_IST)
+        candidate = local.date()
+        entry_at = self._windows[0].opens_at
+        if not self.is_trading_day(candidate) or local.time() >= entry_at:
+            candidate += timedelta(days=1)
+        while not self.is_trading_day(candidate):
+            candidate += timedelta(days=1)
+        return datetime.combine(candidate, entry_at, tzinfo=_IST)
 
     def due_tasks(
         self,

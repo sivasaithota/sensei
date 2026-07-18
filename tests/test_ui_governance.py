@@ -39,3 +39,5 @@ def test_dashboard_reports_governed_stage_shadow_and_position_reconciliation(tmp
     assert status["positions_reconciled"] is True
     assert "Strategy control room" in page
     assert "1 / 5 sessions" in page
+    assert "BLOCKED FROM PAPER ENTRY" in page
+    assert "Strategy authorization" in page
