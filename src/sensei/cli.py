@@ -96,8 +96,8 @@ def main() -> None:
         from pathlib import Path
         from sensei.automation.application import SchedulerApplicationConfig
         from sensei.data.news import (
-            NewsRiskBook, NewsSecretStore, RssNewsRefresher,
-            india_structured_news_sources,
+            NewsRiskBook, NewsSecretStore, NseCorporateEventSource,
+            RssNewsRefresher,
         )
         from sensei.operations import OperationalJournal
 
@@ -126,30 +126,24 @@ def main() -> None:
                 feeds=dict(config.news_feeds),
                 known_instruments=known_instruments,
                 observed_at=observed_at,
-                structured_sources=india_structured_news_sources(
-                    observed_at=observed_at,
-                    known_instruments=known_instruments,
-                    company_regions=config.company_regions,
-                    corporate_metric_cache_path=config.corporate_metric_cache_path,
-                ),
+                structured_sources={
+                    "NSE_CORPORATE": lambda: NseCorporateEventSource().fetch(
+                        observed_at=observed_at,
+                        known_instruments=known_instruments,
+                    )
+                },
             )
         else:
             snapshot = book.latest()
         if snapshot is None:
             print(json.dumps({"state": "UNAVAILABLE"}, indent=2))
         else:
-            from collections import Counter
-            categories = Counter(event.category.value for event in snapshot.events)
             print(json.dumps({
                 "state": "VERIFIED",
                 "observed_at": snapshot.observed_at.isoformat(),
                 "events": len(snapshot.events),
                 "successful_sources": list(snapshot.successful_sources),
                 "failed_sources": list(snapshot.failed_sources),
-                "categories": dict(sorted(categories.items())),
-                "events_with_financial_metrics": sum(
-                    bool(event.financial_metrics) for event in snapshot.events
-                ),
             }, indent=2))
         return
 

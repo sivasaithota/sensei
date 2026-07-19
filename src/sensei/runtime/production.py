@@ -78,7 +78,6 @@ from sensei.reporting.operations import OperationalReporter
 from sensei.risk.rails import RiskConfig, RiskRails
 from sensei.runtime.account import PaperAccountProjector
 from sensei.runtime.activation import (
-    NseSurveillanceRefresher,
     RuntimeSecretStore,
     RuntimeTrustError,
     VerifiedSurveillanceSource,
@@ -106,7 +105,6 @@ class ProductionPaperSession:
         playbook_path: Path = Path("data/playbook/current.json"),
         prices_path: Path = Path("data/prices"),
         provenance_path: Path = Path("data/provenance"),
-        refresh_surveillance=None,
         legacy_baseline=None,
     ) -> None:
         self._journal_path = Path(journal_path)
@@ -115,7 +113,6 @@ class ProductionPaperSession:
         self._playbook_path = Path(playbook_path)
         self._prices_path = Path(prices_path)
         self._provenance_path = Path(provenance_path)
-        self._refresh_surveillance = refresh_surveillance
         self._legacy_baseline = legacy_baseline
 
     def __call__(self, task: ScheduledTask, now: datetime) -> TaskOutcome:
@@ -128,18 +125,6 @@ class ProductionPaperSession:
             maximum_age=timedelta(minutes=30),
             clock=lambda: now,
         )
-        snapshot_complete = bool(instruments) and all(
-            surveillance(instrument.split(":")[-1], task.trading_date) is not None
-            for instrument in instruments
-        )
-        if not snapshot_complete:
-            refresher = self._refresh_surveillance or NseSurveillanceRefresher(
-                destination=self._config.surveillance_path,
-                issuer_id="market-surveillance",
-                secret=secrets["market-surveillance"],
-            ).refresh
-            refresher(session=task.trading_date, observed_at=now)
-
         def compose(journal, gateway):
             composition, _inputs = self._compose(
                 journal=journal,
@@ -324,10 +309,8 @@ class ProductionPaperSession:
             news_snapshot = None
         news_policy = NewsRiskPolicy(
             maximum_snapshot_age=timedelta(minutes=15),
-            minimum_available_feeds=2,
-            required_sources=frozenset({
-                "NSE_CORPORATE", "NDMA_SACHET", "RBI_RELEASES", "SEBI_ORDERS",
-            }),
+            minimum_available_feeds=1,
+            required_sources=frozenset({"NSE_CORPORATE"}),
         )
         committee = ApprovalChainCommittee(
             ApprovalChain(RiskRails(risk_config)),

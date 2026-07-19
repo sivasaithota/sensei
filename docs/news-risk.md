@@ -1,60 +1,37 @@
-# Verified news and corporate-event risk
+# Focused news-risk guard
 
-Sensei treats news as entry-risk evidence, never as a trade signal. The
-governed scheduler refreshes the signed snapshot every 30 minutes and forces
-a refresh during the 9:10–9:20 IST pre-entry window. The entry handler performs
-no network calls: it consumes that pinned snapshot and fails closed if it is
-more than 15 minutes old.
+Sensei treats news as entry-risk evidence, never as a trading signal.
 
-## Coverage
+## Required coverage
 
-- Macro/geopolitical: RBI, PIB, Federal Reserve, ECB, Bank of England and
-  bounded global-risk searches.
-- Indian companies: the official NSE corporate-announcement API, restricted
-  to instruments in the local trading universe.
-- Results: quarterly/annual filing classification, reporting period, source
-  attachment, and metrics present in the official announcement summary. An
-  offline bounded PDF extractor is available for research enrichment; it hashes
-  filing bytes and caches by content digest plus extractor version. Scheduled
-  admission refreshes never download attachments.
-- Corporate events: sales updates, guidance, dividends, buybacks, splits,
-  bonus issues, mergers, promoter pledges, auditor events, insolvency,
-  enforcement and trading suspension.
-- Enforcement: official SEBI orders, scoped to symbols in the local universe.
-- Natural disasters: official NDMA Sachet alerts, including their effective
-  expiry. Alerts become company-specific when a configured operating region
-  intersects the affected area.
+The official NSE corporate-announcement feed is the only mandatory news
+provider. It is restricted to instruments in the local trading universe and
+captures results, sales/business updates, corporate actions, auditor events,
+insolvency and trading suspensions. Existing signed NSE surveillance and the
+earnings-window guard remain independent mandatory controls.
 
-Financial-result facts are source facts, not forecasts. Sensei does not infer
-analyst expectations or enter a position because a metric appears favorable.
+RBI, PIB, Federal Reserve, ECB, Bank of England and bounded geopolitical RSS
+feeds are advisory. Their events can produce caution or a verified critical
+block, but an individual advisory-provider outage does not halt the desk.
 
-## Deterministic admission policy
+Sensei deliberately does not ingest social media. It also does not scrape SEBI
+HTML, infer company exposure from disaster regions, or download and interpret
+financial-statement PDFs in the entry system.
 
-- `BLOCK`: auditor event, insolvency or trading suspension for the instrument;
-  critical market-wide event; stale or
-  unverifiable required coverage.
-- `CAUTION`: financial result, sales/guidance update, corporate action, promoter pledge,
-  enforcement, monetary/geopolitical risk, or a material disaster exposure.
-- `CLEAR`: verified required sources with no active material event.
-- `UNKNOWN`: stale/corrupt snapshot or a required NSE, SEBI, NDMA or RBI source is
-  unavailable. `UNKNOWN` blocks new exposure.
+## Admission policy
 
-Exit and EOD safety work always runs independently of news availability.
+- `BLOCK`: an applicable trading suspension, insolvency, accounting fraud,
+  exchange closure or other explicitly critical event.
+- `CAUTION`: results, sales/guidance, corporate actions, rates, inflation or
+  geopolitical risk. Caution is context and never creates a trade.
+- `CLEAR`: fresh signed evidence with no applicable material event.
+- `UNKNOWN`: stale/corrupt evidence or unavailable required NSE corporate
+  coverage. Unknown evidence blocks new exposure.
 
-## Company-to-region mapping
-
-Add operating locations to `config/scheduler.json` when known:
-
-```json
-"company_regions": {
-  "NSE:RELIANCE": ["Maharashtra", "Gujarat"],
-  "NSE:TCS": ["Maharashtra", "Karnataka", "Tamil Nadu"]
-}
-```
-
-Keep this mapping evidence-backed. An empty mapping does not invent company
-exposure; only severe national-scale disaster headlines receive market-wide
-caution.
+The scheduler refreshes every 30 minutes and uses a five-minute refresh target
+from 09:10 to 09:20 IST. The order path performs no network calls and consumes
+only a signed snapshot no more than 15 minutes old. Exits and EOD safety work
+remain independent of news availability.
 
 ## Operations
 
@@ -63,6 +40,5 @@ uv run sensei news-refresh
 uv run sensei news-status
 ```
 
-Every refresh journals source successes/failures and the signed snapshot
-digest. Every Reporter decision records that same digest, observation time and
-the exact event identities used by policy.
+Every refresh records successful and failed sources plus the signed snapshot
+digest. Reporter decisions record the same digest and exact event identities.

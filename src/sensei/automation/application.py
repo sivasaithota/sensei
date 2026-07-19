@@ -64,7 +64,6 @@ class SchedulerApplicationConfig:
     surveillance_path: Path = Path("data/surveillance.json")
     news_snapshot_path: Path = Path("data/news-risk.json")
     news_secret_path: Path = Path("data/news-risk-secret")
-    corporate_metric_cache_path: Path = Path("data/corporate-metrics.json")
     news_feeds: Mapping[str, str] = field(default_factory=lambda: {
         "FED": "https://www.federalreserve.gov/feeds/press_all.xml",
         "ECB": "https://www.ecb.europa.eu/rss/press.html",
@@ -76,14 +75,7 @@ class SchedulerApplicationConfig:
             "https://news.google.com/rss/search?q=war+OR+sanctions+OR+"
             "market+closure+OR+capital+controls+when:1d&hl=en-IN&gl=IN&ceid=IN:en"
         ),
-        "GOOGLE_NEWS_NSE_SEBI": (
-            "https://news.google.com/rss/search?q=(site:nseindia.com+OR+"
-            "site:sebi.gov.in)+(trading+suspension+OR+accounting+fraud+OR+"
-            "insolvency+OR+bankruptcy+OR+SEBI+order+OR+NSE+circular)+"
-            "when:1d&hl=en-IN&gl=IN&ceid=IN:en"
-        ),
     })
-    company_regions: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     risk_path: Path = Path("config/risk.yaml")
     playbook_path: Path = Path("data/playbook/current.json")
     prices_path: Path = Path("data/prices")
@@ -146,19 +138,9 @@ class SchedulerApplicationConfig:
                     str(runtime_secrets_path.parent / "news-risk-secret"),
                 )
             ),
-            corporate_metric_cache_path=Path(
-                raw.get(
-                    "corporate_metric_cache_path",
-                    str(runtime_secrets_path.parent / "corporate-metrics.json"),
-                )
-            ),
             news_feeds={
                 str(source): str(url)
                 for source, url in raw.get("news_feeds", cls().news_feeds).items()
-            },
-            company_regions={
-                str(symbol): tuple(str(region) for region in regions)
-                for symbol, regions in raw.get("company_regions", {}).items()
             },
             risk_path=Path(raw.get("risk_path", str(cls.risk_path))),
             playbook_path=Path(raw.get("playbook_path", str(cls.playbook_path))),
@@ -518,10 +500,50 @@ class GovernedSchedulerApplication:
         # next entry, but can never delay or suppress exits/EOD maintenance.
         result = self.runner.run_once(now)
         try:
+            self._refresh_surveillance_if_due(now)
+        except Exception:
+            # Entry consumes only fresh signed surveillance and therefore
+            # fails closed if this producer was unavailable.
+            pass
+        try:
             self._refresh_news_if_due(now)
         except Exception as exc:
             self._record_news_refresh_failure(now, exc)
         return result
+
+    def _refresh_surveillance_if_due(self, now: datetime) -> None:
+        if self.config.execution_backend != "governed_paper":
+            return
+        local_now = now.astimezone(ZoneInfo("Asia/Kolkata"))
+        if not (
+            local_now.weekday() < 5
+            and (9, 10) <= (local_now.hour, local_now.minute) < (9, 20)
+        ):
+            return
+        from sensei.runtime.activation import (
+            NseSurveillanceRefresher,
+            RuntimeSecretStore,
+            VerifiedSurveillanceSource,
+        )
+
+        secret = RuntimeSecretStore.load(
+            self.config.runtime_secrets_path
+        )["market-surveillance"]
+        source = VerifiedSurveillanceSource(
+            self.config.surveillance_path,
+            issuer_id="market-surveillance",
+            secret=secret,
+            maximum_age=timedelta(minutes=30),
+            clock=lambda: now,
+        )
+        symbols = tuple(path.stem for path in self.config.prices_path.glob("*.parquet"))
+        if symbols and all(source(symbol, local_now.date()) is not None for symbol in symbols):
+            return
+        NseSurveillanceRefresher(
+            destination=self.config.surveillance_path,
+            issuer_id="market-surveillance",
+            secret=secret,
+        ).refresh(session=local_now.date(), observed_at=now)
 
     def _record_news_refresh_failure(self, now: datetime, error: Exception) -> None:
         from sensei.data.news import record_news_refresh_failure
@@ -536,8 +558,8 @@ class GovernedSchedulerApplication:
         from sensei.data.news import (
             NewsRiskBook,
             NewsSecretStore,
+            NseCorporateEventSource,
             RssNewsRefresher,
-            india_structured_news_sources,
         )
 
         secret = NewsSecretStore.load_or_create(self.config.news_secret_path)
@@ -547,16 +569,12 @@ class GovernedSchedulerApplication:
         except ValueError:
             latest = None
         local_now = now.astimezone(ZoneInfo("Asia/Kolkata"))
-        pre_entry_window = (
+        pre_entry = (
             local_now.weekday() < 5
-            and (local_now.hour, local_now.minute) >= (9, 10)
-            and (local_now.hour, local_now.minute) < (9, 20)
+            and (9, 10) <= (local_now.hour, local_now.minute) < (9, 20)
         )
-        maximum_age = timedelta(minutes=5 if pre_entry_window else 30)
-        if (
-            latest is not None
-            and timedelta(0) <= now - latest.observed_at < maximum_age
-        ):
+        maximum_age = timedelta(minutes=5 if pre_entry else 30)
+        if latest is not None and timedelta(0) <= now - latest.observed_at < maximum_age:
             return
         known_instruments = tuple(
             f"NSE:{path.stem}"
@@ -571,12 +589,11 @@ class GovernedSchedulerApplication:
             feeds=dict(self.config.news_feeds),
             known_instruments=known_instruments,
             observed_at=now,
-            structured_sources=india_structured_news_sources(
-                observed_at=now,
-                known_instruments=known_instruments,
-                company_regions=self.config.company_regions,
-                corporate_metric_cache_path=self.config.corporate_metric_cache_path,
-            ),
+            structured_sources={
+                "NSE_CORPORATE": lambda: NseCorporateEventSource().fetch(
+                    observed_at=now, known_instruments=known_instruments,
+                )
+            },
         )
 
 
