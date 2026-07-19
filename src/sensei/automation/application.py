@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Callable, Mapping
+from zoneinfo import ZoneInfo
 
 from sensei.governance.evidence import StageDossierRegistry
 from sensei.governance.lifecycle import (
@@ -63,6 +64,7 @@ class SchedulerApplicationConfig:
     surveillance_path: Path = Path("data/surveillance.json")
     news_snapshot_path: Path = Path("data/news-risk.json")
     news_secret_path: Path = Path("data/news-risk-secret")
+    corporate_metric_cache_path: Path = Path("data/corporate-metrics.json")
     news_feeds: Mapping[str, str] = field(default_factory=lambda: {
         "FED": "https://www.federalreserve.gov/feeds/press_all.xml",
         "ECB": "https://www.ecb.europa.eu/rss/press.html",
@@ -81,6 +83,7 @@ class SchedulerApplicationConfig:
             "when:1d&hl=en-IN&gl=IN&ceid=IN:en"
         ),
     })
+    company_regions: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     risk_path: Path = Path("config/risk.yaml")
     playbook_path: Path = Path("data/playbook/current.json")
     prices_path: Path = Path("data/prices")
@@ -143,9 +146,19 @@ class SchedulerApplicationConfig:
                     str(runtime_secrets_path.parent / "news-risk-secret"),
                 )
             ),
+            corporate_metric_cache_path=Path(
+                raw.get(
+                    "corporate_metric_cache_path",
+                    str(runtime_secrets_path.parent / "corporate-metrics.json"),
+                )
+            ),
             news_feeds={
                 str(source): str(url)
                 for source, url in raw.get("news_feeds", cls().news_feeds).items()
+            },
+            company_regions={
+                str(symbol): tuple(str(region) for region in regions)
+                for symbol, regions in raw.get("company_regions", {}).items()
             },
             risk_path=Path(raw.get("risk_path", str(cls.risk_path))),
             playbook_path=Path(raw.get("playbook_path", str(cls.playbook_path))),
@@ -524,6 +537,7 @@ class GovernedSchedulerApplication:
             NewsRiskBook,
             NewsSecretStore,
             RssNewsRefresher,
+            india_structured_news_sources,
         )
 
         secret = NewsSecretStore.load_or_create(self.config.news_secret_path)
@@ -532,10 +546,22 @@ class GovernedSchedulerApplication:
             latest = book.latest()
         except ValueError:
             latest = None
-        if latest is not None and timedelta(0) <= now - latest.observed_at < timedelta(
-            minutes=30
+        local_now = now.astimezone(ZoneInfo("Asia/Kolkata"))
+        pre_entry_window = (
+            local_now.weekday() < 5
+            and (local_now.hour, local_now.minute) >= (9, 10)
+            and (local_now.hour, local_now.minute) < (9, 20)
+        )
+        maximum_age = timedelta(minutes=5 if pre_entry_window else 30)
+        if (
+            latest is not None
+            and timedelta(0) <= now - latest.observed_at < maximum_age
         ):
             return
+        known_instruments = tuple(
+            f"NSE:{path.stem}"
+            for path in self.config.prices_path.glob("*.parquet")
+        )
         RssNewsRefresher(
             book=book,
             issuer_id="market-news",
@@ -543,11 +569,14 @@ class GovernedSchedulerApplication:
             journal=self.journal,
         ).refresh(
             feeds=dict(self.config.news_feeds),
-            known_instruments=tuple(
-                f"NSE:{path.stem}"
-                for path in self.config.prices_path.glob("*.parquet")
-            ),
+            known_instruments=known_instruments,
             observed_at=now,
+            structured_sources=india_structured_news_sources(
+                observed_at=now,
+                known_instruments=known_instruments,
+                company_regions=self.config.company_regions,
+                corporate_metric_cache_path=self.config.corporate_metric_cache_path,
+            ),
         )
 
 

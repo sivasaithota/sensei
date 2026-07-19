@@ -95,7 +95,10 @@ def main() -> None:
     if args.cmd in {"news-refresh", "news-status"}:
         from pathlib import Path
         from sensei.automation.application import SchedulerApplicationConfig
-        from sensei.data.news import NewsRiskBook, NewsSecretStore, RssNewsRefresher
+        from sensei.data.news import (
+            NewsRiskBook, NewsSecretStore, RssNewsRefresher,
+            india_structured_news_sources,
+        )
         from sensei.operations import OperationalJournal
 
         config = SchedulerApplicationConfig.from_json(Path(args.config))
@@ -105,6 +108,11 @@ def main() -> None:
             secret=news_secret,
         )
         if args.cmd == "news-refresh":
+            observed_at = datetime.now(timezone.utc)
+            known_instruments = tuple(
+                f"NSE:{path.stem}"
+                for path in config.prices_path.glob("*.parquet")
+            )
             snapshot = RssNewsRefresher(
                 book=book,
                 issuer_id="market-news",
@@ -116,23 +124,32 @@ def main() -> None:
                 ),
             ).refresh(
                 feeds=dict(config.news_feeds),
-                known_instruments=tuple(
-                    f"NSE:{path.stem}"
-                    for path in config.prices_path.glob("*.parquet")
+                known_instruments=known_instruments,
+                observed_at=observed_at,
+                structured_sources=india_structured_news_sources(
+                    observed_at=observed_at,
+                    known_instruments=known_instruments,
+                    company_regions=config.company_regions,
+                    corporate_metric_cache_path=config.corporate_metric_cache_path,
                 ),
-                observed_at=datetime.now(timezone.utc),
             )
         else:
             snapshot = book.latest()
         if snapshot is None:
             print(json.dumps({"state": "UNAVAILABLE"}, indent=2))
         else:
+            from collections import Counter
+            categories = Counter(event.category.value for event in snapshot.events)
             print(json.dumps({
                 "state": "VERIFIED",
                 "observed_at": snapshot.observed_at.isoformat(),
                 "events": len(snapshot.events),
                 "successful_sources": list(snapshot.successful_sources),
                 "failed_sources": list(snapshot.failed_sources),
+                "categories": dict(sorted(categories.items())),
+                "events_with_financial_metrics": sum(
+                    bool(event.financial_metrics) for event in snapshot.events
+                ),
             }, indent=2))
         return
 

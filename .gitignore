@@ -10,6 +10,7 @@ data/runtime-secrets.json
 data/surveillance.json
 data/news-risk.json
 data/news-risk-secret
+data/corporate-metrics.json
 data/operations.sqlite3
 data/operations.sqlite3-wal
 data/operations.sqlite3-shm

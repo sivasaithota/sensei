@@ -5,6 +5,8 @@
   "surveillance_path": "data/surveillance.json",
   "news_snapshot_path": "data/news-risk.json",
   "news_secret_path": "data/news-risk-secret",
+  "corporate_metric_cache_path": "data/corporate-metrics.json",
+  "company_regions": {},
   "news_feeds": {
     "FED": "https://www.federalreserve.gov/feeds/press_all.xml",
     "ECB": "https://www.ecb.europa.eu/rss/press.html",
