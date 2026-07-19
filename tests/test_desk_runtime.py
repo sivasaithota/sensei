@@ -44,12 +44,14 @@ class Historian:
         self.trace = trace
         self.event_id = event_id
 
-    def evaluate(self, request):
+    def evaluate(self, request, *, memory_context=None):
+        assert memory_context.query.role.value == "historian"
         return HistoricalDecision(self.trace, self.event_id)
 
 
 class Reporter:
-    def report(self, instrument_id, *, as_of):
+    def report(self, instrument_id, *, as_of, memory_context=None):
+        assert memory_context.query.role.value == "reporter"
         return EventBrief(
             instrument_id=instrument_id,
             blocked=False,
@@ -59,7 +61,8 @@ class Reporter:
 
 
 class CrowdReader:
-    def read(self, *, as_of):
+    def read(self, *, as_of, memory_context=None):
+        assert memory_context.query.role.value == "crowd_reader"
         return MarketMood(
             label="mixed",
             summary="Selective market with normal volatility.",
@@ -71,7 +74,8 @@ class Analyst:
     def __init__(self, thesis):
         self.thesis = thesis
 
-    def draft(self, brief):
+    def draft(self, brief, *, memory_context=None):
+        assert memory_context.query.role.value == "analyst"
         return self.thesis
 
 
@@ -80,7 +84,8 @@ class Committee:
         self.approval = approval
         self.evidence_event_ids = evidence_event_ids
 
-    def review(self, thesis, context, *, now, command_id):
+    def review(self, thesis, context, *, now, command_id, memory_context=None):
+        assert memory_context.query.role.value == "committee"
         assert thesis == self.approval.thesis
         return AuthenticatedCommitteeDecision(
             approval=self.approval,
@@ -92,7 +97,8 @@ class Coach:
     def __init__(self):
         self.calls = 0
 
-    def reflect(self, observations, *, now, command_id):
+    def reflect(self, observations, *, now, command_id, memory_context=None):
+        assert memory_context.query.role.value == "coach"
         self.calls += 1
         return CoachReflection(observations_recorded=0, hypotheses_proposed=())
 
@@ -101,7 +107,8 @@ class Secretary:
     def __init__(self):
         self.calls = 0
 
-    def report(self, day):
+    def report(self, day, *, memory_context=None):
+        assert memory_context.query.role.value == "secretary"
         self.calls += 1
         return {"day": day.isoformat(), "journal_integrity": True}
 
@@ -331,6 +338,24 @@ def test_desk_runtime_invokes_all_nine_roles_and_dispatches_only_after_approval(
         "coach",
         "secretary",
     }
+    invocations = [
+        event
+        for event in journal.read_all()
+        if event.event_type == "AgentInvocationRecorded"
+        and event.correlation_id == result.cycle_id
+    ]
+    assert {event.payload["role"] for event in invocations} == {
+        "desk_head",
+        "historian",
+        "reporter",
+        "crowd_reader",
+        "analyst",
+        "committee",
+        "trader",
+        "coach",
+        "secretary",
+    }
+    assert all(event.payload["context_pack_id"] for event in invocations)
 
 
 def test_supervised_dispatch_uses_fresh_authorization_after_committee(tmp_path):
@@ -338,13 +363,16 @@ def test_supervised_dispatch_uses_fresh_authorization_after_committee(tmp_path):
     order: list[str] = []
 
     class OrderedCommittee(Committee):
-        def review(self, thesis, context, *, now, command_id):
+        def review(
+            self, thesis, context, *, now, command_id, memory_context=None
+        ):
             order.append("committee")
             return super().review(
                 thesis,
                 context,
                 now=now,
                 command_id=command_id,
+                memory_context=memory_context,
             )
 
     runtime.committee = OrderedCommittee(
@@ -635,7 +663,7 @@ def test_role_failure_is_recorded_and_fails_cycle_closed(tmp_path):
     runtime, request, _, _, gateway, journal, _ = _runtime_fixture(tmp_path)
 
     class BrokenReporter:
-        def report(self, instrument_id, *, as_of):
+        def report(self, instrument_id, *, as_of, memory_context=None):
             raise RuntimeError("event feed unavailable")
 
     runtime.reporter = BrokenReporter()
@@ -648,6 +676,36 @@ def test_role_failure_is_recorded_and_fails_cycle_closed(tmp_path):
         event for event in journal.read_all() if event.event_type == "DeskCycleFailed"
     ]
     assert failed[-1].payload["new_entries_allowed"] is False
+    cycle_id = "cycle:" + hashlib.sha256(
+        "desk-cycle-feed-failure".encode()
+    ).hexdigest()
+    invocations = [
+        event
+        for event in journal.read_all()
+        if event.event_type == "AgentInvocationRecorded"
+        and event.correlation_id == cycle_id
+    ]
+    outcomes = {event.payload["role"]: event.payload["outcome"] for event in invocations}
+    assert len(outcomes) == 9
+    assert outcomes["historian"] == "proceed"
+    assert outcomes["reporter"] == "error"
+    assert outcomes["desk_head"] == "error"
+    assert outcomes["analyst"] == "abstain"
+    assert all(
+        event.payload["latency_ms"] >= 1
+        for event in invocations
+        if event.payload["role"] in {"historian", "reporter"}
+    )
+    assert all(
+        event.payload["prompt_id"].startswith("callable:")
+        for event in invocations
+        if event.payload["role"] in {"historian", "reporter", "desk_head"}
+    )
+    assert all(
+        event.payload["prompt_id"].startswith("not-invoked:")
+        for event in invocations
+        if event.payload["role"] not in {"historian", "reporter", "desk_head"}
+    )
 
 
 def test_completed_cycle_replay_returns_durable_result_without_rerunning_roles(
@@ -662,7 +720,7 @@ def test_completed_cycle_replay_returns_durable_result_without_rerunning_roles(
     )
 
     class MustNotRunReporter:
-        def report(self, instrument_id, *, as_of):
+        def report(self, instrument_id, *, as_of, memory_context=None):
             raise AssertionError("completed cycle reran an external role")
 
     runtime.reporter = MustNotRunReporter()

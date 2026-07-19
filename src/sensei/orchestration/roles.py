@@ -11,6 +11,7 @@ from sensei.agents.thesis import ApprovalRecord, PlaybookCitation, TradeThesis
 from sensei.data.events import in_no_trade_window
 from sensei.data.regime import Regime, compute_regime
 from sensei.learning.outcomes import LearningObservation, OutcomeLearner
+from sensei.memory import AgentMemoryRole, MemoryContextPack
 from sensei.operations import HmacFactSigner
 from sensei.reporting.operations import OperationalReporter
 from sensei.strategy import (
@@ -54,7 +55,10 @@ class StrategyHistorian:
         self._authority = authority
         self._signer = signer
 
-    def evaluate(self, request: HistoricalRequest) -> HistoricalDecision:
+    def evaluate(
+        self, request: HistoricalRequest, *, memory_context: MemoryContextPack | None = None
+    ) -> HistoricalDecision:
+        _memory_for(memory_context, AgentMemoryRole.HISTORIAN)
         trace = self._engine.evaluate(
             PlanEvaluationRequest(
                 plan=request.plan,
@@ -88,7 +92,14 @@ class EarningsReporter:
         self._event_window = event_window
         self._surveillance = surveillance or (lambda _symbol, _day: None)
 
-    def report(self, instrument_id: str, *, as_of: datetime) -> EventBrief:
+    def report(
+        self,
+        instrument_id: str,
+        *,
+        as_of: datetime,
+        memory_context: MemoryContextPack | None = None,
+    ) -> EventBrief:
+        _memory_for(memory_context, AgentMemoryRole.REPORTER)
         _aware(as_of)
         symbol = instrument_id.split(":")[-1]
         blocked, event_reason = self._event_window(symbol, as_of.date())
@@ -116,7 +127,10 @@ class RegimeCrowdReader:
     def __init__(self, reader: Callable[[], Regime] = compute_regime) -> None:
         self._reader = reader
 
-    def read(self, *, as_of: datetime) -> MarketMood:
+    def read(
+        self, *, as_of: datetime, memory_context: MemoryContextPack | None = None
+    ) -> MarketMood:
+        _memory_for(memory_context, AgentMemoryRole.CROWD_READER)
         _aware(as_of)
         regime = self._reader()
         confidence = min(1.0, regime.n_symbols / 100) if regime.n_symbols else 0.0
@@ -136,7 +150,10 @@ class GovernedAnalyst:
     ) -> None:
         self._judgment = judgment or self._default_judgment
 
-    def draft(self, brief: AnalystBrief) -> TradeThesis | str:
+    def draft(
+        self, brief: AnalystBrief, *, memory_context: MemoryContextPack | None = None
+    ) -> TradeThesis | str:
+        _memory_for(memory_context, AgentMemoryRole.ANALYST)
         if brief.events.blocked:
             return brief.events.reason
         if not brief.plan.source_claim_ids:
@@ -179,12 +196,14 @@ class GovernedAnalyst:
     @staticmethod
     def _default_judgment(brief: AnalystBrief) -> AnalystJudgment:
         intent = brief.candidate.intent
+        prior = _memory_summary(brief.memory_context)
         return AnalystJudgment(
             proceed=True,
             narrative=(
                 f"The exact governed plan generated a long entry for "
                 f"{intent.instrument_id}. {brief.events.reason}. "
-                f"Crowd context: {brief.mood.summary}"
+                f"Crowd context: {brief.mood.summary}. "
+                f"Governed prior context: {prior}"
             ),
             invalidation=(
                 f"The thesis is invalid at the governed stop "
@@ -214,14 +233,20 @@ class ApprovalChainCommittee:
         *,
         now: datetime,
         command_id: str,
+        memory_context: MemoryContextPack | None = None,
     ) -> AuthenticatedCommitteeDecision:
+        _memory_for(memory_context, AgentMemoryRole.COMMITTEE)
         if not isinstance(context, CommitteeReviewContext):
             raise TypeError("committee requires a CommitteeReviewContext")
         if not isinstance(context.inputs, CommitteeInputs):
             raise TypeError("committee context requires CommitteeInputs")
         _aware(now)
         if hasattr(self._chain, "regime_context"):
-            self._chain.regime_context = context.mood.summary
+            self._chain.regime_context = (
+                context.mood.summary
+                + "\nGoverned prior context: "
+                + _memory_summary(context.memory_context)
+            )
         approval = self._chain.run(
             thesis,
             context.inputs.portfolio_state,
@@ -269,7 +294,9 @@ class OutcomeCoach:
         *,
         now: datetime,
         command_id: str,
+        memory_context: MemoryContextPack | None = None,
     ) -> CoachReflection:
+        _memory_for(memory_context, AgentMemoryRole.COACH)
         _aware(now)
         scopes = {}
         for observation in observations:
@@ -319,7 +346,8 @@ class OperationalSecretary:
         self._reporter = reporter
         self._timezone = timezone
 
-    def report(self, day: date):
+    def report(self, day: date, *, memory_context: MemoryContextPack | None = None):
+        _memory_for(memory_context, AgentMemoryRole.SECRETARY)
         return self._reporter.daily(day, tz=self._timezone)
 
 
@@ -330,3 +358,24 @@ def _digest(value: str) -> str:
 def _aware(value: datetime) -> None:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("role timestamps must be timezone-aware")
+
+
+def _memory_for(
+    context: MemoryContextPack | None, expected_role: AgentMemoryRole
+) -> None:
+    # Direct unit-level adapter use remains supported. DeskRuntime always supplies
+    # a pack, which is validated here before the role can act.
+    if context is None:
+        return
+    if context.authority != "CONTEXT_ONLY" or context.query.role is not expected_role:
+        raise ValueError("role received an invalid memory context pack")
+    # Materialize provenance so malformed/custom pack implementations cannot be
+    # passed through as an unused token.
+    tuple(context.source_event_ids)
+
+
+def _memory_summary(context: MemoryContextPack | None) -> str:
+    if context is None or not context.items:
+        return "no matching prior episodes"
+    # Counter-evidence is already ordered first by DecisionMemoryService.
+    return " | ".join(item.summary for item in context.items[:3])

@@ -10,6 +10,7 @@ from dataclasses import dataclass, fields, is_dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum, StrEnum
+from time import perf_counter_ns
 from typing import Protocol
 
 import pandas as pd
@@ -21,6 +22,14 @@ from sensei.kernel import (
     TradingKernel,
 )
 from sensei.learning.outcomes import LearningObservation
+from sensei.evaluation import AgentInvocation, AgentInvocationLedger, AgentOutcome
+from sensei.memory import (
+    AgentMemoryRole,
+    DeskMemoryContexts,
+    DeskMemoryCoordinator,
+    DeskMemoryScope,
+    MemoryContextPack,
+)
 from sensei.operations import EventAppend, OperationalJournal
 from sensei.operations.health import OperationalHealth, OperationsMonitor
 from sensei.portfolio_risk import AccountSnapshot, SafetyControl, TradeIntent
@@ -89,6 +98,7 @@ class CommitteeReviewContext:
     inputs: object
     events: EventBrief
     mood: MarketMood
+    memory_context: MemoryContextPack | None = None
 
 
 @dataclass(frozen=True)
@@ -117,6 +127,7 @@ class AnalystBrief:
     mood: MarketMood
     strategy_stats: StrategyEvidenceStats
     created_at: datetime
+    memory_context: MemoryContextPack | None = None
 
 
 @dataclass(frozen=True)
@@ -143,6 +154,14 @@ class DeskCycleFailed(RuntimeError):
     def __init__(self, cycle_id: str, detail: str) -> None:
         super().__init__(f"desk cycle {cycle_id} failed closed: {detail}")
         self.cycle_id = cycle_id
+
+
+class _RoleCallFailed(RuntimeError):
+    def __init__(self, role, durations, original):
+        self.role = role
+        self.durations = dict(durations)
+        self.original = original
+        super().__init__(str(original))
 
 
 @dataclass(frozen=True)
@@ -256,19 +275,27 @@ class DeskCycleResult:
 
 
 class HistorianRole(Protocol):
-    def evaluate(self, request: HistoricalRequest) -> HistoricalDecision: ...
+    def evaluate(
+        self, request: HistoricalRequest, *, memory_context: MemoryContextPack
+    ) -> HistoricalDecision: ...
 
 
 class ReporterRole(Protocol):
-    def report(self, instrument_id: str, *, as_of: datetime) -> EventBrief: ...
+    def report(
+        self, instrument_id: str, *, as_of: datetime, memory_context: MemoryContextPack
+    ) -> EventBrief: ...
 
 
 class CrowdReaderRole(Protocol):
-    def read(self, *, as_of: datetime) -> MarketMood: ...
+    def read(
+        self, *, as_of: datetime, memory_context: MemoryContextPack
+    ) -> MarketMood: ...
 
 
 class AnalystRole(Protocol):
-    def draft(self, brief: AnalystBrief) -> TradeThesis | str: ...
+    def draft(
+        self, brief: AnalystBrief, *, memory_context: MemoryContextPack
+    ) -> TradeThesis | str: ...
 
 
 class CommitteeRole(Protocol):
@@ -279,6 +306,7 @@ class CommitteeRole(Protocol):
         *,
         now: datetime,
         command_id: str,
+        memory_context: MemoryContextPack | None = None,
     ) -> AuthenticatedCommitteeDecision: ...
 
 
@@ -291,9 +319,15 @@ class TraderRole(Protocol):
         quote: ExecutableQuote,
         account_snapshot: AccountSnapshot,
         now: datetime,
+        memory_context: MemoryContextPack,
     ) -> IntentBuildResult: ...
 
-    def execute(self, request: PaperExecutionRequest) -> PaperAcceptance: ...
+    def execute(
+        self,
+        request: PaperExecutionRequest,
+        *,
+        memory_context: MemoryContextPack | None = None,
+    ) -> PaperAcceptance: ...
 
 
 class CoachRole(Protocol):
@@ -303,11 +337,12 @@ class CoachRole(Protocol):
         *,
         now: datetime,
         command_id: str,
+        memory_context: MemoryContextPack,
     ) -> CoachReflection: ...
 
 
 class SecretaryRole(Protocol):
-    def report(self, day: date) -> object: ...
+    def report(self, day: date, *, memory_context: MemoryContextPack) -> object: ...
 
 
 class PaperTrader:
@@ -351,7 +386,9 @@ class PaperTrader:
         quote: ExecutableQuote,
         account_snapshot: AccountSnapshot,
         now: datetime,
+        memory_context: MemoryContextPack | None = None,
     ) -> IntentBuildResult:
+        _require_role_memory(memory_context, AgentMemoryRole.TRADER)
         return self._coordinator.derive_candidate(
             plan=plan,
             trace=trace,
@@ -360,7 +397,13 @@ class PaperTrader:
             now=now,
         )
 
-    def execute(self, request: PaperExecutionRequest) -> PaperAcceptance:
+    def execute(
+        self,
+        request: PaperExecutionRequest,
+        *,
+        memory_context: MemoryContextPack | None = None,
+    ) -> PaperAcceptance:
+        _require_role_memory(memory_context, AgentMemoryRole.TRADER)
         cycle = request.cycle
         if request.authorize_dispatch is None:
             raise RuntimeError(
@@ -473,6 +516,8 @@ class DeskRuntime:
         secretary: SecretaryRole,
     ) -> None:
         self._journal = journal
+        self._memory = DeskMemoryCoordinator(journal)
+        self._invocations = AgentInvocationLedger(journal)
         self.historian = historian
         self.reporter = reporter
         self.crowd_reader = crowd_reader
@@ -519,12 +564,25 @@ class DeskRuntime:
             if terminal is not None:
                 # Re-append the start command to prove this is the exact same
                 # request before returning a previously recorded terminal result.
+                started = next(
+                    event
+                    for event in self._journal.read_stream(stream)
+                    if event.event_type == "DeskCycleStarted"
+                )
                 self._append(
                     stream,
                     request,
                     event_type="DeskCycleStarted",
                     suffix="start",
-                    payload=_start_payload(request, cycle_id),
+                    payload={
+                        **_start_payload(request, cycle_id),
+                        "memory_context_pack_ids": _identity_value(
+                            started.payload["memory_context_pack_ids"]
+                        ),
+                        "memory_audit_event_ids": _identity_value(
+                            started.payload["memory_audit_event_ids"]
+                        ),
+                    },
                 )
                 if not self._journal.verify().ok:
                     raise RuntimeError(
@@ -544,6 +602,26 @@ class DeskRuntime:
                 authorize_dispatch=authorize_dispatch,
             )
         except DispatchAuthorizationRejected as exc:
+            try:
+                memory = self._memory.prepare_cycle_contexts(
+                    cycle_id=cycle_id,
+                    as_of=request.now,
+                    occurred_at=request.now,
+                    scope=DeskMemoryScope(
+                        instrument_id=request.quote.instrument_id,
+                        plan_version_id=request.plan.plan_id,
+                        strategy_lineage_id=request.lineage_id,
+                    ),
+                )
+                self._record_failed_invocations(
+                    request=request,
+                    cycle_id=cycle_id,
+                    memory=memory,
+                    failed_role=AgentMemoryRole.TRADER,
+                    latency_ms=getattr(exc, "_desk_durations", {}),
+                )
+            except Exception:
+                pass
             try:
                 if _terminal_event(self._journal.read_stream(stream)) is None:
                     self._append(
@@ -566,6 +644,29 @@ class DeskRuntime:
         except DeskCycleFailed:
             raise
         except Exception as exc:
+            detail_exc = exc
+            if isinstance(exc, _RoleCallFailed):
+                try:
+                    memory = self._memory.prepare_cycle_contexts(
+                        cycle_id=cycle_id,
+                        as_of=request.now,
+                        occurred_at=request.now,
+                        scope=DeskMemoryScope(
+                            instrument_id=request.quote.instrument_id,
+                            plan_version_id=request.plan.plan_id,
+                            strategy_lineage_id=request.lineage_id,
+                        ),
+                    )
+                    self._record_failed_invocations(
+                        request=request,
+                        cycle_id=cycle_id,
+                        memory=memory,
+                        failed_role=exc.role,
+                        latency_ms=exc.durations,
+                    )
+                except Exception:
+                    pass
+                detail_exc = exc.original
             try:
                 if _terminal_event(self._journal.read_stream(stream)) is None:
                     self._append(
@@ -575,14 +676,14 @@ class DeskRuntime:
                         suffix="failed",
                         payload={
                             "cycle_id": cycle_id,
-                            "error_type": type(exc).__name__,
-                            "detail": str(exc),
+                            "error_type": type(detail_exc).__name__,
+                            "detail": str(detail_exc),
                             "new_entries_allowed": False,
                         },
                     )
             except Exception:
                 pass
-            raise DeskCycleFailed(cycle_id, str(exc)) from exc
+            raise DeskCycleFailed(cycle_id, str(detail_exc)) from detail_exc
 
     def _run_cycle(
         self,
@@ -595,16 +696,40 @@ class DeskRuntime:
         cycle_id = "cycle:" + _digest(request.command_id)
         stream = "desk-cycle:" + cycle_id.removeprefix("cycle:")
         role_events: list[str] = []
+        latency_ms: dict[AgentMemoryRole, int] = {}
+        memory = self._memory.prepare_cycle_contexts(
+            cycle_id=cycle_id,
+            as_of=request.now,
+            occurred_at=request.now,
+            scope=DeskMemoryScope(
+                instrument_id=request.quote.instrument_id,
+                plan_version_id=request.plan.plan_id,
+                strategy_lineage_id=request.lineage_id,
+            ),
+        )
         self._append(
             stream,
             request,
             event_type="DeskCycleStarted",
             suffix="start",
-            payload=_start_payload(request, cycle_id),
+            payload={
+                **_start_payload(request, cycle_id),
+                "memory_context_pack_ids": {
+                    role.value: pack.context_pack_id
+                    for role, pack in memory.contexts.items()
+                },
+                "memory_audit_event_ids": {
+                    role.value: event_id
+                    for role, event_id in memory.audit_event_ids.items()
+                },
+            },
         )
 
-        history = self.historian.evaluate(
-            HistoricalRequest(
+        history = self._timed(
+            AgentMemoryRole.HISTORIAN,
+            latency_ms,
+            lambda: self.historian.evaluate(
+                HistoricalRequest(
                 plan=request.plan,
                 instrument_id=request.quote.instrument_id,
                 bars=request.bars,
@@ -612,7 +737,9 @@ class DeskRuntime:
                 market_snapshot_id=request.decision_market_snapshot_id,
                 occurred_at=request.signal_observed_at,
                 command_id=f"{request.command_id}:historian",
-            )
+                ),
+                memory_context=memory.contexts[AgentMemoryRole.HISTORIAN],
+            ),
         )
         role_events.append(
             self._role(
@@ -627,7 +754,15 @@ class DeskRuntime:
                 },
             )
         )
-        events = self.reporter.report(request.quote.instrument_id, as_of=request.now)
+        events = self._timed(
+            AgentMemoryRole.REPORTER,
+            latency_ms,
+            lambda: self.reporter.report(
+                request.quote.instrument_id,
+                as_of=request.now,
+                memory_context=memory.contexts[AgentMemoryRole.REPORTER],
+            ),
+        )
         role_events.append(
             self._role(
                 stream,
@@ -637,7 +772,14 @@ class DeskRuntime:
                 {"blocked": events.blocked, "reason": events.reason},
             )
         )
-        mood = self.crowd_reader.read(as_of=request.now)
+        mood = self._timed(
+            AgentMemoryRole.CROWD_READER,
+            latency_ms,
+            lambda: self.crowd_reader.read(
+                as_of=request.now,
+                memory_context=memory.contexts[AgentMemoryRole.CROWD_READER],
+            ),
+        )
         role_events.append(
             self._role(
                 stream,
@@ -667,6 +809,8 @@ class DeskRuntime:
                 None,
                 None,
                 role_events,
+                memory,
+                latency_ms,
             )
         if history.trace.action.value != "enter_long":
             self._skip_many(
@@ -687,17 +831,27 @@ class DeskRuntime:
                 None,
                 None,
                 role_events,
+                memory,
+                latency_ms,
             )
 
-        candidate = self.trader.derive_candidate(
-            plan=request.plan,
-            trace=history.trace,
-            quote=request.quote,
-            account_snapshot=request.account_snapshot,
-            now=request.now,
+        candidate = self._timed(
+            AgentMemoryRole.TRADER,
+            latency_ms,
+            lambda: self.trader.derive_candidate(
+                plan=request.plan,
+                trace=history.trace,
+                quote=request.quote,
+                account_snapshot=request.account_snapshot,
+                now=request.now,
+                memory_context=memory.contexts[AgentMemoryRole.TRADER],
+            ),
         )
-        thesis = self.analyst.draft(
-            AnalystBrief(
+        thesis = self._timed(
+            AgentMemoryRole.ANALYST,
+            latency_ms,
+            lambda: self.analyst.draft(
+                AnalystBrief(
                 plan=request.plan,
                 candidate=candidate,
                 history=history,
@@ -705,7 +859,10 @@ class DeskRuntime:
                 mood=mood,
                 strategy_stats=request.strategy_stats,
                 created_at=request.now,
-            )
+                memory_context=memory.contexts[AgentMemoryRole.ANALYST],
+                ),
+                memory_context=memory.contexts[AgentMemoryRole.ANALYST],
+            ),
         )
         if isinstance(thesis, str):
             role_events.append(
@@ -735,6 +892,8 @@ class DeskRuntime:
                 None,
                 None,
                 role_events,
+                memory,
+                latency_ms,
             )
         if not isinstance(thesis, TradeThesis):
             raise TypeError("analyst must return a TradeThesis or decline reason")
@@ -748,15 +907,21 @@ class DeskRuntime:
             )
         )
 
-        decision = self.committee.review(
-            thesis,
-            CommitteeReviewContext(
-                inputs=request.committee_context,
-                events=events,
-                mood=mood,
+        decision = self._timed(
+            AgentMemoryRole.COMMITTEE,
+            latency_ms,
+            lambda: self.committee.review(
+                thesis,
+                CommitteeReviewContext(
+                    inputs=request.committee_context,
+                    events=events,
+                    mood=mood,
+                    memory_context=memory.contexts[AgentMemoryRole.COMMITTEE],
+                ),
+                now=request.now,
+                command_id=f"{request.command_id}:committee",
+                memory_context=memory.contexts[AgentMemoryRole.COMMITTEE],
             ),
-            now=request.now,
-            command_id=f"{request.command_id}:committee",
         )
         if decision.approval.thesis != thesis:
             raise ValueError("committee decision does not belong to the analyst thesis")
@@ -793,15 +958,22 @@ class DeskRuntime:
                 thesis,
                 None,
                 role_events,
+                memory,
+                latency_ms,
             )
 
-        acceptance = self.trader.execute(
-            PaperExecutionRequest(
+        acceptance = self._timed(
+            AgentMemoryRole.TRADER,
+            latency_ms,
+            lambda: self.trader.execute(
+                PaperExecutionRequest(
                 cycle=request,
                 history=history,
                 decision=decision,
                 authorize_dispatch=authorize_dispatch,
-            )
+                ),
+                memory_context=memory.contexts[AgentMemoryRole.TRADER],
+            ),
         )
         role_events.append(
             self._role(
@@ -826,6 +998,8 @@ class DeskRuntime:
             thesis,
             acceptance,
             role_events,
+            memory,
+            latency_ms,
         )
 
     def _finish(
@@ -839,11 +1013,18 @@ class DeskRuntime:
         thesis: TradeThesis | None,
         acceptance: PaperAcceptance | None,
         role_events: list[str],
+        memory: DeskMemoryContexts,
+        latency_ms: dict[AgentMemoryRole, int],
     ) -> DeskCycleResult:
-        reflection = self.coach.reflect(
-            request.closed_observations,
-            now=request.now,
-            command_id=f"{request.command_id}:coach",
+        reflection = self._timed(
+            AgentMemoryRole.COACH,
+            latency_ms,
+            lambda: self.coach.reflect(
+                request.closed_observations,
+                now=request.now,
+                command_id=f"{request.command_id}:coach",
+                memory_context=memory.contexts[AgentMemoryRole.COACH],
+            ),
         )
         role_events.append(
             self._role(
@@ -857,7 +1038,14 @@ class DeskRuntime:
                 },
             )
         )
-        report = self.secretary.report(request.now.date())
+        report = self._timed(
+            AgentMemoryRole.SECRETARY,
+            latency_ms,
+            lambda: self.secretary.report(
+                request.now.date(),
+                memory_context=memory.contexts[AgentMemoryRole.SECRETARY],
+            ),
+        )
         role_events.append(
             self._role(
                 stream,
@@ -875,6 +1063,16 @@ class DeskRuntime:
                 "orchestrator",
                 {"status": status.value, "reason": reason},
             )
+        )
+        self._record_invocations(
+            request=request,
+            cycle_id=cycle_id,
+            role_event_ids=tuple(role_events),
+            memory=memory,
+            latency_ms=latency_ms,
+            episode_id=(
+                acceptance.episode.episode_id if acceptance is not None else None
+            ),
         )
         self._append(
             stream,
@@ -909,6 +1107,212 @@ class DeskRuntime:
             ),
             role_event_ids=tuple(role_events),
         )
+
+    def _record_invocations(
+        self,
+        *,
+        request: DeskCycleRequest,
+        cycle_id: str,
+        role_event_ids: tuple[str, ...],
+        memory: DeskMemoryContexts,
+        latency_ms: Mapping[AgentMemoryRole, int],
+        episode_id: str | None,
+    ) -> None:
+        events = {
+            event.event_id: event
+            for event in self._journal.read_all()
+            if event.event_id in role_event_ids
+        }
+        role_names = {
+            "orchestrator": AgentMemoryRole.DESK_HEAD,
+            "historian": AgentMemoryRole.HISTORIAN,
+            "reporter": AgentMemoryRole.REPORTER,
+            "crowd-reader": AgentMemoryRole.CROWD_READER,
+            "analyst": AgentMemoryRole.ANALYST,
+            "committee": AgentMemoryRole.COMMITTEE,
+            "trader": AgentMemoryRole.TRADER,
+            "coach": AgentMemoryRole.COACH,
+            "secretary": AgentMemoryRole.SECRETARY,
+        }
+        by_role = {
+            role_names[str(event.payload["role"])]: event
+            for event in events.values()
+        }
+        if set(by_role) != set(AgentMemoryRole):
+            raise RuntimeError("desk invocation ledger requires all nine role outcomes")
+        audit_events = {
+            event.event_id: event
+            for event in self._journal.read_all()
+            if event.event_id in set(memory.audit_event_ids.values())
+        }
+        for role in AgentMemoryRole:
+            role_event = by_role[role]
+            details = role_event.payload.get("details", {})
+            if role_event.event_type == "DeskRoleSkipped":
+                outcome = AgentOutcome.ABSTAIN
+            elif role is AgentMemoryRole.COMMITTEE and not bool(
+                details.get("approved")
+            ):
+                outcome = AgentOutcome.VETO
+            elif role is AgentMemoryRole.ANALYST and not bool(
+                details.get("proceed", True)
+            ):
+                outcome = AgentOutcome.ABSTAIN
+            else:
+                outcome = AgentOutcome.PROCEED
+            audit_id = memory.audit_event_ids[role]
+            audit = audit_events[audit_id]
+            occurred_at = max(request.now, audit.occurred_at, audit.recorded_at)
+            methods = None
+            if role_event.event_type == "DeskRoleSkipped":
+                methods = (
+                    ("derive_candidate",)
+                    if role is AgentMemoryRole.TRADER and latency_ms.get(role, 0)
+                    else ()
+                )
+            elif role is AgentMemoryRole.TRADER:
+                methods = ("derive_candidate", "execute")
+            prompt_id, model_id = self._runtime_identity(role, methods)
+            self._invocations.record(
+                AgentInvocation(
+                    cycle_id=cycle_id,
+                    episode_id=episode_id,
+                    role=role,
+                    context_pack_id=memory.contexts[role].context_pack_id,
+                    context_pack_audit_event_id=audit_id,
+                    prompt_id=prompt_id,
+                    model_id=model_id,
+                    outcome=outcome,
+                    confidence=None,
+                    latency_ms=latency_ms.get(role, 0),
+                    cost_microunits=0,
+                    occurred_at=occurred_at,
+                ),
+                command_id=f"{cycle_id}:{role.value}:invocation",
+            )
+
+    @staticmethod
+    def _timed(role, durations, operation):
+        started = perf_counter_ns()
+        try:
+            result = operation()
+        except Exception as exc:
+            elapsed_ms = (perf_counter_ns() - started + 999_999) // 1_000_000
+            durations[role] = durations.get(role, 0) + elapsed_ms
+            if isinstance(exc, DispatchAuthorizationRejected):
+                setattr(exc, "_desk_durations", dict(durations))
+                raise
+            raise _RoleCallFailed(role, durations, exc) from exc
+        elapsed_ms = (perf_counter_ns() - started + 999_999) // 1_000_000
+        durations[role] = durations.get(role, 0) + elapsed_ms
+        return result
+
+    def _record_failed_invocations(
+        self,
+        *,
+        request: DeskCycleRequest,
+        cycle_id: str,
+        memory: DeskMemoryContexts,
+        failed_role: AgentMemoryRole,
+        latency_ms: Mapping[AgentMemoryRole, int],
+    ) -> None:
+        role_names = {
+            "orchestrator": AgentMemoryRole.DESK_HEAD,
+            "historian": AgentMemoryRole.HISTORIAN,
+            "reporter": AgentMemoryRole.REPORTER,
+            "crowd-reader": AgentMemoryRole.CROWD_READER,
+            "analyst": AgentMemoryRole.ANALYST,
+            "committee": AgentMemoryRole.COMMITTEE,
+            "trader": AgentMemoryRole.TRADER,
+            "coach": AgentMemoryRole.COACH,
+            "secretary": AgentMemoryRole.SECRETARY,
+        }
+        observed = {}
+        for event in self._journal.read_all():
+            if (
+                event.correlation_id == cycle_id
+                and event.event_type in {"DeskRoleCompleted", "DeskRoleSkipped"}
+            ):
+                observed[role_names[str(event.payload["role"])]] = event
+        roles = tuple(AgentMemoryRole)
+        audit_by_id = {
+            event.event_id: event
+            for event in self._journal.read_all()
+            if event.event_id in set(memory.audit_event_ids.values())
+        }
+        for role in roles:
+            details = (
+                observed[role].payload.get("details", {})
+                if role in observed
+                else {}
+            )
+            if role in {failed_role, AgentMemoryRole.DESK_HEAD}:
+                outcome = AgentOutcome.ERROR
+            elif role not in observed or observed[role].event_type == "DeskRoleSkipped":
+                outcome = AgentOutcome.ABSTAIN
+            elif role is AgentMemoryRole.COMMITTEE and not bool(
+                details.get("approved")
+            ):
+                outcome = AgentOutcome.VETO
+            elif role is AgentMemoryRole.ANALYST and not bool(
+                details.get("proceed", True)
+            ):
+                outcome = AgentOutcome.ABSTAIN
+            else:
+                outcome = AgentOutcome.PROCEED
+            audit_id = memory.audit_event_ids[role]
+            audit = audit_by_id[audit_id]
+            if role not in observed and role not in {
+                failed_role,
+                AgentMemoryRole.DESK_HEAD,
+            }:
+                methods = ()
+            elif role is AgentMemoryRole.TRADER and role in observed:
+                methods = ("derive_candidate", "execute")
+            else:
+                methods = None
+            prompt_id, model_id = self._runtime_identity(role, methods)
+            self._invocations.record(
+                AgentInvocation(
+                    cycle_id=cycle_id,
+                    episode_id=None,
+                    role=role,
+                    context_pack_id=memory.contexts[role].context_pack_id,
+                    context_pack_audit_event_id=audit_id,
+                    prompt_id=prompt_id,
+                    model_id=model_id,
+                    outcome=outcome,
+                    confidence=None,
+                    latency_ms=latency_ms.get(role, 0),
+                    cost_microunits=0,
+                    occurred_at=max(request.now, audit.occurred_at, audit.recorded_at),
+                ),
+                command_id=f"{cycle_id}:{role.value}:invocation",
+            )
+
+    def _runtime_identity(
+        self, role: AgentMemoryRole, methods: tuple[str, ...] | None = None
+    ) -> tuple[str, str]:
+        targets = {
+            AgentMemoryRole.DESK_HEAD: (self, "run_cycle"),
+            AgentMemoryRole.HISTORIAN: (self.historian, "evaluate"),
+            AgentMemoryRole.REPORTER: (self.reporter, "report"),
+            AgentMemoryRole.CROWD_READER: (self.crowd_reader, "read"),
+            AgentMemoryRole.ANALYST: (self.analyst, "draft"),
+            AgentMemoryRole.COMMITTEE: (self.committee, "review"),
+            AgentMemoryRole.TRADER: (self.trader, "execute"),
+            AgentMemoryRole.COACH: (self.coach, "reflect"),
+            AgentMemoryRole.SECRETARY: (self.secretary, "report"),
+        }
+        target, method_name = targets[role]
+        selected = (method_name,) if methods is None else methods
+        if not selected:
+            return f"not-invoked:{role.value}", "none"
+        kind = type(target)
+        implementation = (
+            f"{kind.__module__}.{kind.__qualname__}." + "+".join(selected)
+        )
+        return f"callable:{implementation}", f"python:{implementation}"
 
     def _skip_many(
         self,
@@ -1163,3 +1567,13 @@ def _result_from_terminal(cycle_id: str, terminal, events) -> DeskCycleResult:
 
 def _optional_text(value: object) -> str | None:
     return None if value is None else str(value)
+
+
+def _require_role_memory(
+    context: MemoryContextPack | None, role: AgentMemoryRole
+) -> None:
+    if context is None:
+        return
+    if context.authority != "CONTEXT_ONLY" or context.query.role is not role:
+        raise ValueError("role received an invalid memory context pack")
+    tuple(context.source_event_ids)
