@@ -1,5 +1,4 @@
-"""Approval-chain tests with a mocked LLM — verify chain mechanics:
-ordering, veto short-circuit, all-levels-must-pass, audit logging."""
+"""Deterministic admission-chain tests."""
 
 from unittest.mock import MagicMock
 
@@ -26,7 +25,7 @@ def make_thesis(**over) -> TradeThesis:
         entry_zone_low=99.0, entry_zone_high=101.0, quantity=90,
         stop_loss=95.0, targets=[110.0], time_horizon_days=20,
         invalidation="Close below 200 DMA",
-        evidence=["55-day breakout on 2x volume (source: EOD data 2026-07-04)"],
+        evidence=["claim:" + "a" * 64],
         playbook_citations=[PlaybookCitation(strategy="momentum_breakout_55",
                                              oos_expectancy_pct=0.5,
                                              oos_hit_rate=0.45, oos_trades=100)],
@@ -61,10 +60,12 @@ def state():
 
 
 def test_full_approval(rails):
-    chain = ApprovalChain(rails, client=mock_client([True, True, True]))
+    client = mock_client([])
+    chain = ApprovalChain(rails, client=client, regime_context="risk-on")
     rec = chain.run(make_thesis(), state(), turnover=1e9, surveillance_stage=0)
     assert rec.approved
     assert [v.level for v in rec.verdicts] == ["L1", "L2", "L3", "L4"]
+    client.messages.create.assert_not_called()
 
 
 def test_l1_veto_short_circuits(rails):
@@ -78,15 +79,15 @@ def test_l1_veto_short_circuits(rails):
 
 
 def test_l2_veto_stops_chain(rails):
-    chain = ApprovalChain(rails, client=mock_client([False]))
-    rec = chain.run(make_thesis(), state(), turnover=1e9, surveillance_stage=0)
+    chain = ApprovalChain(rails, regime_context="risk-on")
+    rec = chain.run(make_thesis(evidence=[]), state(), turnover=1e9, surveillance_stage=0)
     assert not rec.approved
     assert [v.level for v in rec.verdicts] == ["L1", "L2"]
     assert rec.vetoed_by == ["L2:devils-advocate"]
 
 
 def test_l4_veto_means_not_approved(rails):
-    chain = ApprovalChain(rails, client=mock_client([True, True, False]))
+    chain = ApprovalChain(rails, regime_context="")
     rec = chain.run(make_thesis(), state(), turnover=1e9, surveillance_stage=0)
     assert not rec.approved
     assert rec.vetoed_by == ["L4:orchestrator"]
