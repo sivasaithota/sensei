@@ -1,83 +1,28 @@
-"""Approval chain (PRD §4.6): L1 Risk → L2 Devil's Advocate → L3 Compliance → L4 Orchestrator.
+"""Deterministic trade admission checks.
 
-Any level can veto; all levels must pass. L1 is pure code (RiskRails).
-L2–L4 are LLM agents, each with a narrow brief and a forced structured
-verdict. Every verdict is appended to the immutable audit log.
+The historical L1-L4 labels remain in durable evidence for compatibility, but
+no conversational model runs in the entry path. Slow agents may prepare facts
+ahead of time; this module only applies registered policy to exact inputs.
 """
 
 from __future__ import annotations
 
 import json
+import math
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 from sensei.agents.thesis import ApprovalRecord, TradeThesis, Verdict
-from sensei.llm import structured_call
 from sensei.risk.rails import PortfolioState, RiskRails, TradeProposal
 
 AUDIT_LOG = Path(__file__).resolve().parents[3] / "data" / "audit.jsonl"
-
-VERDICT_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "approved": {"type": "boolean"},
-        "reasoning": {"type": "string",
-                      "description": "Concise reasoning for the verdict, citing thesis specifics."},
-    },
-    "required": ["approved", "reasoning"],
-}
-
-L2_SYSTEM = """You are the Devil's Advocate on a systematic swing-trading desk's
-approval committee. Attack the trade thesis: hunt for disconfirming evidence,
-internal contradictions, and reasoning that would not survive the strongest
-counter-argument. Approve only if the thesis survives your best attack.
-
-Calibrate the attack to the system you serve:
-- This is a SYSTEMATIC desk. Position size, stop, and target come from a
-  backtested Playbook strategy with hard risk rails (max 2% of capital at risk,
-  mandatory stop at the exchange). Do not veto for absent institutional
-  documentation (Sharpe ratios, debt schedules, sector correlation matrices) —
-  that information is not in the system and demanding it vetoes every trade.
-- Judge with what IS supplied: the thesis facts, the strategy's out-of-sample
-  statistics (including loss distribution and exit breakdown), and coherence
-  between entry, stop, and invalidation.
-- VETO for: internal contradictions (invalidation triggers inside the entry
-  zone, stop inconsistent with cited structural levels when those levels ARE
-  supplied), facts that contradict the strategy's premise, evidence items that
-  don't cite supplied data, or setups matching known mistake patterns.
-- A low hit rate is NOT itself a flaw when the supplied loss distribution shows
-  the expectancy is real — that is how breakout systems work.
-False approvals cost money; false vetoes cost learning. Both are errors."""
-
-L3_SYSTEM = """You are the Compliance Agent for a retail algo trading system in India
-(SEBI-regulated, trading only the owner's own capital via Zerodha Kite Connect).
-Check the thesis for: banned/GSM/ASM-listed instruments, patterns resembling market
-manipulation (circular trading, spoofing-like behavior), trading on what could be
-material non-public information (evidence must cite PUBLIC sources), and no-trade
-windows around results if the strategy doesn't explicitly target them. Approve only
-if compliant. When ambiguous, veto — conservative default."""
-
-L4_SYSTEM = """You are the Orchestrator (desk head) giving final sign-off.
-The thesis has passed risk, devil's-advocate, and compliance checks. Your check is
-coherence: does this trade fit the current portfolio (concentration, correlated
-exposure), the stated market regime, and the learning agenda? Would you stake your
-reputation on the REASONING (not the outcome)? Veto if the trade is redundant with
-existing exposure or the thesis conflicts with the regime view supplied."""
-
 
 def _audit(event: str, payload: dict) -> None:
     AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
     with AUDIT_LOG.open("a") as f:
         f.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(),
                             "event": event, **payload}) + "\n")
-
-
-def _llm_verdict(client, level: str, agent: str,
-                 system: str, user_content: str) -> Verdict:
-    args = structured_call(system=system, user=user_content,
-                           schema=VERDICT_SCHEMA, name="verdict", client=client)
-    return Verdict(level=level, agent=agent, approved=args["approved"],
-                   reasoning=args["reasoning"])
 
 
 class ApprovalChain:
@@ -105,8 +50,6 @@ class ApprovalChain:
             turnover: float, surveillance_stage: int | None = None) -> ApprovalRecord:
         record = ApprovalRecord(thesis=thesis)
         _audit("thesis_submitted", {"thesis": thesis.model_dump(mode="json")})
-        thesis_json = thesis.model_dump_json(indent=2)
-
         # L1 — pure code, always first, cheap and unconditional
         v1 = self._l1(thesis, state, turnover, surveillance_stage)
         record.verdicts.append(v1)
@@ -114,28 +57,85 @@ class ApprovalChain:
         if not v1.approved:
             return record
 
-        # L2 + L3 in sequence (parallelizable later; correctness first)
-        v2 = _llm_verdict(self.client, "L2", "devils-advocate", L2_SYSTEM,
-                          f"Attack this trade thesis:\n{thesis_json}")
+        # These are deterministic policy checks. Asynchronous agents can add
+        # signed facts to the supplied thesis/context, but cannot improvise an
+        # approval or make entry depend on model availability.
+        v2 = self._l2(thesis)
         record.verdicts.append(v2)
         _audit("verdict", {"thesis_id": thesis.id, **v2.model_dump(mode="json")})
         if not v2.approved:
             return record
 
-        v3 = _llm_verdict(self.client, "L3", "compliance", L3_SYSTEM,
-                          f"Compliance-check this trade thesis:\n{thesis_json}\n"
-                          f"GSM/ASM surveillance stage: {surveillance_stage}")
+        v3 = self._l3(thesis, surveillance_stage)
         record.verdicts.append(v3)
         _audit("verdict", {"thesis_id": thesis.id, **v3.model_dump(mode="json")})
         if not v3.approved:
             return record
 
-        v4 = _llm_verdict(
-            self.client, "L4", "orchestrator", L4_SYSTEM,
-            f"Final sign-off on this trade thesis:\n{thesis_json}\n\n"
-            f"Current portfolio:\n{self.portfolio_context or 'flat, no open positions'}\n\n"
-            f"Regime view:\n{self.regime_context or 'no regime view supplied'}")
+        v4 = self._l4(thesis, state)
         record.verdicts.append(v4)
         _audit("verdict", {"thesis_id": thesis.id, **v4.model_dump(mode="json")})
         _audit("chain_complete", {"thesis_id": thesis.id, "approved": record.approved})
         return record
+
+    @staticmethod
+    def _l2(thesis: TradeThesis) -> Verdict:
+        violations = []
+        if not thesis.evidence or len(set(thesis.evidence)) != len(thesis.evidence):
+            violations.append("thesis evidence is missing or duplicated")
+        if not thesis.invalidation.strip():
+            violations.append("thesis invalidation is missing")
+        if (
+            not all(math.isfinite(value) for value in (
+                thesis.entry_zone_low, thesis.entry_zone_high, thesis.stop_loss,
+            ))
+            or thesis.entry_zone_low > thesis.entry_zone_high
+            or thesis.stop_loss >= thesis.entry_zone_low
+            or not thesis.targets
+            or any(
+                not math.isfinite(target) or target <= thesis.entry_zone_high
+                for target in thesis.targets
+            )
+        ):
+            violations.append("entry, stop, and target geometry is incoherent")
+        if not thesis.playbook_citations or any(
+            item.oos_trades <= 0 for item in thesis.playbook_citations
+        ):
+            violations.append("out-of-sample strategy evidence is missing")
+        return Verdict(
+            level="L2", agent="devils-advocate", approved=not violations,
+            reasoning="deterministic thesis checks pass" if not violations
+            else "; ".join(violations),
+        )
+
+    @staticmethod
+    def _l3(thesis: TradeThesis, surveillance_stage: int | None) -> Verdict:
+        approved = surveillance_stage == 0 and all(
+            re.fullmatch(r"claim:[0-9a-f]{64}", str(item)) is not None
+            for item in thesis.evidence
+        )
+        return Verdict(
+            level="L3", agent="compliance", approved=approved,
+            reasoning=(
+                "public provenance and surveillance checks pass"
+                if approved else
+                "compliance requires public content-addressed evidence and clear surveillance"
+            ),
+        )
+
+    def _l4(self, thesis: TradeThesis, state: PortfolioState) -> Verdict:
+        # L4 aggregates; it never adds a discretionary model opinion.
+        approved = bool(
+            thesis.narrative.strip()
+            and self.regime_context.strip()
+            and not state.halted
+            and math.isfinite(state.equity)
+            and state.equity > 0
+        )
+        return Verdict(
+            level="L4", agent="orchestrator", approved=approved,
+            reasoning=(
+                "required deterministic evidence package is complete"
+                if approved else "portfolio or market-regime evidence is invalid"
+            ),
+        )
