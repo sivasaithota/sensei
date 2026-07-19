@@ -10,6 +10,12 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from sensei.data.news import (
+    NewsRiskBook,
+    NewsRiskPolicy,
+    NewsSecretStore,
+)
+from sensei.operations import OperationalJournal
 from sensei.execution.nse import NseExecutionModel, NseMarketObservation
 
 from sensei.agents.chain import ApprovalChain
@@ -72,7 +78,6 @@ from sensei.reporting.operations import OperationalReporter
 from sensei.risk.rails import RiskConfig, RiskRails
 from sensei.runtime.account import PaperAccountProjector
 from sensei.runtime.activation import (
-    NseSurveillanceRefresher,
     RuntimeSecretStore,
     RuntimeTrustError,
     VerifiedSurveillanceSource,
@@ -100,7 +105,6 @@ class ProductionPaperSession:
         playbook_path: Path = Path("data/playbook/current.json"),
         prices_path: Path = Path("data/prices"),
         provenance_path: Path = Path("data/provenance"),
-        refresh_surveillance=None,
         legacy_baseline=None,
     ) -> None:
         self._journal_path = Path(journal_path)
@@ -109,11 +113,11 @@ class ProductionPaperSession:
         self._playbook_path = Path(playbook_path)
         self._prices_path = Path(prices_path)
         self._provenance_path = Path(provenance_path)
-        self._refresh_surveillance = refresh_surveillance
         self._legacy_baseline = legacy_baseline
 
     def __call__(self, task: ScheduledTask, now: datetime) -> TaskOutcome:
         secrets = RuntimeSecretStore.load(self._config.runtime_secrets_path)
+        instruments = self._instruments()
         surveillance = VerifiedSurveillanceSource(
             self._config.surveillance_path,
             issuer_id="market-surveillance",
@@ -121,19 +125,6 @@ class ProductionPaperSession:
             maximum_age=timedelta(minutes=30),
             clock=lambda: now,
         )
-        instruments = self._instruments()
-        snapshot_complete = bool(instruments) and all(
-            surveillance(instrument.split(":")[-1], task.trading_date) is not None
-            for instrument in instruments
-        )
-        if not snapshot_complete:
-            refresher = self._refresh_surveillance or NseSurveillanceRefresher(
-                destination=self._config.surveillance_path,
-                issuer_id="market-surveillance",
-                secret=secrets["market-surveillance"],
-            ).refresh
-            refresher(session=task.trading_date, observed_at=now)
-
         def compose(journal, gateway):
             composition, _inputs = self._compose(
                 journal=journal,
@@ -182,7 +173,9 @@ class ProductionPaperSession:
             result.cycles[-1].reason,
         )
 
-    def _compose(self, *, journal, gateway, secrets, now, command_id):
+    def _compose(
+        self, *, journal, gateway, secrets, now, command_id,
+    ):
         risk_config = RiskConfig.load(self._risk_path)
         limits = _risk_limits(risk_config)
         component_secrets = {
@@ -305,6 +298,20 @@ class ProductionPaperSession:
             maximum_age=timedelta(minutes=30),
             clock=lambda: now,
         )
+        try:
+            news_secret = NewsSecretStore.load(self._config.news_secret_path)
+            news_book = NewsRiskBook(
+                self._config.news_snapshot_path,
+                secret=news_secret,
+            )
+            news_snapshot = news_book.latest()
+        except (OSError, ValueError):
+            news_snapshot = None
+        news_policy = NewsRiskPolicy(
+            maximum_snapshot_age=timedelta(minutes=15),
+            minimum_available_feeds=1,
+            required_sources=frozenset({"NSE_CORPORATE"}),
+        )
         committee = ApprovalChainCommittee(
             ApprovalChain(RiskRails(risk_config)),
             verdict_authority,
@@ -320,7 +327,14 @@ class ProductionPaperSession:
                 trace_authority,
                 HmacFactSigner("historian", secrets["historian"]),
             ),
-            reporter=EarningsReporter(surveillance=surveillance),
+            reporter=EarningsReporter(
+                surveillance=surveillance,
+                news_risk=lambda instrument_id, as_of: news_policy.assess(
+                    news_snapshot,
+                    instrument_id=instrument_id,
+                    as_of=as_of,
+                ),
+            ),
             crowd_reader=RegimeCrowdReader(reader=self._regime),
             analyst=GovernedAnalyst(),
             committee=committee,

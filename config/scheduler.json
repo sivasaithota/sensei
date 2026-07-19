@@ -3,6 +3,17 @@
   "legacy_positions_path": "data/paper/positions.json",
   "runtime_secrets_path": "data/runtime-secrets.json",
   "surveillance_path": "data/surveillance.json",
+  "news_snapshot_path": "data/news-risk.json",
+  "news_secret_path": "data/news-risk-secret",
+  "news_feeds": {
+    "FED": "https://www.federalreserve.gov/feeds/press_all.xml",
+    "ECB": "https://www.ecb.europa.eu/rss/press.html",
+    "BOE": "https://www.bankofengland.co.uk/rss/news",
+    "PIB_INDIA": "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3",
+    "RBI_RELEASES": "https://rbi.org.in/pressreleases_rss.xml",
+    "RBI_NOTIFICATIONS": "https://rbi.org.in/notifications_rss.xml",
+    "GOOGLE_NEWS_RISK": "https://news.google.com/rss/search?q=war+OR+sanctions+OR+market+closure+OR+capital+controls+when:1d&hl=en-IN&gl=IN&ceid=IN:en"
+  },
   "risk_path": "config/risk.yaml",
   "playbook_path": "data/playbook/current.json",
   "prices_path": "data/prices",

@@ -54,6 +54,10 @@ class EventBrief:
     blocked: bool
     reason: str
     surveillance_stage: int | None
+    news_level: str = "NOT_CONFIGURED"
+    news_event_ids: tuple[str, ...] = ()
+    news_snapshot_digest: str | None = None
+    news_snapshot_observed_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -634,7 +638,18 @@ class DeskRuntime:
                 request,
                 cycle_id,
                 "reporter",
-                {"blocked": events.blocked, "reason": events.reason},
+                {
+                    "blocked": events.blocked,
+                    "reason": events.reason,
+                    "news_level": events.news_level,
+                    "news_event_ids": list(events.news_event_ids),
+                    "news_snapshot_digest": events.news_snapshot_digest,
+                    "news_snapshot_observed_at": (
+                        events.news_snapshot_observed_at.isoformat()
+                        if events.news_snapshot_observed_at is not None
+                        else None
+                    ),
+                },
             )
         )
         mood = self.crowd_reader.read(as_of=request.now)
