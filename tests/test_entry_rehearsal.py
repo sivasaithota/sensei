@@ -3,6 +3,11 @@ from datetime import date, datetime, timezone
 
 import pandas as pd
 
+from sensei.automation import (
+    SchedulerLedger,
+    SurveillancePreflightSession,
+    SwingSessionPolicy,
+)
 from sensei.operations import EventAppend, OperationalJournal
 from sensei.runtime import RuntimeSecretStore, VerifiedSurveillanceSource
 from sensei.runtime.rehearsal import (
@@ -25,11 +30,28 @@ def _production_fixture(tmp_path):
     secrets_path = tmp_path / "runtime-secrets.json"
     secrets = RuntimeSecretStore.bootstrap(secrets_path)
     surveillance_path = tmp_path / "surveillance.json"
-    VerifiedSurveillanceSource.publish(
-        surveillance_path, stages={"INFY": 0}, session=date(2026, 7, 20),
-        observed_at=datetime(2026, 7, 20, 3, 51, tzinfo=timezone.utc),
+    preflight_at = datetime(2026, 7, 20, 3, 1, tzinfo=timezone.utc)
+    preflight = SwingSessionPolicy().due_tasks(preflight_at).tasks[0]
+    ledger = SchedulerLedger(journal)
+    claim = ledger.claim(preflight, occurred_at=preflight_at)
+    SurveillancePreflightSession(
+        journal=journal,
+        destination=surveillance_path,
         issuer_id="market-surveillance",
         secret=secrets["market-surveillance"],
+        fetch=lambda _url: b"101,INFY,N,A,EQ,100,100,100,100,100\n",
+        retry_backoff_seconds=0,
+    ).prepare(
+        trading_date=date(2026, 7, 20),
+        observed_at=preflight_at,
+        command_id=preflight.task_id,
+    )
+    ledger.complete(
+        preflight.task_id,
+        claimant_id=claim.record.claimant_id,
+        occurred_at=preflight_at.replace(second=1),
+        detail="surveillance ready",
+        reason_codes=("SURVEILLANCE_PREFLIGHT_READY",),
     )
     prices = tmp_path / "prices"
     prices.mkdir()
@@ -80,7 +102,8 @@ def test_rehearsal_runs_production_composition_without_changing_source(tmp_path)
 
     assert report.state is RehearsalState.NO_SIGNAL
     assert report.reason_codes == ("NO_CANONICAL_SIGNAL",)
-    assert report.production_events_before == report.production_events_after == 1
+    assert report.production_events_before == report.production_events_after
+    assert report.production_events_before > 0
     assert report.sandbox_events_added > 0
     assert report.production_state_unchanged is True
     assert report.real_order_submitted is False

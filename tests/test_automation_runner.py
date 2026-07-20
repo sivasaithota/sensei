@@ -58,12 +58,19 @@ def completed(code: str) -> TaskOutcome:
     )
 
 
+def result_for(result: SchedulerRunResult, kind: SchedulerTaskKind):
+    return next(item for item in result.task_results if item.task.kind is kind)
+
+
 def handlers(
     *,
+    surveillance: SchedulerTaskHandler | None = None,
     entry: SchedulerTaskHandler | None = None,
     end_of_day: SchedulerTaskHandler | None = None,
 ) -> dict[SchedulerTaskKind, SchedulerTaskHandler]:
     return {
+        SchedulerTaskKind.SURVEILLANCE_PREFLIGHT: surveillance
+        or StubHandler(completed("SURVEILLANCE_READY")),
         SchedulerTaskKind.ENTRY_SESSION: entry
         or StubHandler(completed("ENTRY_COMPLETED")),
         SchedulerTaskKind.END_OF_DAY_SESSION: end_of_day
@@ -105,13 +112,15 @@ def test_completed_task_replays_without_reinvoking_handler(tmp_path: Path) -> No
     replay = runner.run_once(now + timedelta(minutes=1))
 
     assert isinstance(first, SchedulerRunResult)
-    assert first.schedule.state is ScheduleState.DUE
-    assert first.task_results[0].outcome.state is TaskOutcomeState.COMPLETED
-    assert first.task_results[0].replayed is False
+    assert first.schedule.state is ScheduleState.DUE_WITH_HALTS
+    first_entry = result_for(first, SchedulerTaskKind.ENTRY_SESSION)
+    replay_entry = result_for(replay, SchedulerTaskKind.ENTRY_SESSION)
+    assert first_entry.outcome.state is TaskOutcomeState.COMPLETED
+    assert first_entry.replayed is False
     assert replay.schedule.state is ScheduleState.NO_WORK
     assert replay.schedule.no_work_reason is SchedulerNoWorkReason.ALREADY_RESOLVED
-    assert replay.task_results[0].outcome == first.task_results[0].outcome
-    assert replay.task_results[0].replayed is True
+    assert replay_entry.outcome == first_entry.outcome
+    assert replay_entry.replayed is True
     assert len(entry.calls) == 1
     assert json.loads(json.dumps(replay.to_dict()))["task_results"][0][
         "replayed"
@@ -135,10 +144,14 @@ def test_missed_entry_is_journaled_but_end_of_day_still_runs(tmp_path: Path) -> 
 
     assert result.schedule.state is ScheduleState.DUE_WITH_HALTS
     assert [item.task.kind for item in result.task_results] == [
+        SchedulerTaskKind.SURVEILLANCE_PREFLIGHT,
         SchedulerTaskKind.ENTRY_SESSION,
         SchedulerTaskKind.END_OF_DAY_SESSION,
     ]
-    missed, maintained = result.task_results
+    missed_preflight, missed, maintained = result.task_results
+    assert missed_preflight.outcome.reason_codes == (
+        "MISSED_SURVEILLANCE_PREFLIGHT",
+    )
     assert missed.outcome.state is TaskOutcomeState.HALTED
     assert missed.outcome.reason_codes == ("MISSED_ENTRY_WINDOW",)
     assert missed.halt_source is SchedulerHaltSource.WINDOW
@@ -166,7 +179,10 @@ class BothDuePolicy:
                 expires_at=now + timedelta(minutes=1),
                 policy_version="both-due-v1",
             )
-            for kind in SchedulerTaskKind
+            for kind in (
+                SchedulerTaskKind.ENTRY_SESSION,
+                SchedulerTaskKind.END_OF_DAY_SESSION,
+            )
         )
 
     def due_tasks(
@@ -237,7 +253,7 @@ def test_unexpected_handler_failure_is_sanitized_and_durably_halted(
 
     result = runner.run_once(now)
 
-    task_result = result.task_results[0]
+    task_result = result_for(result, SchedulerTaskKind.ENTRY_SESSION)
     assert task_result.outcome.state is TaskOutcomeState.HALTED
     assert task_result.outcome.reason_codes == ("TASK_HANDLER_FAILED",)
     assert task_result.outcome.detail == "handler raised RuntimeError"
@@ -267,7 +283,7 @@ def test_actionable_handler_failure_preserves_specific_safe_reason(tmp_path: Pat
 
     result = runner.run_once(now)
 
-    outcome = result.task_results[0].outcome
+    outcome = result_for(result, SchedulerTaskKind.ENTRY_SESSION).outcome
     assert outcome.reason_codes == ("SURVEILLANCE_SOURCE_UNAVAILABLE",)
     assert outcome.detail == "handler raised SurveillanceUnavailable"
 
@@ -288,7 +304,9 @@ def test_untrusted_handler_cannot_choose_durable_reason_code(tmp_path: Path):
 
     result = runner.run_once(at_ist(date(2026, 7, 17), 9, 21))
 
-    assert result.task_results[0].outcome.reason_codes == ("TASK_HANDLER_FAILED",)
+    assert result_for(
+        result, SchedulerTaskKind.ENTRY_SESSION
+    ).outcome.reason_codes == ("TASK_HANDLER_FAILED",)
 
 
 class BlockingHandler:
@@ -322,9 +340,15 @@ def test_racing_runner_does_not_invoke_an_unacquired_claim(tmp_path: Path) -> No
         completed_run = active.result(timeout=2)
 
     assert blocking.calls == 1
-    assert len(completed_run.task_results) == 1
+    assert len(completed_run.task_results) == 2
+    assert result_for(
+        completed_run, SchedulerTaskKind.ENTRY_SESSION
+    ).outcome.state is TaskOutcomeState.COMPLETED
     assert len(contender.in_progress_task_ids) == 1
-    assert contender.task_results == ()
+    assert [item.task.kind for item in contender.task_results] == [
+        SchedulerTaskKind.SURVEILLANCE_PREFLIGHT
+    ]
+    assert contender.task_results[0].replayed is True
 
 
 def test_runner_refuses_unverified_journal_before_handlers(

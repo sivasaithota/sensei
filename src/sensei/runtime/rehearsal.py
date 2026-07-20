@@ -206,7 +206,23 @@ def classify_rehearsal_outcome(
     tasks = result.get("task_results", ())
     if not tasks:
         return RehearsalState.BLOCKED, ("ENTRY_TASK_NOT_EXERCISED",), "No entry task ran in the sandbox"
-    outcome = tasks[0].get("outcome", {})
+    entry_task = next(
+        (
+            item
+            for item in tasks
+            if item.get("task", {}).get("kind") == "ENTRY_SESSION"
+        ),
+        None,
+    )
+    if entry_task is None and len(tasks) == 1 and "task" not in tasks[0]:
+        entry_task = tasks[0]
+    if entry_task is None:
+        return (
+            RehearsalState.BLOCKED,
+            ("ENTRY_TASK_NOT_EXERCISED",),
+            "No entry task ran in the sandbox",
+        )
+    outcome = entry_task.get("outcome", {})
     reasons = tuple(str(value) for value in outcome.get("reason_codes", ()))
     detail = str(outcome.get("detail", "Rehearsal produced no detail"))
     if "GOVERNED_PAPER_DISPATCHED" in reasons:

@@ -14,6 +14,8 @@ import hmac
 import json
 import os
 import stat
+import tempfile
+import time
 from collections.abc import Mapping
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -163,12 +165,7 @@ class VerifiedSurveillanceSource:
         if source_session is not None:
             fact["source_session"] = source_session.isoformat()
         payload = {**fact, "signature": _sign(fact, secret)}
-        target = Path(path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(
-            json.dumps(payload, sort_keys=True, separators=(",", ":")),
-            encoding="utf-8",
-        )
+        _atomic_private_json(Path(path), payload)
 
     def __call__(self, symbol: str, session: date) -> int | None:
         try:
@@ -176,6 +173,9 @@ class VerifiedSurveillanceSource:
             signature = payload.pop("signature")
             observed_at = datetime.fromisoformat(payload["observed_at"])
             snapshot_session = date.fromisoformat(payload["session"])
+            source_session = date.fromisoformat(
+                payload.get("source_session", payload["session"])
+            )
             stages = _stages(payload["stages"])
         except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
             return None
@@ -188,6 +188,10 @@ class VerifiedSurveillanceSource:
         if observed_at > now or now - observed_at > self._maximum_age:
             return None
         if snapshot_session != session:
+            return None
+        if source_session > snapshot_session:
+            raise RuntimeTrustError("surveillance source session is in the future")
+        if snapshot_session - source_session > timedelta(days=7):
             return None
         return stages.get(symbol)
 
@@ -204,11 +208,21 @@ class NseSurveillanceRefresher:
         issuer_id: str,
         secret: bytes,
         fetch=None,
+        maximum_attempts: int = 3,
+        retry_backoff_seconds: float = 1.0,
+        sleep=time.sleep,
     ) -> None:
+        if maximum_attempts < 1:
+            raise ValueError("maximum_attempts must be positive")
+        if retry_backoff_seconds < 0:
+            raise ValueError("retry_backoff_seconds must not be negative")
         self._destination = Path(destination)
         self._issuer_id = issuer_id
         self._secret = secret
         self._fetch = fetch or self._fetch_official
+        self._maximum_attempts = maximum_attempts
+        self._retry_backoff_seconds = retry_backoff_seconds
+        self._sleep = sleep
 
     def refresh(self, *, session: date, observed_at: datetime) -> dict[str, int]:
         _aware(observed_at)
@@ -216,10 +230,17 @@ class NseSurveillanceRefresher:
         source_session = session
         for candidate in _recent_trading_sessions(session, limit=7):
             url = self.URL.format(day=candidate.strftime("%d%m%y"))
-            try:
-                parsed = self.parse(self._fetch(url))
-            except RuntimeTrustError:
-                continue
+            parsed = None
+            for attempt in range(self._maximum_attempts):
+                try:
+                    parsed = self.parse(self._fetch(url))
+                    break
+                except RuntimeTrustError:
+                    if (
+                        attempt + 1 < self._maximum_attempts
+                        and self._retry_backoff_seconds
+                    ):
+                        self._sleep(self._retry_backoff_seconds * (2**attempt))
             if parsed:
                 stages = parsed
                 source_session = candidate
@@ -294,6 +315,25 @@ def _stages(values: Mapping[str, int]) -> dict[str, int]:
 def _sign(fact: Mapping[str, object], secret: bytes) -> str:
     message = json.dumps(fact, sort_keys=True, separators=(",", ":")).encode()
     return hmac.new(secret, message, hashlib.sha256).hexdigest()
+
+
+def _atomic_private_json(path: Path, payload: Mapping[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
+    try:
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, sort_keys=True, separators=(",", ":"))
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
 
 def _aware(value: datetime) -> None:

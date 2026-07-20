@@ -38,11 +38,23 @@ again.
 
 Normal task order is:
 
-1. protective recovery and reconciliation;
-2. retry-bounded market-data ingestion, universe hygiene, and shadow progression;
-3. one bounded governed paper-entry session;
-4. post-close outcome/Coach processing and reporting;
-5. journal verification and backup.
+1. bounded 08:30, 08:40, and 08:50 surveillance preflight opportunities that
+   retrieve, sign, and journal the exact trading-date snapshot with
+   failed-request exponential retries;
+2. protective recovery and reconciliation;
+3. retry-bounded market-data ingestion, universe hygiene, and shadow progression;
+4. one bounded governed paper-entry session;
+5. post-close outcome/Coach processing and reporting;
+6. journal verification and backup.
+
+The last surveillance preflight expires at 09:15, before the 09:20 entry
+window. A failed attempt is a durable typed task halt, while a later opportunity
+may still succeed. The entry handler never performs surveillance network I/O:
+it consumes only a signed snapshot whose exact digest is linked to a completed
+preflight scheduler task for its trading date, and fails closed with
+`SURVEILLANCE_SOURCE_UNAVAILABLE` when that artifact is missing, stale,
+tampered, too far removed from its official source session, or incomplete for
+the evaluated instruments.
 
 At most one entry-bearing Desk cycle is dispatched per Supervisor session. A
 later poll captures new account and broker truth before evaluating another

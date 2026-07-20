@@ -37,6 +37,7 @@ _MAX_DETAIL_LENGTH = 1_000
 class SchedulerTaskKind(StrEnum):
     """Bounded jobs which a production composition root may implement."""
 
+    SURVEILLANCE_PREFLIGHT = "SURVEILLANCE_PREFLIGHT"
     ENTRY_SESSION = "ENTRY_SESSION"
     END_OF_DAY_SESSION = "END_OF_DAY_SESSION"
 
@@ -60,6 +61,7 @@ class SchedulerNoWorkReason(StrEnum):
 class SchedulerHaltReason(StrEnum):
     """Fail-closed task outcomes; none of these permits a late entry."""
 
+    MISSED_SURVEILLANCE_PREFLIGHT = "MISSED_SURVEILLANCE_PREFLIGHT"
     MISSED_ENTRY_WINDOW = "MISSED_ENTRY_WINDOW"
     MISSED_END_OF_DAY_WINDOW = "MISSED_END_OF_DAY_WINDOW"
 
@@ -186,6 +188,7 @@ class _TaskWindow:
     opens_at: time
     closes_at: time
     missed_reason: SchedulerHaltReason
+    identity_suffix: str = ""
 
 
 class SwingSessionPolicy:
@@ -199,6 +202,9 @@ class SwingSessionPolicy:
         self,
         *,
         policy_version: str = "india-swing-paper-v1",
+        surveillance_preflight_at: time = time(8, 30),
+        surveillance_retry_at: tuple[time, time] = (time(8, 40), time(8, 50)),
+        surveillance_preflight_cutoff: time = time(9, 15),
         entry_at: time = time(9, 20),
         entry_cutoff: time = time(9, 35),
         end_of_day_at: time = time(18, 30),
@@ -208,6 +214,8 @@ class SwingSessionPolicy:
         if not isinstance(policy_version, str) or not policy_version.strip():
             raise ValueError("policy_version is required")
         for label, value in (
+            ("surveillance_preflight_at", surveillance_preflight_at),
+            ("surveillance_preflight_cutoff", surveillance_preflight_cutoff),
             ("entry_at", entry_at),
             ("entry_cutoff", entry_cutoff),
             ("end_of_day_at", end_of_day_at),
@@ -215,13 +223,52 @@ class SwingSessionPolicy:
         ):
             if not isinstance(value, time) or value.tzinfo is not None:
                 raise ValueError(f"{label} must be a timezone-naive wall-clock time")
-        if not entry_at < entry_cutoff < end_of_day_at < end_of_day_cutoff:
+        if (
+            not isinstance(surveillance_retry_at, tuple)
+            or len(surveillance_retry_at) != 2
+            or any(
+                not isinstance(value, time) or value.tzinfo is not None
+                for value in surveillance_retry_at
+            )
+        ):
+            raise ValueError("surveillance_retry_at must contain two wall-clock times")
+        if not (
+            surveillance_preflight_at
+            < surveillance_retry_at[0]
+            < surveillance_retry_at[1]
+            < surveillance_preflight_cutoff
+            < entry_at
+            < entry_cutoff
+            < end_of_day_at
+            < end_of_day_cutoff
+        ):
             raise ValueError("session task windows must be ordered and non-overlapping")
         if any(type(item) is not date for item in closed_dates):
             raise TypeError("closed_dates must contain dates")
         self.policy_version = policy_version.strip()
         self.closed_dates = frozenset(closed_dates)
         self._windows = (
+            _TaskWindow(
+                SchedulerTaskKind.SURVEILLANCE_PREFLIGHT,
+                surveillance_preflight_at,
+                _minute_before(surveillance_retry_at[0]),
+                SchedulerHaltReason.MISSED_SURVEILLANCE_PREFLIGHT,
+                ":surveillance-0830",
+            ),
+            _TaskWindow(
+                SchedulerTaskKind.SURVEILLANCE_PREFLIGHT,
+                surveillance_retry_at[0],
+                _minute_before(surveillance_retry_at[1]),
+                SchedulerHaltReason.MISSED_SURVEILLANCE_PREFLIGHT,
+                ":surveillance-0840",
+            ),
+            _TaskWindow(
+                SchedulerTaskKind.SURVEILLANCE_PREFLIGHT,
+                surveillance_retry_at[1],
+                surveillance_preflight_cutoff,
+                SchedulerHaltReason.MISSED_SURVEILLANCE_PREFLIGHT,
+                ":surveillance-0850",
+            ),
             _TaskWindow(
                 SchedulerTaskKind.ENTRY_SESSION,
                 entry_at,
@@ -247,7 +294,7 @@ class SwingSessionPolicy:
         _aware("now", now)
         local = now.astimezone(_IST)
         candidate = local.date()
-        end_of_day_at = self._windows[1].opens_at
+        end_of_day_at = self._window(SchedulerTaskKind.END_OF_DAY_SESSION).opens_at
         if not self.is_trading_day(candidate) or local.time() < end_of_day_at:
             candidate -= timedelta(days=1)
         while not self.is_trading_day(candidate):
@@ -260,12 +307,15 @@ class SwingSessionPolicy:
         _aware("now", now)
         local = now.astimezone(_IST)
         candidate = local.date()
-        entry_at = self._windows[0].opens_at
+        entry_at = self._window(SchedulerTaskKind.ENTRY_SESSION).opens_at
         if not self.is_trading_day(candidate) or local.time() >= entry_at:
             candidate += timedelta(days=1)
         while not self.is_trading_day(candidate):
             candidate += timedelta(days=1)
         return datetime.combine(candidate, entry_at, tzinfo=_IST)
+
+    def _window(self, kind: SchedulerTaskKind) -> _TaskWindow:
+        return next(window for window in self._windows if window.kind is kind)
 
     def due_tasks(
         self,
@@ -294,6 +344,11 @@ class SwingSessionPolicy:
         due: list[ScheduledTask] = []
         halted: list[ScheduledTaskHalt] = []
         resolved_available = False
+        final_surveillance_window = next(
+            window
+            for window in reversed(self._windows)
+            if window.kind is SchedulerTaskKind.SURVEILLANCE_PREFLIGHT
+        )
         for window in self._windows:
             task = self._task(window, trading_date)
             if task.task_id in resolved_task_ids:
@@ -304,6 +359,15 @@ class SwingSessionPolicy:
                 continue
             if local_now <= task.expires_at:
                 due.append(task)
+            elif (
+                window.kind is SchedulerTaskKind.SURVEILLANCE_PREFLIGHT
+                and window is not final_surveillance_window
+            ):
+                # Three independently identified opportunities exist. Expiry of
+                # an earlier opportunity is not terminal while a later one can
+                # still prepare the exact artifact. The final expired window is
+                # emitted below as one canonical, durable missed-preflight halt.
+                continue
             else:
                 halted.append(ScheduledTaskHalt(task, window.missed_reason))
 
@@ -338,17 +402,18 @@ class SwingSessionPolicy:
     def _task(self, window: _TaskWindow, trading_date: date) -> ScheduledTask:
         due_at = datetime.combine(trading_date, window.opens_at, tzinfo=_IST)
         expires_at = datetime.combine(trading_date, window.closes_at, tzinfo=_IST)
+        task_policy_version = self.policy_version + window.identity_suffix
         return ScheduledTask(
             task_id=scheduled_task_id(
                 kind=window.kind,
                 trading_date=trading_date,
-                policy_version=self.policy_version,
+                policy_version=task_policy_version,
             ),
             kind=window.kind,
             trading_date=trading_date,
             due_at=due_at,
             expires_at=expires_at,
-            policy_version=self.policy_version,
+            policy_version=task_policy_version,
         )
 
 
@@ -377,6 +442,11 @@ def scheduled_task_id(
         separators=(",", ":"),
     )
     return "scheduled-task:" + hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _minute_before(value: time) -> time:
+    anchor = datetime.combine(date(2000, 1, 2), value) - timedelta(minutes=1)
+    return anchor.time()
 
 
 @dataclass(frozen=True)
@@ -825,6 +895,8 @@ def _event_key(action: str, task_id: str) -> str:
 
 
 def _missed_reason(kind: SchedulerTaskKind) -> SchedulerHaltReason:
+    if kind is SchedulerTaskKind.SURVEILLANCE_PREFLIGHT:
+        return SchedulerHaltReason.MISSED_SURVEILLANCE_PREFLIGHT
     if kind is SchedulerTaskKind.ENTRY_SESSION:
         return SchedulerHaltReason.MISSED_ENTRY_WINDOW
     return SchedulerHaltReason.MISSED_END_OF_DAY_WINDOW

@@ -4,7 +4,13 @@ from datetime import date, datetime, timedelta, timezone
 import pandas as pd
 import pytest
 
-from sensei.automation import GovernedSchedulerApplication, SchedulerApplicationConfig
+from sensei.automation import (
+    GovernedSchedulerApplication,
+    SchedulerApplicationConfig,
+    SchedulerLedger,
+    SurveillancePreflightSession,
+    SwingSessionPolicy,
+)
 from sensei.operations import OperationalJournal
 from sensei.runtime import RuntimeSecretStore, VerifiedSurveillanceSource
 
@@ -50,17 +56,32 @@ def test_scheduler_config_cannot_disable_adopted_oos_evidence(tmp_path):
 
 def test_scheduler_uses_real_supervisor_composition_when_no_plan_signals(tmp_path):
     journal_path = tmp_path / "operations.sqlite3"
-    OperationalJournal(journal_path)
+    journal = OperationalJournal(journal_path)
     secrets_path = tmp_path / "runtime-secrets.json"
     secrets = RuntimeSecretStore.bootstrap(secrets_path)
     surveillance_path = tmp_path / "surveillance.json"
-    VerifiedSurveillanceSource.publish(
-        surveillance_path,
-        stages={"INFY": 0},
-        session=date(2026, 7, 16),
-        observed_at=NOW,
+    preflight_at = NOW.replace(hour=8, minute=31)
+    preflight = SwingSessionPolicy().due_tasks(preflight_at).tasks[0]
+    ledger = SchedulerLedger(journal)
+    claim = ledger.claim(preflight, occurred_at=preflight_at)
+    SurveillancePreflightSession(
+        journal=journal,
+        destination=surveillance_path,
         issuer_id="market-surveillance",
         secret=secrets["market-surveillance"],
+        fetch=lambda _url: b"101,INFY,N,A,EQ,100,100,100,100,100\n",
+        retry_backoff_seconds=0,
+    ).prepare(
+        trading_date=date(2026, 7, 16),
+        observed_at=preflight_at,
+        command_id=preflight.task_id,
+    )
+    ledger.complete(
+        preflight.task_id,
+        claimant_id=claim.record.claimant_id,
+        occurred_at=preflight_at + timedelta(seconds=1),
+        detail="surveillance ready",
+        reason_codes=("SURVEILLANCE_PREFLIGHT_READY",),
     )
     prices_path = tmp_path / "prices"
     prices_path.mkdir()
@@ -115,8 +136,12 @@ allowed_products: [CNC]
         journal_path, config_path=config_path
     ).run_once(NOW)
 
-    assert len(result.task_results) == 1
-    assert result.task_results[0].outcome.reason_codes == ("NO_CANONICAL_SIGNAL",)
+    entry = next(
+        item
+        for item in result.task_results
+        if item.task.kind.value == "ENTRY_SESSION"
+    )
+    assert entry.outcome.reason_codes == ("NO_CANONICAL_SIGNAL",)
     event_types = [event.event_type for event in OperationalJournal(journal_path).read_all()]
     assert "DeskSupervisorCompleted" in event_types
     assert "PaperGatewayCommandExecuted" not in event_types
