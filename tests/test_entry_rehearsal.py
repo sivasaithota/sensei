@@ -18,6 +18,13 @@ from sensei.runtime.rehearsal import (
 
 
 NOW = datetime(2026, 7, 18, 4, 30, tzinfo=timezone.utc)
+REGULATORY_CSV = (
+    b"ScripCode,Symbol,Nse Exclusive,Status,Series,GSM,"
+    b"Long_Term_Additional_Surveillance_Measure (Long Term ASM),"
+    b"Unsolicited_SMS,Insolvency_Resolution_Process(IRP),"
+    b"Short_Term_Additional_Surveillance_Measure (Short Term ASM)\n"
+    b"101,INFY,N,A,EQ,100,100,100,100,100\n"
+)
 
 
 def _production_fixture(tmp_path):
@@ -39,7 +46,7 @@ def _production_fixture(tmp_path):
         destination=surveillance_path,
         issuer_id="market-surveillance",
         secret=secrets["market-surveillance"],
-        fetch=lambda _url: b"101,INFY,N,A,EQ,100,100,100,100,100\n",
+        fetch=lambda _url: REGULATORY_CSV,
         retry_backoff_seconds=0,
     ).prepare(
         trading_date=date(2026, 7, 20),

@@ -16,6 +16,13 @@ from sensei.runtime import RuntimeSecretStore, VerifiedSurveillanceSource
 
 
 NOW = datetime(2026, 7, 16, 9, 25, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+REGULATORY_CSV = (
+    b"ScripCode,Symbol,Nse Exclusive,Status,Series,GSM,"
+    b"Long_Term_Additional_Surveillance_Measure (Long Term ASM),"
+    b"Unsolicited_SMS,Insolvency_Resolution_Process(IRP),"
+    b"Short_Term_Additional_Surveillance_Measure (Short Term ASM)\n"
+    b"101,INFY,N,A,EQ,100,100,100,100,100\n"
+)
 
 
 def test_scheduler_config_carries_deployable_accelerated_shadow_policy(tmp_path):
@@ -69,7 +76,7 @@ def test_scheduler_uses_real_supervisor_composition_when_no_plan_signals(tmp_pat
         destination=surveillance_path,
         issuer_id="market-surveillance",
         secret=secrets["market-surveillance"],
-        fetch=lambda _url: b"101,INFY,N,A,EQ,100,100,100,100,100\n",
+        fetch=lambda _url: REGULATORY_CSV,
         retry_backoff_seconds=0,
     ).prepare(
         trading_date=date(2026, 7, 16),

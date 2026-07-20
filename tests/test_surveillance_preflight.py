@@ -32,6 +32,13 @@ IST = ZoneInfo("Asia/Kolkata")
 MONDAY = date(2026, 7, 20)
 PREFLIGHT_AT = datetime(2026, 7, 20, 8, 45, tzinfo=IST)
 ENTRY_AT = datetime(2026, 7, 20, 9, 20, tzinfo=IST)
+REGULATORY_CSV = (
+    b"ScripCode,Symbol,Nse Exclusive,Status,Series,GSM,"
+    b"Long_Term_Additional_Surveillance_Measure (Long Term ASM),"
+    b"Unsolicited_SMS,Insolvency_Resolution_Process(IRP),"
+    b"Short_Term_Additional_Surveillance_Measure (Short Term ASM)\n"
+    b"101,INFY,N,A,EQ,100,100,100,100,100\n"
+)
 
 
 def prepared_task(journal, destination, secret):
@@ -46,7 +53,7 @@ def prepared_task(journal, destination, secret):
         destination=destination,
         issuer_id="market-surveillance",
         secret=secret,
-        fetch=lambda _url: b"101,INFY,N,A,EQ,100,100,100,100,100\n",
+        fetch=lambda _url: REGULATORY_CSV,
         retry_backoff_seconds=0,
     ).prepare(
         trading_date=MONDAY,
@@ -69,7 +76,7 @@ def test_preflight_retries_transient_nse_failure_and_publishes_entry_snapshot(
         attempts += 1
         if attempts < 3:
             raise RuntimeTrustError("temporary NSE failure")
-        return b"101,INFY,N,A,EQ,100,100,100,100,100\n"
+        return REGULATORY_CSV
 
     session = SurveillancePreflightSession(
         journal=journal,
@@ -101,6 +108,50 @@ def test_preflight_retries_transient_nse_failure_and_publishes_entry_snapshot(
         "SurveillancePreflightStarted",
         "SurveillancePreflightCompleted",
     ]
+    completed = journal.read_all()[-1]
+    assert completed.payload["source_session"] == "2026-07-17"
+    assert completed.payload["source_report_type"] == "REG1_IND"
+    assert len(completed.payload["source_content_sha256"]) == 64
+
+
+def test_terminal_source_failure_journals_sanitized_attempt_diagnostics(
+    tmp_path,
+) -> None:
+    journal = OperationalJournal(tmp_path / "operations.sqlite3")
+    secrets = RuntimeSecretStore.bootstrap(tmp_path / "runtime-secrets.json")
+
+    session = SurveillancePreflightSession(
+        journal=journal,
+        destination=tmp_path / "surveillance.json",
+        issuer_id="market-surveillance",
+        secret=secrets["market-surveillance"],
+        fetch=lambda _url: (_ for _ in ()).throw(
+            RuntimeTrustError("official NSE surveillance download failed")
+        ),
+        maximum_attempts=1,
+        retry_backoff_seconds=0,
+    )
+
+    with pytest.raises(SurveillanceSourceUnavailable):
+        session.prepare(
+            trading_date=MONDAY,
+            observed_at=PREFLIGHT_AT,
+            command_id="preflight:terminal-failure",
+        )
+
+    events = journal.read_all()
+    assert [event.event_type for event in events] == [
+        "SurveillancePreflightStarted",
+        "SurveillancePreflightFailed",
+    ]
+    attempts = events[-1].payload["attempts"]
+    assert len(attempts) == 14
+    assert attempts[0] == {
+        "source_session": "2026-07-17",
+        "report_type": "REG1_IND",
+        "attempt": 1,
+        "category": "source_unavailable",
+    }
 
 
 def test_prepared_friday_snapshot_is_valid_for_monday_entry(tmp_path) -> None:
@@ -272,3 +323,6 @@ def test_entry_accepts_digest_bound_snapshot_after_scheduler_completion(tmp_path
     )
 
     assert evidence.task_id == task.task_id
+    assert evidence.source_session == date(2026, 7, 17)
+    assert evidence.source_report_type == "REG1_IND"
+    assert len(evidence.source_content_sha256) == 64

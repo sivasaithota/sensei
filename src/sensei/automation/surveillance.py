@@ -27,6 +27,9 @@ class SurveillancePreflightResult:
     ready: bool
     symbols: int
     event_id: str
+    source_session: date
+    source_report_type: str
+    source_content_sha256: str
 
 
 @dataclass(frozen=True)
@@ -36,6 +39,9 @@ class SurveillancePreflightEvidence:
     symbols: int
     event_id: str
     task_id: str
+    source_session: date
+    source_report_type: str
+    source_content_sha256: str
 
 
 class SurveillancePreflightSession:
@@ -95,10 +101,42 @@ class SurveillancePreflightSession:
                 correlation_id=command_id,
             )
         )
-        stages = self._refresher.refresh(
-            session=trading_date,
-            observed_at=observed_at,
-        )
+        try:
+            refresh = self._refresher.refresh_result(
+                session=trading_date,
+                observed_at=observed_at,
+            )
+        except SurveillanceSourceUnavailable as exc:
+            self._journal.append(
+                EventAppend(
+                    stream_id=stream,
+                    event_type="SurveillancePreflightFailed",
+                    payload={
+                        "schema_version": "1.0",
+                        "trading_date": trading_date.isoformat(),
+                        "attempts": [
+                            {
+                                "source_session": failure.source_session.isoformat(),
+                                "report_type": failure.report_type,
+                                "attempt": failure.attempt,
+                                "category": failure.category,
+                            }
+                            for failure in exc.attempts
+                        ],
+                        "can_authorize_trading": False,
+                    },
+                    idempotency_key=f"surveillance-preflight-failed:{digest}",
+                    expected_version=1,
+                    occurred_at=observed_at,
+                    causation_id=started.event_id,
+                    correlation_id=command_id,
+                )
+            )
+            raise
+        stages = refresh.stages
+        source_session = refresh.source.source_session
+        source_report_type = refresh.source.report_type
+        source_content_sha256 = refresh.source.content_sha256
         snapshot_sha256 = hashlib.sha256(self._destination.read_bytes()).hexdigest()
         completed = self._journal.append(
             EventAppend(
@@ -109,6 +147,9 @@ class SurveillancePreflightSession:
                     "trading_date": trading_date.isoformat(),
                     "symbols": len(stages),
                     "snapshot_sha256": snapshot_sha256,
+                    "source_session": source_session.isoformat(),
+                    "source_report_type": source_report_type,
+                    "source_content_sha256": source_content_sha256,
                     "snapshot_ready": True,
                     "can_authorize_trading": False,
                 },
@@ -124,6 +165,9 @@ class SurveillancePreflightSession:
             ready=True,
             symbols=len(stages),
             event_id=completed.event_id,
+            source_session=source_session,
+            source_report_type=source_report_type,
+            source_content_sha256=source_content_sha256,
         )
 
 
@@ -166,12 +210,33 @@ def completed_surveillance_preflight(
         symbols = event.payload.get("symbols")
         if isinstance(symbols, bool) or not isinstance(symbols, int) or symbols < 1:
             continue
+        source_report_type = event.payload.get("source_report_type")
+        source_content_sha256 = event.payload.get("source_content_sha256")
+        try:
+            source_session = date.fromisoformat(event.payload["source_session"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if (
+            source_report_type not in {"REG1_IND", "REG_IND"}
+            or not isinstance(source_content_sha256, str)
+            or len(source_content_sha256) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in source_content_sha256
+            )
+            or source_session >= trading_date
+            or trading_date - source_session > date.resolution * 7
+        ):
+            continue
         return SurveillancePreflightEvidence(
             trading_date=trading_date,
             snapshot_sha256=snapshot_sha256,
             symbols=symbols,
             event_id=event.event_id,
             task_id=task_id,
+            source_session=source_session,
+            source_report_type=source_report_type,
+            source_content_sha256=source_content_sha256,
         )
     return None
 

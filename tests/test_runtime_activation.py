@@ -18,6 +18,12 @@ from sensei.runtime import PaperAccountProjector
 
 UTC = timezone.utc
 NOW = datetime(2026, 7, 16, 3, 30, tzinfo=UTC)
+REGULATORY_HEADER = (
+    b"ScripCode,Symbol,Nse Exclusive,Status,Series,GSM,"
+    b"Long_Term_Additional_Surveillance_Measure (Long Term ASM),"
+    b"Unsolicited_SMS,Insolvency_Resolution_Process(IRP),"
+    b"Short_Term_Additional_Surveillance_Measure (Short Term ASM)\n"
+)
 
 
 def test_runtime_secret_store_bootstraps_private_complete_material(tmp_path):
@@ -136,7 +142,7 @@ def test_account_projection_includes_reconciled_pre_cutover_exposure(tmp_path):
 def test_nse_regulatory_indicator_refreshes_signed_daily_surveillance(tmp_path):
     secrets = RuntimeSecretStore.bootstrap(tmp_path / "runtime-secrets.json")
     destination = tmp_path / "surveillance.json"
-    csv_bytes = (
+    csv_bytes = REGULATORY_HEADER + (
         b"101,INFY,N,A,EQ,100,100,100,100,100\n"
         b"102,RISKY,N,A,EQ,3,100,100,2,100\n"
     )
@@ -151,9 +157,10 @@ def test_nse_regulatory_indicator_refreshes_signed_daily_surveillance(tmp_path):
     stages = refresher.refresh(session=date(2026, 7, 16), observed_at=NOW)
 
     assert stages == {"INFY": 0, "RISKY": 3}
-    assert requested == [
-        "https://nsearchives.nseindia.com/content/equities/REG_IND160726.csv"
-    ]
+    assert len(requested) == 1
+    assert requested[0].startswith("https://www.nseindia.com/api/reports?")
+    assert "Surveillance+Indicator+New" in requested[0]
+    assert "date=15-Jul-2026" in requested[0]
     source = VerifiedSurveillanceSource(
         destination,
         issuer_id="market-surveillance",
@@ -169,11 +176,11 @@ def test_surveillance_uses_latest_available_source_for_effective_session(tmp_pat
     secrets = RuntimeSecretStore.bootstrap(tmp_path / "runtime-secrets.json")
     destination = tmp_path / "surveillance.json"
     requested = []
-    csv_bytes = b"101,INFY,N,A,EQ,100,100,100,100,100\n"
+    csv_bytes = REGULATORY_HEADER + b"101,INFY,N,A,EQ,100,100,100,100,100\n"
 
     def fetch(url):
         requested.append(url)
-        if "170726" in url:
+        if "date=16-Jul-2026" in url:
             raise RuntimeTrustError("official NSE surveillance download failed")
         return csv_bytes
 
@@ -188,7 +195,9 @@ def test_surveillance_uses_latest_available_source_for_effective_session(tmp_pat
 
     payload = json.loads(destination.read_text())
     assert payload["session"] == "2026-07-17"
-    assert payload["source_session"] == "2026-07-16"
+    assert payload["source_session"] == "2026-07-15"
+    assert payload["source_report_type"] == "REG1_IND"
+    assert len(payload["source_content_sha256"]) == 64
     source = VerifiedSurveillanceSource(
         destination,
         issuer_id="market-surveillance",
@@ -197,3 +206,63 @@ def test_surveillance_uses_latest_available_source_for_effective_session(tmp_pat
         clock=lambda: NOW,
     )
     assert source("INFY", date(2026, 7, 17)) == 0
+
+
+def test_reg1_indicator_parser_rejects_positionally_similar_schema_drift():
+    content = (
+        b"Wrong,Symbol,Nse Exclusive,Status,Series,GSM,Long ASM,"
+        b"SMS,IRP,Short ASM\n"
+        b"101,INFY,N,A,EQ,100,100,100,100,100\n"
+    )
+
+    with pytest.raises(RuntimeTrustError, match="schema"):
+        NseSurveillanceRefresher.parse(content)
+
+
+def test_legacy_indicator_is_used_only_after_new_report_fails(tmp_path):
+    secrets = RuntimeSecretStore.bootstrap(tmp_path / "runtime-secrets.json")
+    destination = tmp_path / "surveillance.json"
+    requested = []
+
+    def fetch(url):
+        requested.append(url)
+        if "Surveillance+Indicator+New" in url:
+            raise RuntimeTrustError("new report unavailable")
+        return REGULATORY_HEADER + b"101,INFY,N,A,EQ,100,100,100,100,100\n"
+
+    refresher = NseSurveillanceRefresher(
+        destination=destination,
+        issuer_id="market-surveillance",
+        secret=secrets["market-surveillance"],
+        fetch=fetch,
+        maximum_attempts=1,
+    )
+
+    refresher.refresh(session=date(2026, 7, 16), observed_at=NOW)
+
+    assert "Surveillance+Indicator+New" in requested[0]
+    assert "Surveillance+Indicator%22" in requested[1]
+    payload = json.loads(destination.read_text())
+    assert payload["source_report_type"] == "REG_IND"
+
+
+def test_empty_new_report_is_schema_failure_and_falls_back_to_legacy(tmp_path):
+    secrets = RuntimeSecretStore.bootstrap(tmp_path / "runtime-secrets.json")
+
+    def fetch(url):
+        if "Surveillance+Indicator+New" in url:
+            return b""
+        return REGULATORY_HEADER + b"101,INFY,N,A,EQ,100,100,100,100,100\n"
+
+    refresher = NseSurveillanceRefresher(
+        destination=tmp_path / "surveillance.json",
+        issuer_id="market-surveillance",
+        secret=secrets["market-surveillance"],
+        fetch=fetch,
+        maximum_attempts=1,
+    )
+
+    result = refresher.refresh_result(session=date(2026, 7, 16), observed_at=NOW)
+
+    assert result.source.report_type == "REG_IND"
+    assert result.failed_attempts[0].category == "schema_invalid"
