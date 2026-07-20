@@ -274,6 +274,60 @@ class _EntryPreflightHandler:
         )
 
 
+class _SurveillancePreflightHandler:
+    def __init__(
+        self,
+        *,
+        journal: OperationalJournal,
+        config: SchedulerApplicationConfig,
+    ) -> None:
+        self._journal = journal
+        self._config = config
+
+    def handle(self, task: ScheduledTask, *, now: datetime) -> TaskOutcome:
+        if self._config.execution_backend != "governed_paper":
+            return TaskOutcome(
+                TaskOutcomeState.COMPLETED,
+                ("SURVEILLANCE_PREFLIGHT_NOT_REQUIRED",),
+                "governed paper entry is not enabled",
+            )
+        from sensei.runtime import RuntimeSecretStore
+        from .surveillance import (
+            SurveillancePreflightSession,
+            completed_surveillance_preflight,
+        )
+
+        secrets = RuntimeSecretStore.load(self._config.runtime_secrets_path)
+        base_policy_version = task.policy_version.split(":surveillance-", 1)[0]
+        existing = completed_surveillance_preflight(
+            journal=self._journal,
+            snapshot_path=self._config.surveillance_path,
+            trading_date=task.trading_date,
+            base_policy_version=base_policy_version,
+        )
+        if existing is not None:
+            return TaskOutcome(
+                TaskOutcomeState.COMPLETED,
+                ("SURVEILLANCE_PREFLIGHT_READY",),
+                f"reused signed surveillance snapshot for {existing.symbols} symbols",
+            )
+        result = SurveillancePreflightSession(
+            journal=self._journal,
+            destination=self._config.surveillance_path,
+            issuer_id="market-surveillance",
+            secret=secrets["market-surveillance"],
+        ).prepare(
+            trading_date=task.trading_date,
+            observed_at=now,
+            command_id=task.task_id,
+        )
+        return TaskOutcome(
+            TaskOutcomeState.COMPLETED,
+            ("SURVEILLANCE_PREFLIGHT_READY",),
+            f"signed surveillance snapshot prepared for {result.symbols} symbols",
+        )
+
+
 class GovernedSchedulerApplication:
     """Open the durable scheduler and its fail-closed default handlers."""
 
@@ -417,6 +471,10 @@ class GovernedSchedulerApplication:
             journal=journal,
             policy=SwingSessionPolicy(closed_dates=config.closed_dates),
             handlers={
+                SchedulerTaskKind.SURVEILLANCE_PREFLIGHT: _SurveillancePreflightHandler(
+                    journal=journal,
+                    config=config,
+                ),
                 SchedulerTaskKind.ENTRY_SESSION: _EntryPreflightHandler(
                     journal=journal,
                     catalog=self.catalog,

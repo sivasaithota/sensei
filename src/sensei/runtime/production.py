@@ -72,9 +72,9 @@ from sensei.reporting.operations import OperationalReporter
 from sensei.risk.rails import RiskConfig, RiskRails
 from sensei.runtime.account import PaperAccountProjector
 from sensei.runtime.activation import (
-    NseSurveillanceRefresher,
     RuntimeSecretStore,
     RuntimeTrustError,
+    SurveillanceSourceUnavailable,
     VerifiedSurveillanceSource,
 )
 from sensei.runtime.session_inputs import (
@@ -100,7 +100,6 @@ class ProductionPaperSession:
         playbook_path: Path = Path("data/playbook/current.json"),
         prices_path: Path = Path("data/prices"),
         provenance_path: Path = Path("data/provenance"),
-        refresh_surveillance=None,
         legacy_baseline=None,
     ) -> None:
         self._journal_path = Path(journal_path)
@@ -109,7 +108,6 @@ class ProductionPaperSession:
         self._playbook_path = Path(playbook_path)
         self._prices_path = Path(prices_path)
         self._provenance_path = Path(provenance_path)
-        self._refresh_surveillance = refresh_surveillance
         self._legacy_baseline = legacy_baseline
 
     def __call__(self, task: ScheduledTask, now: datetime) -> TaskOutcome:
@@ -118,7 +116,7 @@ class ProductionPaperSession:
             self._config.surveillance_path,
             issuer_id="market-surveillance",
             secret=secrets["market-surveillance"],
-            maximum_age=timedelta(minutes=30),
+            maximum_age=timedelta(days=4),
             clock=lambda: now,
         )
         instruments = self._instruments()
@@ -127,12 +125,16 @@ class ProductionPaperSession:
             for instrument in instruments
         )
         if not snapshot_complete:
-            refresher = self._refresh_surveillance or NseSurveillanceRefresher(
-                destination=self._config.surveillance_path,
-                issuer_id="market-surveillance",
-                secret=secrets["market-surveillance"],
-            ).refresh
-            refresher(session=task.trading_date, observed_at=now)
+            raise SurveillanceSourceUnavailable(
+                "signed pre-entry surveillance snapshot is missing, stale, or incomplete"
+            )
+        from sensei.automation.surveillance import require_surveillance_preflight
+
+        require_surveillance_preflight(
+            journal_path=self._journal_path,
+            snapshot_path=self._config.surveillance_path,
+            entry_task=task,
+        )
 
         def compose(journal, gateway):
             composition, _inputs = self._compose(
@@ -302,7 +304,7 @@ class ProductionPaperSession:
             self._config.surveillance_path,
             issuer_id="market-surveillance",
             secret=secrets["market-surveillance"],
-            maximum_age=timedelta(minutes=30),
+            maximum_age=timedelta(days=4),
             clock=lambda: now,
         )
         committee = ApprovalChainCommittee(

@@ -135,9 +135,17 @@ allowing another entry.
 ## Normal session flow
 
 With `execution_backend` set to `governed_paper`, `scheduler-run-once` now
-constructs this graph for each bounded entry task. It opens the durable gateway
-from the Supervisor's exact journal, refreshes or verifies the session's signed
-NSE surveillance snapshot, requires local bars to be closed through the exact
+prepares the signed NSE surveillance snapshot in separate bounded 08:30, 08:40,
+and 08:50 preflight opportunities. The source adapter uses failed-request
+exponential retries and
+the artifact is signed for the exact entry trading date, written owner-only via
+fsynced atomic replacement, and journaled. The 09:20 entry path performs no NSE
+surveillance network call; a missing, stale, invalid, or incomplete prepared
+snapshot halts with `SURVEILLANCE_SOURCE_UNAVAILABLE`.
+
+For each bounded entry task, the scheduler opens the durable gateway from the
+Supervisor's exact journal, verifies the prepared surveillance snapshot,
+requires local bars to be closed through the exact
 previous configured trading session, authenticates account/broker/health facts,
 and then runs at most one canonical PAPER-plan cycle. Missing runtime secrets,
 statistics, prices, surveillance, provenance, health, or reconciliation truth

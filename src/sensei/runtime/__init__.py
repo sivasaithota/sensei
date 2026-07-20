@@ -19,6 +19,7 @@ from .activation import (
     NseSurveillanceRefresher,
     RuntimeSecretStore,
     RuntimeTrustError,
+    SurveillanceSourceUnavailable,
     VerifiedSurveillanceSource,
 )
 from .production import ProductionPaperSession
@@ -37,6 +38,7 @@ __all__ = [
     "NseSurveillanceRefresher",
     "RuntimeSecretStore",
     "RuntimeTrustError",
+    "SurveillanceSourceUnavailable",
     "VerifiedSurveillanceSource",
     "PaperSessionTruthError",
     "PreparedPaperSession",

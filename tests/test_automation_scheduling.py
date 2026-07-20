@@ -35,12 +35,13 @@ def test_friday_entry_is_due_and_identity_is_timezone_stable() -> None:
 
     local = policy.due_tasks(at_ist(friday, 9, 21))
     same_instant = policy.due_tasks(
-        at_ist(friday, 9, 21).astimezone(timezone.utc)
+        at_ist(friday, 9, 21).astimezone(timezone.utc),
     )
 
-    assert local.state is ScheduleState.DUE
+    assert local.state is ScheduleState.DUE_WITH_HALTS
     assert local.no_work_reason is None
-    assert local.halts == ()
+    assert len(local.halts) == 1
+    assert local.halts[0].reason is SchedulerHaltReason.MISSED_SURVEILLANCE_PREFLIGHT
     assert len(local.tasks) == 1
     assert local.tasks[0].kind is SchedulerTaskKind.ENTRY_SESSION
     assert local.tasks[0].trading_date == friday
@@ -49,6 +50,50 @@ def test_friday_entry_is_due_and_identity_is_timezone_stable() -> None:
         kind=SchedulerTaskKind.ENTRY_SESSION,
         trading_date=friday,
         policy_version=policy.policy_version,
+    )
+
+
+def test_surveillance_preflight_is_due_before_entry_window() -> None:
+    monday = date(2026, 7, 20)
+
+    decision = SwingSessionPolicy().due_tasks(at_ist(monday, 8, 46))
+
+    assert decision.state is ScheduleState.DUE
+    assert [task.kind for task in decision.tasks] == [
+        SchedulerTaskKind.SURVEILLANCE_PREFLIGHT
+    ]
+    assert decision.tasks[0].trading_date == monday
+
+
+def test_surveillance_preflight_has_three_distinct_retry_opportunities() -> None:
+    monday = date(2026, 7, 20)
+    policy = SwingSessionPolicy()
+
+    tasks = [
+        policy.due_tasks(at_ist(monday, hour, minute)).tasks[0]
+        for hour, minute in ((8, 31), (8, 41), (8, 51))
+    ]
+
+    assert len({task.task_id for task in tasks}) == 3
+    assert [task.policy_version.rsplit(":", 1)[-1] for task in tasks] == [
+        "surveillance-0830",
+        "surveillance-0840",
+        "surveillance-0850",
+    ]
+
+
+def test_only_final_missed_surveillance_window_halts_after_cutoff() -> None:
+    monday = date(2026, 7, 20)
+
+    decision = SwingSessionPolicy().due_tasks(at_ist(monday, 9, 16))
+
+    assert decision.state is ScheduleState.HALTED
+    assert decision.tasks == ()
+    assert len(decision.halts) == 1
+    assert decision.halts[0].task.kind is SchedulerTaskKind.SURVEILLANCE_PREFLIGHT
+    assert (
+        decision.halts[0].reason
+        is SchedulerHaltReason.MISSED_SURVEILLANCE_PREFLIGHT
     )
 
 
@@ -72,9 +117,10 @@ def test_missed_entry_window_halts_that_task_without_late_entry() -> None:
     assert decision.state is ScheduleState.HALTED
     assert decision.tasks == ()
     assert decision.no_work_reason is None
-    assert len(decision.halts) == 1
-    assert decision.halts[0].task.kind is SchedulerTaskKind.ENTRY_SESSION
-    assert decision.halts[0].reason is SchedulerHaltReason.MISSED_ENTRY_WINDOW
+    assert [halt.reason for halt in decision.halts] == [
+        SchedulerHaltReason.MISSED_SURVEILLANCE_PREFLIGHT,
+        SchedulerHaltReason.MISSED_ENTRY_WINDOW,
+    ]
 
 
 def test_completed_due_task_is_not_offered_again() -> None:
@@ -84,7 +130,10 @@ def test_completed_due_task_is_not_offered_again() -> None:
 
     repeated = policy.due_tasks(
         at_ist(monday, 9, 22),
-        resolved_task_ids={first.tasks[0].task_id},
+        resolved_task_ids={
+            first.tasks[0].task_id,
+            first.halts[0].task.task_id,
+        },
     )
 
     assert repeated.state is ScheduleState.NO_WORK
@@ -102,7 +151,8 @@ def test_eod_remains_due_when_entry_window_was_missed() -> None:
         SchedulerTaskKind.END_OF_DAY_SESSION
     ]
     assert [halt.reason for halt in decision.halts] == [
-        SchedulerHaltReason.MISSED_ENTRY_WINDOW
+        SchedulerHaltReason.MISSED_SURVEILLANCE_PREFLIGHT,
+        SchedulerHaltReason.MISSED_ENTRY_WINDOW,
     ]
 
 
@@ -160,7 +210,11 @@ def test_scheduler_ledger_claim_and_completion_are_idempotent(tmp_path: Path) ->
 
 def test_scheduler_ledger_records_missed_window_once(tmp_path: Path) -> None:
     now = at_ist(date(2026, 7, 20), 9, 36)
-    missed = SwingSessionPolicy().due_tasks(now).halts[0]
+    missed = next(
+        item
+        for item in SwingSessionPolicy().due_tasks(now).halts
+        if item.task.kind is SchedulerTaskKind.ENTRY_SESSION
+    )
     journal = OperationalJournal(tmp_path / "operations.sqlite3")
     ledger = SchedulerLedger(journal)
 
