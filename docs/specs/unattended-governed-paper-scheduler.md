@@ -39,8 +39,9 @@ again.
 Normal task order is:
 
 1. bounded 08:30, 08:40, and 08:50 surveillance preflight opportunities that
-   retrieve, sign, and journal the exact trading-date snapshot with
-   failed-request exponential retries;
+   retrieve the prior session's official NSE All Reports `REG1_IND` artifact
+   (`REG_IND` is a schema-validated fallback), sign and journal the exact
+   trading-date snapshot with failed-request exponential retries;
 2. protective recovery and reconciliation;
 3. retry-bounded market-data ingestion, universe hygiene, and shadow progression;
 4. one bounded governed paper-entry session;
@@ -54,7 +55,9 @@ it consumes only a signed snapshot whose exact digest is linked to a completed
 preflight scheduler task for its trading date, and fails closed with
 `SURVEILLANCE_SOURCE_UNAVAILABLE` when that artifact is missing, stale,
 tampered, too far removed from its official source session, or incomplete for
-the evaluated instruments.
+the evaluated instruments. Completion evidence binds the official report type,
+source session and source-content SHA-256 as well as the signed snapshot digest;
+terminal source failure records only sanitized HTTP/network/schema categories.
 
 At most one entry-bearing Desk cycle is dispatched per Supervisor session. A
 later poll captures new account and broker truth before evaluating another

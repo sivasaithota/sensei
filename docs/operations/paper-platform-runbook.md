@@ -137,8 +137,12 @@ allowing another entry.
 With `execution_backend` set to `governed_paper`, `scheduler-run-once` now
 prepares the signed NSE surveillance snapshot in separate bounded 08:30, 08:40,
 and 08:50 preflight opportunities. The source adapter uses failed-request
-exponential retries and
-the artifact is signed for the exact entry trading date, written owner-only via
+exponential retries. It resolves NSE's official **All Reports** contract,
+prefers the prior session's next-session `REG1_IND` report, and uses legacy
+`REG_IND` only as a schema-validated fallback. Report type, official source
+session, source-content SHA-256, sanitized failure category, and the final
+snapshot digest are journaled without response bodies or secrets. The artifact
+is signed for the exact entry trading date, written owner-only via
 fsynced atomic replacement, and journaled. The 09:20 entry path performs no NSE
 surveillance network call; a missing, stale, invalid, or incomplete prepared
 snapshot halts with `SURVEILLANCE_SOURCE_UNAVAILABLE`.
