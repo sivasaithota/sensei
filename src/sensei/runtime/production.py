@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -35,6 +35,7 @@ from sensei.operations import (
     HmacFactSigner,
     HmacFactVerifier,
     OperationsControlPlane,
+    OperationalJournal,
 )
 from sensei.operations.health import OperationsMonitor
 from sensei.operations.supervisor import (
@@ -119,7 +120,7 @@ class ProductionPaperSession:
             maximum_age=timedelta(days=4),
             clock=lambda: now,
         )
-        instruments = self._instruments()
+        instruments = self._instruments(task.trading_date)
         snapshot_complete = bool(instruments) and all(
             surveillance(instrument.split(":")[-1], task.trading_date) is not None
             for instrument in instruments
@@ -419,8 +420,38 @@ class ProductionPaperSession:
             for record in records
         )
 
-    def _instruments(self):
-        return tuple(sorted(path.stem for path in self._prices_path.glob("*.parquet")))
+    def _instruments(self, trading_date: date | None = None):
+        available = {
+            path.stem for path in self._prices_path.glob("*.parquet")
+        }
+        if trading_date is None:
+            return tuple(sorted(available))
+
+        # The latest successful EOD ingestion is the authority for which
+        # instruments have a current, usable market-data snapshot. A stale
+        # parquet file must not make an otherwise complete surveillance source
+        # look incomplete at the next entry window.
+        try:
+            journal = OperationalJournal.open_read_only(self._journal_path)
+        except FileNotFoundError:
+            return tuple(sorted(available))
+        for event in reversed(journal.read_all()):
+            if event.event_type != "MarketDataIngestionCompleted":
+                continue
+            try:
+                session = date.fromisoformat(str(event.payload["session"]))
+                eligible = tuple(
+                    str(symbol) for symbol in event.payload["eligible_symbols"]
+                )
+                completeness = float(event.payload["completeness"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if session >= trading_date or completeness < 0.99:
+                continue
+            selected = tuple(sorted(set(eligible) & available))
+            if selected:
+                return selected
+        return tuple(sorted(available))
 
     def _bars(self, instrument_id):
         symbol = instrument_id.split(":")[-1]

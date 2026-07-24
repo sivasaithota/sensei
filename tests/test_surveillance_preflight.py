@@ -18,7 +18,7 @@ from sensei.automation.surveillance import (
     SurveillancePreflightSession,
     require_surveillance_preflight,
 )
-from sensei.operations import OperationalJournal
+from sensei.operations import EventAppend, OperationalJournal
 from sensei.runtime import (
     RuntimeSecretStore,
     RuntimeTrustError,
@@ -220,6 +220,47 @@ def test_entry_path_never_calls_nse_when_prepared_snapshot_is_missing(
         session(task, ENTRY_AT)
 
     assert network_calls == []
+
+
+def test_entry_universe_uses_latest_successful_ingestion_eligibility(tmp_path) -> None:
+    journal_path = tmp_path / "operations.sqlite3"
+    journal = OperationalJournal(journal_path)
+    prices = tmp_path / "prices"
+    prices.mkdir()
+    for symbol in ("INFY", "JBCHEPHARM"):
+        pd.DataFrame(
+            {"close": [100.0]},
+            index=pd.DatetimeIndex(["2026-07-23"]),
+        ).to_parquet(prices / f"{symbol}.parquet")
+    journal.append(
+        EventAppend(
+            stream_id="market-data-ingestion:2026-07-23",
+            event_type="MarketDataIngestionCompleted",
+            payload={
+                "schema_version": "1.0",
+                "session": "2026-07-23",
+                "eligible_symbols": ["INFY"],
+                "failed_symbols": ["JBCHEPHARM"],
+                "excluded_symbols": [],
+                "completeness": 0.998,
+            },
+            idempotency_key="ingestion:2026-07-23",
+            expected_version=0,
+            occurred_at=datetime(2026, 7, 23, 18, 30, tzinfo=IST),
+        )
+    )
+    config = SimpleNamespace(
+        runtime_secrets_path=tmp_path / "runtime-secrets.json",
+        surveillance_path=tmp_path / "surveillance.json",
+    )
+
+    session = ProductionPaperSession(
+        journal_path=journal_path,
+        scheduler_config=config,
+        prices_path=prices,
+    )
+
+    assert session._instruments(MONDAY.replace(day=24)) == ("INFY",)
 
 
 def test_entry_rejects_snapshot_when_preflight_task_never_completed(tmp_path) -> None:

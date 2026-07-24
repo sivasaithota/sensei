@@ -40,6 +40,7 @@ _CONTENT_ID = re.compile(r"(?:sha256|snapshot):[0-9a-f]{64}\Z")
 _PLAN_ID = re.compile(r"sha256:[0-9a-f]{64}\Z")
 _ERROR_CODE = re.compile(r"[A-Z][A-Z0-9_]{2,95}\Z")
 _EVENT_TYPE = "ShadowSessionObserved"
+_CORRECTION_EVENT_TYPE = "ShadowSessionCorrected"
 
 
 @dataclass(frozen=True)
@@ -325,6 +326,64 @@ class ShadowTrialLedger:
         )
         return _record_from_events((event,))
 
+    def correct_input_errors(
+        self,
+        observation: ShadowSessionObservation,
+        *,
+        command_id: str,
+    ) -> ShadowSessionRecord:
+        """Append an auditable reevaluation for a retained engine-input defect."""
+
+        stream = _session_stream(
+            observation.lineage_id,
+            observation.plan_id,
+            observation.evaluation_session,
+        )
+        events = self._journal.read_stream(stream)
+        current = _record_from_events(events)
+        before = sum(
+            item.error_code == "PLAN_INPUT_ERROR"
+            for item in current.observation.evaluations
+        )
+        after = sum(
+            item.error_code == "PLAN_INPUT_ERROR"
+            for item in observation.evaluations
+        )
+        if before < 1 or after >= before:
+            raise ValueError("shadow correction must reduce retained PLAN_INPUT_ERRORs")
+        identity = (
+            "lineage_id",
+            "plan_id",
+            "evaluation_session",
+            "market_snapshot_id",
+            "shadow_started_at",
+        )
+        old_payload = current.observation.semantic_payload()
+        new_payload = observation.semantic_payload()
+        if any(old_payload[key] != new_payload[key] for key in identity):
+            raise JournalIntegrityError("shadow correction changes observation identity")
+        payload = {
+            **new_payload,
+            "authority": "SHADOW_INPUT_DEFECT_CORRECTION_ONLY",
+            "observed_at": observation.observed_at.astimezone(timezone.utc).isoformat(),
+            "supersedes_event_id": current.event_id,
+            "correction_reason": "BOUNDED_PLAN_INPUT_VALIDATION",
+        }
+        event = self._journal.append(
+            EventAppend(
+                stream_id=stream,
+                event_type=_CORRECTION_EVENT_TYPE,
+                payload=payload,
+                idempotency_key="shadow-correction:"
+                + hashlib.sha256(command_id.encode()).hexdigest(),
+                expected_version=len(events),
+                occurred_at=observation.observed_at,
+                causation_id=current.event_id,
+                correlation_id=observation.plan_id,
+            )
+        )
+        return _record_from_events((*events, event))
+
     def sessions(
         self,
         *,
@@ -470,6 +529,31 @@ class CanonicalShadowRunner:
             raise ValueError("exact plan must be at SHADOW")
         shadow_started_at = state.last_record.occurred_at
 
+        evaluations = self._evaluate(
+            record=record,
+            expected=expected,
+            bars_by_instrument=bars_by_instrument,
+            evaluation_session=evaluation_session,
+        )
+        observation = ShadowSessionObservation(
+            lineage_id=record.lineage_id,
+            plan_id=record.plan_id,
+            evaluation_session=evaluation_session,
+            market_snapshot_id=market_snapshot_id,
+            shadow_started_at=shadow_started_at,
+            observed_at=observed_at,
+            evaluations=evaluations,
+        )
+        return self._ledger.record_session(observation, command_id=command_id)
+
+    def _evaluate(
+        self,
+        *,
+        record: StrategyPlanRecord,
+        expected: tuple[str, ...],
+        bars_by_instrument: Mapping[str, pd.DataFrame],
+        evaluation_session: date,
+    ) -> tuple[ShadowInstrumentEvaluation, ...]:
         evaluations: list[ShadowInstrumentEvaluation] = []
         for instrument_id in expected:
             bars = bars_by_instrument.get(instrument_id)
@@ -511,22 +595,49 @@ class CanonicalShadowRunner:
                         trace=trace,
                     )
                 )
-        observation = ShadowSessionObservation(
-            lineage_id=record.lineage_id,
-            plan_id=record.plan_id,
-            evaluation_session=evaluation_session,
-            market_snapshot_id=market_snapshot_id,
-            shadow_started_at=shadow_started_at,
-            observed_at=observed_at,
-            evaluations=tuple(evaluations),
+        return tuple(evaluations)
+
+    def correct_session(
+        self,
+        *,
+        record: StrategyPlanRecord,
+        retained: ShadowSessionRecord,
+        bars_by_instrument: Mapping[str, pd.DataFrame],
+        observed_at: datetime,
+        command_id: str,
+    ) -> ShadowSessionRecord:
+        original = retained.observation
+        evaluations = self._evaluate(
+            record=record,
+            expected=tuple(
+                item.instrument_id for item in original.evaluations
+            ),
+            bars_by_instrument=bars_by_instrument,
+            evaluation_session=original.evaluation_session,
         )
-        return self._ledger.record_session(observation, command_id=command_id)
+        corrected = ShadowSessionObservation(
+            lineage_id=original.lineage_id,
+            plan_id=original.plan_id,
+            evaluation_session=original.evaluation_session,
+            market_snapshot_id=original.market_snapshot_id,
+            shadow_started_at=original.shadow_started_at,
+            observed_at=observed_at,
+            evaluations=evaluations,
+        )
+        return self._ledger.correct_input_errors(corrected, command_id=command_id)
 
 
 def _record_from_events(events) -> ShadowSessionRecord:
-    if len(events) != 1 or events[0].event_type != _EVENT_TYPE:
+    if not events or events[0].event_type != _EVENT_TYPE:
         raise JournalIntegrityError("shadow session stream is invalid")
-    event = events[0]
+    for previous, candidate in zip(events, events[1:]):
+        if (
+            candidate.event_type != _CORRECTION_EVENT_TYPE
+            or candidate.payload.get("supersedes_event_id") != previous.event_id
+            or candidate.causation_id != previous.event_id
+        ):
+            raise JournalIntegrityError("shadow correction chain is invalid")
+    event = events[-1]
     payload = event.payload
     expected_keys = {
         "schema_version",
@@ -539,12 +650,18 @@ def _record_from_events(events) -> ShadowSessionRecord:
         "observed_at",
         "evaluations",
     }
+    if event.event_type == _CORRECTION_EVENT_TYPE:
+        expected_keys |= {"supersedes_event_id", "correction_reason"}
     if set(payload) != expected_keys:
         raise JournalIntegrityError("shadow session payload is invalid")
     try:
         if (
             payload["schema_version"] != "1.0"
-            or payload["authority"] != "SHADOW_OBSERVATION_ONLY"
+            or payload["authority"]
+            not in {
+                "SHADOW_OBSERVATION_ONLY",
+                "SHADOW_INPUT_DEFECT_CORRECTION_ONLY",
+            }
         ):
             raise ValueError
         evaluations = tuple(

@@ -262,6 +262,49 @@ def test_future_bars_cannot_change_a_prior_session_decision():
     assert full_trace == prefix_trace
 
 
+def test_irrelevant_ancient_adjustment_anomaly_cannot_block_current_decision():
+    """Only observations reachable by the plan may invalidate its trace."""
+
+    recent = hammer_bars()
+    ancient = recent.iloc[[0]].copy()
+    ancient.index = pd.DatetimeIndex(["1999-01-04"])
+    ancient.loc[:, "high"] = ancient["low"] * 0.90
+
+    expected = StrategyPlanEngine().evaluate(
+        PlanEvaluationRequest(
+            plan=hammer_follow_through_plan(),
+            instrument_id="NSE:TEST",
+            bars=recent,
+            evaluation_session=recent.index[-1].date(),
+        )
+    )
+    actual = StrategyPlanEngine().evaluate(
+        PlanEvaluationRequest(
+            plan=hammer_follow_through_plan(),
+            instrument_id="NSE:TEST",
+            bars=pd.concat([ancient, recent]),
+            evaluation_session=recent.index[-1].date(),
+        )
+    )
+
+    assert actual == expected
+
+
+def test_reachable_ohlc_anomaly_still_fails_closed():
+    bars = hammer_bars()
+    bars.loc[bars.index[-2], "high"] = bars.loc[bars.index[-2], "low"] * 0.90
+
+    with pytest.raises(ValueError, match="OHLC bounds"):
+        StrategyPlanEngine().evaluate(
+            PlanEvaluationRequest(
+                plan=hammer_follow_through_plan(),
+                instrument_id="NSE:TEST",
+                bars=bars,
+                evaluation_session=bars.index[-1].date(),
+            )
+        )
+
+
 def test_engine_is_mode_agnostic_and_trace_is_deterministic():
     bars = hammer_bars()
     request = PlanEvaluationRequest(

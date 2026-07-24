@@ -58,6 +58,7 @@ class StrategyPlanEngine:
         bars = self._observations_through(
             request.bars,
             request.evaluation_session,
+            request.plan,
         )
         current_position = len(bars) - 1
 
@@ -110,6 +111,7 @@ class StrategyPlanEngine:
         self,
         source: pd.DataFrame,
         evaluation_session: date,
+        plan: StrategyPlan,
     ) -> pd.DataFrame:
         if not isinstance(source, pd.DataFrame):
             raise PlanInputError("bars must be a pandas DataFrame")
@@ -135,6 +137,11 @@ class StrategyPlanEngine:
         if bars.index[-1].date() != evaluation_session:
             raise PlanInputError("the evaluation session must have a completed daily bar")
 
+        # A decision must be invalidated only by observations its executable
+        # plan can reach. Adjusted vendor histories can contain ancient OHLC
+        # anomalies that are irrelevant to every current indicator.
+        bars = bars.iloc[-self._required_observations(plan) :].copy()
+
         try:
             bars = bars.astype(float)
         except (TypeError, ValueError) as exc:
@@ -153,6 +160,38 @@ class StrategyPlanEngine:
         ):
             raise PlanInputError("daily bars violate OHLC bounds")
         return bars
+
+    @staticmethod
+    def _required_observations(plan: StrategyPlan) -> int:
+        required = plan.applicability.average_volume_lookback_sessions.value
+
+        def rows(reference: MarketReference) -> int:
+            if isinstance(reference, TemporalReference):
+                history = 5 if reference.field is ObservableField.HAMMER else 1
+                return reference.sessions_ago + history
+            if reference.indicator is IndicatorKind.RULESPEC_HAMMER:
+                return reference.sessions_ago + 5
+            if reference.indicator is IndicatorKind.STRONG_CLOSE:
+                return reference.sessions_ago + 1
+            window = reference.window_sessions
+            if window is None:
+                raise PlanInputError(
+                    f"indicator {reference.indicator.value} requires a window"
+                )
+            extra = 1 if reference.indicator in {
+                IndicatorKind.RETURN_PCT,
+                IndicatorKind.RSI,
+            } else 0
+            return reference.sessions_ago + window + extra
+
+        for condition in plan.entry.conditions:
+            required = max(required, rows(condition.left))
+            right = condition.right
+            if isinstance(right, ScaledOperand):
+                right = right.operand
+            if isinstance(right, (TemporalReference, IndicatorReference)):
+                required = max(required, rows(right))
+        return required
 
     def _evaluate_applicability(
         self,

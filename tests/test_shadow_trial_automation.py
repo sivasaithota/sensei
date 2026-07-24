@@ -16,7 +16,7 @@ from sensei.governance.lifecycle import (
     TransitionRequest,
 )
 from sensei.operations import OperationalJournal
-from sensei.strategy import StrategyPlanCatalog
+from sensei.strategy import PlanInputError, StrategyPlanCatalog
 from tests.test_strategy_plan import hammer_bars, hammer_follow_through_plan
 
 
@@ -202,6 +202,55 @@ def test_missing_expected_market_data_keeps_shadow_trial_unready(tmp_path):
     assert result.error_count == 1
     assert "SHADOW_DATA_INCOMPLETE" in result.reason_codes
     assert "SHADOW_EVALUATION_ERRORS" in result.reason_codes
+
+
+def test_input_defect_correction_is_append_only_and_restores_evidence(tmp_path):
+    journal, record, lifecycle = _shadow_system(tmp_path)
+    ledger = ShadowTrialLedger(journal)
+
+    class BrokenEngine:
+        def evaluate(self, _request):
+            raise PlanInputError("historical validation defect")
+
+    bars = hammer_bars()
+    observed = datetime(2025, 1, 20, 12, 0, tzinfo=timezone.utc)
+    broken = CanonicalShadowRunner(
+        lifecycle=lifecycle,
+        ledger=ledger,
+        engine=BrokenEngine(),
+    )
+    retained = broken.run_session(
+        record=record,
+        expected_instrument_ids=("NSE:TEST",),
+        bars_by_instrument={"NSE:TEST": bars},
+        evaluation_session=bars.index[-1].date(),
+        market_snapshot_id="sha256:" + "e" * 64,
+        observed_at=observed,
+        command_id="broken-shadow",
+    )
+
+    fixed = CanonicalShadowRunner(lifecycle=lifecycle, ledger=ledger)
+    corrected = fixed.correct_session(
+        record=record,
+        retained=retained,
+        bars_by_instrument={"NSE:TEST": bars},
+        observed_at=observed + timedelta(minutes=5),
+        command_id="correct-bounded-input",
+    )
+    result = ledger.assess(
+        lineage_id=record.lineage_id,
+        plan_id=record.plan_id,
+        policy=ShadowTrialPolicy(minimum_sessions=1),
+        no_later_than=observed + timedelta(minutes=10),
+    )
+
+    assert corrected.event_id != retained.event_id
+    assert [event.event_type for event in journal.read_stream(
+        journal.read_all()[-1].stream_id
+    )] == ["ShadowSessionObserved", "ShadowSessionCorrected"]
+    assert result.passed is True
+    assert result.error_count == 0
+    assert result.supporting_event_ids == (corrected.event_id,)
 
 
 def test_default_shadow_policy_is_an_operational_gate_for_paper():

@@ -186,6 +186,27 @@ class DailyCanonicalShadowSession:
             started = self._lifecycle.view(record.lineage_id).plans[0].last_record.occurred_at
             if evaluation_session <= started.astimezone(now.tzinfo).date():
                 continue
+            retained_sessions = self._ledger.sessions(
+                lineage_id=record.lineage_id,
+                plan_id=record.plan_id,
+                no_later_than=now,
+            )
+            for retained in retained_sessions:
+                if not any(
+                    evaluation.error_code == "PLAN_INPUT_ERROR"
+                    for evaluation in retained.observation.evaluations
+                ):
+                    continue
+                self._runner.correct_session(
+                    record=record,
+                    retained=retained,
+                    bars_by_instrument=bars,
+                    observed_at=now,
+                    command_id=(
+                        f"{task.task_id}:shadow-correction:{record.plan_id}:"
+                        f"{retained.observation.evaluation_session.isoformat()}"
+                    ),
+                )
             self._runner.run_session(
                 record=record,
                 expected_instrument_ids=symbols,
