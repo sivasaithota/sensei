@@ -100,11 +100,17 @@ def main() -> None:
     if args.cmd == "prelive-certify":
         from pathlib import Path
         from sensei.reporting.prelive import PreLiveCertifier
+        from sensei.runtime.rehearsal import PaperEntryRehearsal
+        from datetime import datetime, timezone
 
         report = PreLiveCertifier(
             journal_path=Path(args.journal),
             rehearsal_path=Path(args.rehearsal),
             config_path=Path(args.config),
+            rehearsal_run=lambda: PaperEntryRehearsal(
+                journal_path=Path(args.journal),
+                config_path=Path(args.config),
+            ).run(as_of=datetime.now(timezone.utc)).to_dict(),
         ).run()
         payload = report.to_dict()
         destination = Path(args.report)

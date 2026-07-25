@@ -116,6 +116,40 @@ def test_certification_rejects_a_fresh_strategy_replay_failure(tmp_path):
     assert check.evidence["failed_names"] == ["bad"]
 
 
+def test_live_entry_and_protection_must_share_one_filled_intent(tmp_path):
+    journal = OperationalJournal(tmp_path / "operations.sqlite3")
+    for index, (kind, intent, filled) in enumerate((
+        ("ENTRY", "intent:one", 1),
+        ("PROTECTION", "intent:two", 0),
+    )):
+        _append(
+            journal,
+            f"gateway:{index}",
+            "PaperGatewayCommandExecuted",
+            {
+                "command": {"kind": kind, "intent_id": intent},
+                "receipt": {
+                    "accepted": True,
+                    "cumulative_fill_quantity": filled,
+                },
+            },
+        )
+
+    report = PreLiveCertifier(
+        journal_path=tmp_path / "operations.sqlite3",
+        strategy_study=lambda: (
+            {"name": "verified", "adopted": True, "out_of_sample": {}},
+        ),
+    ).run(generated_at=NOW)
+
+    check = next(
+        item for item in report.checks
+        if item.name == "paper_entry_and_protection"
+    )
+    assert check.passed is False
+    assert check.evidence["qualifying_live_intent_ids"] == []
+
+
 def test_isolated_production_rehearsal_proves_agents_committee_and_protection(
     tmp_path,
 ):

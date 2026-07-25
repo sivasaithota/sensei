@@ -331,6 +331,7 @@ class ShadowTrialLedger:
         observation: ShadowSessionObservation,
         *,
         command_id: str,
+        correction_input_snapshot_id: str,
     ) -> ShadowSessionRecord:
         """Append an auditable reevaluation for a retained engine-input defect."""
 
@@ -351,6 +352,10 @@ class ShadowTrialLedger:
         )
         if before < 1 or after >= before:
             raise ValueError("shadow correction must reduce retained PLAN_INPUT_ERRORs")
+        if _CONTENT_ID.fullmatch(correction_input_snapshot_id) is None:
+            raise ValueError(
+                "correction_input_snapshot_id must be content-addressed"
+            )
         identity = (
             "lineage_id",
             "plan_id",
@@ -387,6 +392,7 @@ class ShadowTrialLedger:
             "observed_at": observation.observed_at.astimezone(timezone.utc).isoformat(),
             "supersedes_event_id": current.event_id,
             "correction_reason": "BOUNDED_PLAN_INPUT_VALIDATION",
+            "correction_input_snapshot_id": correction_input_snapshot_id,
         }
         event = self._journal.append(
             EventAppend(
@@ -646,7 +652,22 @@ class CanonicalShadowRunner:
             observed_at=observed_at,
             evaluations=evaluations,
         )
-        return self._ledger.correct_input_errors(corrected, command_id=command_id)
+        corrected_instruments = {
+            item.instrument_id
+            for item in original.evaluations
+            if item.error_code == "PLAN_INPUT_ERROR"
+        }
+        return self._ledger.correct_input_errors(
+            corrected,
+            command_id=command_id,
+            correction_input_snapshot_id=_bars_snapshot_id(
+                {
+                    instrument_id: bars_by_instrument[instrument_id]
+                    for instrument_id in sorted(corrected_instruments)
+                    if instrument_id in bars_by_instrument
+                }
+            ),
+        )
 
 
 def _record_from_events(events) -> ShadowSessionRecord:
@@ -673,7 +694,11 @@ def _record_from_events(events) -> ShadowSessionRecord:
         "evaluations",
     }
     if event.event_type == _CORRECTION_EVENT_TYPE:
-        expected_keys |= {"supersedes_event_id", "correction_reason"}
+        expected_keys |= {
+            "supersedes_event_id",
+            "correction_reason",
+            "correction_input_snapshot_id",
+        }
     if set(payload) != expected_keys:
         raise JournalIntegrityError("shadow session payload is invalid")
     try:
@@ -684,6 +709,13 @@ def _record_from_events(events) -> ShadowSessionRecord:
                 "SHADOW_OBSERVATION_ONLY",
                 "SHADOW_INPUT_DEFECT_CORRECTION_ONLY",
             }
+        ):
+            raise ValueError
+        if (
+            event.event_type == _CORRECTION_EVENT_TYPE
+            and _CONTENT_ID.fullmatch(
+                str(payload["correction_input_snapshot_id"])
+            ) is None
         ):
             raise ValueError
         evaluations = tuple(
@@ -750,6 +782,18 @@ def _canonical(value: object) -> str:
         ensure_ascii=False,
         allow_nan=False,
     )
+
+
+def _bars_snapshot_id(
+    bars_by_instrument: Mapping[str, pd.DataFrame],
+) -> str:
+    digest = hashlib.sha256()
+    for instrument_id, frame in sorted(bars_by_instrument.items()):
+        digest.update(instrument_id.encode("utf-8"))
+        digest.update(
+            pd.util.hash_pandas_object(frame, index=True).values.tobytes()
+        )
+    return "snapshot:" + digest.hexdigest()
 
 
 def _aware(value: datetime, label: str) -> None:

@@ -79,6 +79,7 @@ class PreLiveCertifier:
         rehearsal_path: Path | None = None,
         config_path: Path = Path("config/scheduler.json"),
         strategy_study: Callable[[], Sequence[Mapping[str, object]]] | None = None,
+        rehearsal_run: Callable[[], Mapping[str, object]] | None = None,
     ) -> None:
         self._journal_path = Path(journal_path)
         self._playbook_path = Path(playbook_path)
@@ -87,6 +88,7 @@ class PreLiveCertifier:
         )
         self._strategy_study = strategy_study
         self._config_path = Path(config_path)
+        self._rehearsal_run = rehearsal_run
 
     def run(self, *, generated_at: datetime | None = None) -> PreLiveCertificationReport:
         now = generated_at or datetime.now(timezone.utc)
@@ -95,21 +97,24 @@ class PreLiveCertifier:
         journal = OperationalJournal.open_read_only(self._journal_path)
         verification = journal.verify()
         events = journal.read_all()
-        rehearsal = (
-            _load_rehearsal(self._rehearsal_path)
-            if self._rehearsal_path is not None else {}
-        )
-        rehearsal = (
-            rehearsal
-            if _rehearsal_matches(
-                rehearsal,
-                journal_path=self._journal_path,
-                config_path=self._config_path,
-                now=now,
-                event_count=len(events),
+        if self._rehearsal_run is not None:
+            rehearsal = self._rehearsal_run()
+        else:
+            loaded = (
+                _load_rehearsal(self._rehearsal_path)
+                if self._rehearsal_path is not None else {}
             )
-            else {}
-        )
+            rehearsal = (
+                loaded
+                if _rehearsal_matches(
+                    loaded,
+                    journal_path=self._journal_path,
+                    config_path=self._config_path,
+                    now=now,
+                    event_count=len(events),
+                )
+                else {}
+            )
         study = tuple(
             self._strategy_study()
             if self._strategy_study is not None
@@ -204,7 +209,11 @@ def _strategy_check(study) -> CertificationCheck:
         "fresh_historical_strategy_replay",
         passed,
         (
-            f"{len(adopted)} strategies passed a fresh local replay"
+            (
+                f"{len(adopted)} strategies passed across "
+                f"{study[0].get('universe_requested', 'unknown')} requested / "
+                f"{study[0].get('universe_usable', 'unknown')} eligible symbols"
+            )
             if passed
             else "One or more configured strategies failed fresh replay"
         ),
@@ -331,12 +340,43 @@ def _committee_check(events, rehearsal) -> CertificationCheck:
 
 def _entry_protection_check(events, rehearsal) -> CertificationCheck:
     kinds = []
+    commands_by_intent: dict[str, list[tuple[str, bool, int]]] = {}
     for event in events:
         if event.event_type != "PaperGatewayCommandExecuted":
             continue
         command = event.payload.get("command", {})
-        kinds.append(str(command.get("kind")))
-    passed = {"ENTRY", "PROTECTION"} <= set(kinds)
+        receipt = event.payload.get("receipt", {})
+        kind = str(command.get("kind"))
+        intent_id = str(command.get("intent_id"))
+        kinds.append(kind)
+        commands_by_intent.setdefault(intent_id, []).append((
+            kind,
+            receipt.get("accepted") is True,
+            int(receipt.get("cumulative_fill_quantity", 0)),
+        ))
+    qualifying_intents = []
+    for intent_id, commands in commands_by_intent.items():
+        entry_index = next(
+            (
+                index for index, (kind, accepted, filled) in enumerate(commands)
+                if kind == "ENTRY" and accepted and filled > 0
+            ),
+            None,
+        )
+        protection_index = next(
+            (
+                index for index, (kind, accepted, _filled) in enumerate(commands)
+                if kind == "PROTECTION" and accepted
+            ),
+            None,
+        )
+        if (
+            entry_index is not None
+            and protection_index is not None
+            and entry_index < protection_index
+        ):
+            qualifying_intents.append(intent_id)
+    passed = bool(qualifying_intents)
     rehearsal_commands = int(
         rehearsal.get("diagnostics", {}).get("sandbox_gateway_commands", 0)
     )
@@ -365,6 +405,7 @@ def _entry_protection_check(events, rehearsal) -> CertificationCheck:
         else "No governed paper fill with installed protection is proven",
         {
             "gateway_command_kinds": sorted(set(kinds)),
+            "qualifying_live_intent_ids": qualifying_intents,
             "rehearsal_gateway_commands": rehearsal_commands,
             "rehearsal_gateway_command_kinds": list(rehearsal_kinds),
             "real_order_submitted": rehearsal.get("real_order_submitted"),
