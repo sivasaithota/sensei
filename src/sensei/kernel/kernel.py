@@ -470,6 +470,33 @@ class TradingKernel:
         self._prepare(command, occurred_at)
         return self._dispatch(command, occurred_at)
 
+    def resize_protection(
+        self,
+        intent_id: str,
+        *,
+        quantity: int,
+        occurred_at: datetime,
+    ) -> GatewayReceipt:
+        """Replace protection after a partial exit with remaining exposure."""
+
+        require_timestamp(occurred_at, "occurred_at")
+        state = self._state()
+        intent = state.intents.get(intent_id)
+        if intent is None:
+            raise ValueError(f"unknown intent {intent_id!r}")
+        command = ProtectionCommand(
+            intent_id=intent_id,
+            instrument_id=intent.instrument_id,
+            quantity=quantity,
+            stop_price_paise=intent.stop_price_paise,
+            target_price_paise=intent.target_price_paise,
+        )
+        existing = state.receipts.get(command.command_id)
+        if existing is not None:
+            return existing
+        self._prepare(command, occurred_at)
+        return self._dispatch(command, occurred_at)
+
     def observe_fill(
         self,
         intent_id: str,

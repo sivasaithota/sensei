@@ -240,7 +240,11 @@ class RecordingPaperGateway:
                 for order in working_orders
                 if (
                     order.kind != CommandKind.PROTECTION.value
-                    or order.instrument_id in protections
+                    or (
+                        order.instrument_id in protections
+                        and order.client_command_id
+                        == protections[order.instrument_id].client_command_id
+                    )
                 )
             ),
         )
@@ -357,7 +361,7 @@ class RecordingPaperGateway:
                 observation = self._market_observation(command.instrument_id)
                 fill = self._execution_model.simulate_exit(
                     quantity=command.quantity,
-                    reference_price_paise=observation.reference_price_paise,
+                    reference_price_paise=command.reference_price_paise,
                     available_volume=observation.traded_volume,
                     lower_circuit_paise=observation.lower_circuit_paise,
                     reason_code=command.reason_code,

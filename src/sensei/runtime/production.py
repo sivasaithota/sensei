@@ -228,10 +228,30 @@ class ProductionPaperSession:
         result = GovernedExitProcessor(
             journal=journal,
             exit_position=composition.kernel.exit_position,
+            resize_protection=composition.kernel.resize_protection,
             bars=self._bars,
             maximum_holding_sessions=maximum_holding_sessions,
+            trading_sessions_between=lambda start, end: sum(
+                1
+                for day in pd.date_range(
+                    start=start.date() + timedelta(days=1),
+                    end=end.date(),
+                    freq="D",
+                ).date
+                if day.weekday() < 5
+                and day not in self._config.closed_dates
+            ),
             market_regime=lambda _now: self._regime().label,
         ).run(now=now)
+        if result.halted_episode_ids:
+            return TaskOutcome(
+                TaskOutcomeState.HALTED,
+                ("GOVERNED_EXIT_EPISODE_FAILED",),
+                (
+                    "governed exit halted for episode(s): "
+                    + ", ".join(result.halted_episode_ids)
+                ),
+            )
         return TaskOutcome(
             TaskOutcomeState.COMPLETED,
             ("GOVERNED_EOD_POSITIONS_PROCESSED",),

@@ -95,6 +95,9 @@ def main() -> None:
         default="data/reports/entry-rehearsal-latest.json",
     )
     certify_p.add_argument("--config", default="config/scheduler.json")
+    certify_p.add_argument(
+        "--target", choices=("paper", "real"), default="paper"
+    )
     args = parser.parse_args()
 
     if args.cmd == "prelive-certify":
@@ -118,7 +121,12 @@ def main() -> None:
             json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
         )
         print(json.dumps(payload, indent=2))
-        raise SystemExit(0 if report.ready_for_live_capital else 2)
+        ready = (
+            report.ready_for_unattended_paper
+            if args.target == "paper"
+            else report.ready_for_live_capital
+        )
+        raise SystemExit(0 if ready else 2)
 
     if args.cmd == "rehearse-entry":
         from pathlib import Path

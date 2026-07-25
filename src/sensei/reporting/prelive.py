@@ -53,6 +53,7 @@ class CertificationCheck:
 class PreLiveCertificationReport:
     generated_at: datetime
     ready_for_unattended_paper: bool
+    eligible_for_live_canary_review: bool
     ready_for_live_capital: bool
     checks: tuple[CertificationCheck, ...]
 
@@ -64,6 +65,9 @@ class PreLiveCertificationReport:
         return {
             "generated_at": self.generated_at.isoformat(),
             "ready_for_unattended_paper": self.ready_for_unattended_paper,
+            "eligible_for_live_canary_review": (
+                self.eligible_for_live_canary_review
+            ),
             "ready_for_live_capital": self.ready_for_live_capital,
             "blockers": list(self.blockers),
             "checks": [check.to_dict() for check in self.checks],
@@ -142,14 +146,25 @@ class PreLiveCertifier:
             _governed_exit_capability_check(),
             _closed_learning_check(events, rehearsal),
             _paper_soak_check(events),
+            _live_execution_backend_check(),
         )
         paper_checks = tuple(
-            check for check in checks if check.name != "paper_soak_evidence"
+            check for check in checks
+            if check.name not in {
+                "paper_soak_evidence", "live_execution_backend"
+            }
+        )
+        canary_checks = tuple(
+            check for check in checks
+            if check.name != "live_execution_backend"
         )
         return PreLiveCertificationReport(
             generated_at=now,
             ready_for_unattended_paper=all(
                 check.passed for check in paper_checks
+            ),
+            eligible_for_live_canary_review=all(
+                check.passed for check in canary_checks
             ),
             ready_for_live_capital=all(check.passed for check in checks),
             checks=checks,
@@ -521,6 +536,21 @@ def _paper_soak_check(events) -> CertificationCheck:
             "actual_closed_and_learned_episodes": len(learned_closed),
             "required_sessions": 3,
             "actual_sessions": len(sessions),
+        },
+    )
+
+
+def _live_execution_backend_check() -> CertificationCheck:
+    return CertificationCheck(
+        "live_execution_backend",
+        False,
+        (
+            "No live broker adapter, canary interlock, or live reconciliation "
+            "rehearsal is implemented"
+        ),
+        {
+            "implemented_backend": "governed_paper",
+            "live_orders_authorized": False,
         },
     )
 def _rehearsal_matches(
