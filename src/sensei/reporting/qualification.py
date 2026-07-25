@@ -131,6 +131,7 @@ DEFAULT_SCENARIOS = (
         "production_rehearsal_and_certification",
         (
             "tests/test_entry_rehearsal.py",
+            "tests/test_historical_desk_replay.py",
             "tests/test_prelive_certification.py",
         ),
     ),
