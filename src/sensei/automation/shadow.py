@@ -362,6 +362,25 @@ class ShadowTrialLedger:
         new_payload = observation.semantic_payload()
         if any(old_payload[key] != new_payload[key] for key in identity):
             raise JournalIntegrityError("shadow correction changes observation identity")
+        old_by_instrument = {
+            item.instrument_id: item
+            for item in current.observation.evaluations
+        }
+        new_by_instrument = {
+            item.instrument_id: item for item in observation.evaluations
+        }
+        if set(old_by_instrument) != set(new_by_instrument):
+            raise JournalIntegrityError(
+                "shadow correction changes the expected instrument set"
+            )
+        for instrument_id, old in old_by_instrument.items():
+            if (
+                old.error_code != "PLAN_INPUT_ERROR"
+                and old.to_payload() != new_by_instrument[instrument_id].to_payload()
+            ):
+                raise JournalIntegrityError(
+                    "shadow correction changes previously retained evidence"
+                )
         payload = {
             **new_payload,
             "authority": "SHADOW_INPUT_DEFECT_CORRECTION_ONLY",
@@ -398,9 +417,12 @@ class ShadowTrialLedger:
         for event in self._journal.read_all():
             if event.event_type != _EVENT_TYPE or event.occurred_at > no_later_than:
                 continue
-            record = _record_from_events(
-                self._journal.read_stream(event.stream_id)
+            as_of_events = tuple(
+                item
+                for item in self._journal.read_stream(event.stream_id)
+                if item.occurred_at <= no_later_than
             )
+            record = _record_from_events(as_of_events)
             if (
                 record.observation.lineage_id == lineage_id
                 and record.observation.plan_id == plan_id

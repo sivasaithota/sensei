@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
+import hashlib
 import json
+from pathlib import Path
 
 from sensei.operations import EventAppend, OperationalJournal
+import sensei.reporting.prelive as prelive
 from sensei.reporting.prelive import PreLiveCertifier
 
 
@@ -116,9 +119,18 @@ def test_certification_rejects_a_fresh_strategy_replay_failure(tmp_path):
 def test_isolated_production_rehearsal_proves_agents_committee_and_protection(
     tmp_path,
 ):
-    OperationalJournal(tmp_path / "operations.sqlite3")
+    journal_path = tmp_path / "operations.sqlite3"
+    OperationalJournal(journal_path)
+    config = tmp_path / "scheduler.json"
+    config.write_text("{}")
+    code_root = Path(prelive.__file__).resolve().parents[1]
+    code_digest = hashlib.sha256()
+    for item in sorted(code_root.rglob("*.py")):
+        code_digest.update(str(item.relative_to(code_root)).encode())
+        code_digest.update(item.read_bytes())
     rehearsal = tmp_path / "rehearsal.json"
     rehearsal.write_text(json.dumps({
+        "as_of": NOW.isoformat(),
         "state": "WOULD_TRADE",
         "production_state_unchanged": True,
         "real_order_submitted": False,
@@ -131,12 +143,25 @@ def test_isolated_production_rehearsal_proves_agents_committee_and_protection(
                 {"level": level} for level in ("L1", "L2", "L3", "L4")
             ],
             "sandbox_gateway_commands": 2,
+            "gateway_command_kinds": ["ENTRY", "PROTECTION"],
+            "gateway_command_intent_ids": ["intent:one", "intent:one"],
+            "evidence_binding": {
+                "source_journal_sha256": hashlib.sha256(
+                    journal_path.read_bytes()
+                ).hexdigest(),
+                "scheduler_config_sha256": hashlib.sha256(
+                    config.read_bytes()
+                ).hexdigest(),
+                "source_code_sha256": code_digest.hexdigest(),
+                "source_events": 0,
+            },
         },
     }))
 
     report = PreLiveCertifier(
-        journal_path=tmp_path / "operations.sqlite3",
+        journal_path=journal_path,
         rehearsal_path=rehearsal,
+        config_path=config,
         strategy_study=lambda: (
             {"name": "verified-strategy", "adopted": True, "out_of_sample": {}},
         ),

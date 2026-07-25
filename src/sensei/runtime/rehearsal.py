@@ -163,6 +163,14 @@ class PaperEntryRehearsal:
                 ).read_all()
                 sandbox_events = len(sandbox_event_log)
                 diagnostics = _diagnostics(sandbox_event_log[before:])
+                diagnostics["evidence_binding"] = {
+                    "source_journal_sha256": source_digest,
+                    "scheduler_config_sha256": _sha256(self._config_path),
+                    "source_code_sha256": _source_tree_digest(
+                        Path(__file__).resolve().parents[1]
+                    ),
+                    "source_events": before,
+                }
                 state, reasons, detail = classify_rehearsal_outcome(
                     result,
                     gateway_commands=int(
@@ -441,6 +449,8 @@ def _diagnostics(events) -> dict[str, object]:
     roles = []
     risk_reservations = 0
     gateway_commands = 0
+    gateway_command_kinds = []
+    gateway_command_intent_ids = []
     for event in events:
         if event.event_type == "TradeIntentAccepted":
             intent = dict(event.payload.get("intent", {}))
@@ -474,11 +484,16 @@ def _diagnostics(events) -> dict[str, object]:
             risk_reservations += 1
         elif event.event_type == "PaperGatewayCommandExecuted":
             gateway_commands += 1
+            command = event.payload.get("command", {})
+            gateway_command_kinds.append(str(command.get("kind")))
+            gateway_command_intent_ids.append(str(command.get("intent_id")))
     return {
         "cycle": cycle, "intent": intent, "committee_verdicts": verdicts,
         "roles_completed": sorted(set(roles)),
         "risk_reservations": risk_reservations,
         "sandbox_gateway_commands": gateway_commands,
+        "gateway_command_kinds": gateway_command_kinds,
+        "gateway_command_intent_ids": gateway_command_intent_ids,
         "supervisor_terminal": supervisor_terminal,
     }
 
@@ -508,6 +523,14 @@ def _tree_digest(path: Path) -> str:
     for item in sorted(path.rglob("*")):
         if not item.is_file():
             continue
+        digest.update(str(item.relative_to(path)).encode("utf-8"))
+        digest.update(item.read_bytes())
+    return digest.hexdigest()
+
+
+def _source_tree_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    for item in sorted(path.rglob("*.py")):
         digest.update(str(item.relative_to(path)).encode("utf-8"))
         digest.update(item.read_bytes())
     return digest.hexdigest()

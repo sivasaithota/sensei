@@ -94,6 +94,7 @@ def main() -> None:
         "--rehearsal",
         default="data/reports/entry-rehearsal-latest.json",
     )
+    certify_p.add_argument("--config", default="config/scheduler.json")
     args = parser.parse_args()
 
     if args.cmd == "prelive-certify":
@@ -103,6 +104,7 @@ def main() -> None:
         report = PreLiveCertifier(
             journal_path=Path(args.journal),
             rehearsal_path=Path(args.rehearsal),
+            config_path=Path(args.config),
         ).run()
         payload = report.to_dict()
         destination = Path(args.report)

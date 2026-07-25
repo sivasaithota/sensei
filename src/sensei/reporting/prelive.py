@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from datetime import timedelta
+import hashlib
 import json
 from pathlib import Path
 
@@ -28,6 +30,7 @@ _ROLES = frozenset(
     }
 )
 _VERDICT_LEVELS = frozenset({"L1", "L2", "L3", "L4"})
+_MINIMUM_USABLE_UNIVERSE_RATIO = 0.90
 
 
 @dataclass(frozen=True)
@@ -74,6 +77,7 @@ class PreLiveCertifier:
         journal_path: Path,
         playbook_path: Path = Path("data/playbook/current.json"),
         rehearsal_path: Path | None = None,
+        config_path: Path = Path("config/scheduler.json"),
         strategy_study: Callable[[], Sequence[Mapping[str, object]]] | None = None,
     ) -> None:
         self._journal_path = Path(journal_path)
@@ -82,6 +86,7 @@ class PreLiveCertifier:
             Path(rehearsal_path) if rehearsal_path is not None else None
         )
         self._strategy_study = strategy_study
+        self._config_path = Path(config_path)
 
     def run(self, *, generated_at: datetime | None = None) -> PreLiveCertificationReport:
         now = generated_at or datetime.now(timezone.utc)
@@ -93,6 +98,17 @@ class PreLiveCertifier:
         rehearsal = (
             _load_rehearsal(self._rehearsal_path)
             if self._rehearsal_path is not None else {}
+        )
+        rehearsal = (
+            rehearsal
+            if _rehearsal_matches(
+                rehearsal,
+                journal_path=self._journal_path,
+                config_path=self._config_path,
+                now=now,
+                event_count=len(events),
+            )
+            else {}
         )
         study = tuple(
             self._strategy_study()
@@ -137,11 +153,29 @@ def _fresh_strategy_study(
         for item in retained.get("strategies", ())
         if item.get("adopted") is True
     )
-    return tuple(
-        evaluate_strategy(name, strategy, symbols)
-        for name in adopted_names
-        if (strategy := strategies.get(name)) is not None
-    )
+    usable = 0
+    from sensei.data.store import load_prices
+    for symbol in symbols:
+        try:
+            usable += int(len(load_prices(symbol)) >= 500)
+        except (FileNotFoundError, OSError, ValueError):
+            pass
+    results = []
+    for name in adopted_names:
+        strategy = strategies.get(name)
+        if strategy is None:
+            results.append({
+                "name": name,
+                "adopted": False,
+                "missing_definition": True,
+                "out_of_sample": {},
+            })
+            continue
+        result = evaluate_strategy(name, strategy, symbols)
+        result["universe_requested"] = len(symbols)
+        result["universe_usable"] = usable
+        results.append(result)
+    return tuple(results)
 
 
 def _strategy_check(study) -> CertificationCheck:
@@ -151,7 +185,21 @@ def _strategy_check(study) -> CertificationCheck:
         for item in study
         if item.get("adopted") is not True
     )
-    passed = bool(study) and len(adopted) >= 1 and not failures
+    coverage_failures = tuple(
+        str(item.get("name", "unknown"))
+        for item in study
+        if item.get("universe_requested", 500) != 500
+        or (
+            int(item.get("universe_usable", 500))
+            / max(1, int(item.get("universe_requested", 500)))
+            < _MINIMUM_USABLE_UNIVERSE_RATIO
+        )
+        or item.get("missing_definition") is True
+    )
+    passed = (
+        bool(study) and len(adopted) >= 1
+        and not failures and not coverage_failures
+    )
     return CertificationCheck(
         "fresh_historical_strategy_replay",
         passed,
@@ -164,11 +212,14 @@ def _strategy_check(study) -> CertificationCheck:
             "evaluated": len(study),
             "adopted": len(adopted),
             "failed_names": list(failures),
+            "coverage_failures": list(coverage_failures),
             "results": [
                 {
                     "name": item.get("name"),
                     "adopted": item.get("adopted"),
                     "out_of_sample": item.get("out_of_sample"),
+                    "universe_requested": item.get("universe_requested"),
+                    "universe_usable": item.get("universe_usable"),
                 }
                 for item in study
             ],
@@ -289,9 +340,20 @@ def _entry_protection_check(events, rehearsal) -> CertificationCheck:
     rehearsal_commands = int(
         rehearsal.get("diagnostics", {}).get("sandbox_gateway_commands", 0)
     )
+    rehearsal_kinds = tuple(
+        rehearsal.get("diagnostics", {}).get("gateway_command_kinds", ())
+    )
+    rehearsal_intents = tuple(
+        rehearsal.get("diagnostics", {}).get(
+            "gateway_command_intent_ids", ()
+        )
+    )
     rehearsal_passed = (
         rehearsal.get("state") == "WOULD_TRADE"
         and rehearsal_commands >= 2
+        and "ENTRY" in rehearsal_kinds
+        and "PROTECTION" in rehearsal_kinds
+        and len(set(rehearsal_intents)) == 1
         and rehearsal.get("real_order_submitted") is False
     )
     return CertificationCheck(
@@ -304,6 +366,7 @@ def _entry_protection_check(events, rehearsal) -> CertificationCheck:
         {
             "gateway_command_kinds": sorted(set(kinds)),
             "rehearsal_gateway_commands": rehearsal_commands,
+            "rehearsal_gateway_command_kinds": list(rehearsal_kinds),
             "real_order_submitted": rehearsal.get("real_order_submitted"),
         },
     )
@@ -322,23 +385,82 @@ def _governed_exit_capability_check() -> CertificationCheck:
 
 
 def _closed_learning_check(events) -> CertificationCheck:
-    event_types = {event.event_type for event in events}
-    required = {
-        "ExitFillRecorded",
-        "CostsReconciled",
-        "EpisodeClosed",
-        "OutcomeAttributed",
-        "ReviewRecorded",
-        "LearningObservationRecorded",
-    }
-    missing = sorted(required - event_types)
+    required = (
+        "ExitFillRecorded", "EpisodeClosed", "CostsReconciled",
+        "OutcomeAttributed", "ReviewRecorded",
+    )
+    qualifying = []
+    for stream_id in {
+        event.stream_id for event in events if event.stream_id.startswith("episode:")
+    }:
+        episode = [event for event in events if event.stream_id == stream_id]
+        positions = {
+            event.event_type: index for index, event in enumerate(episode)
+            if event.event_type in required
+        }
+        episode_id = stream_id.removeprefix("episode:")
+        learning = [
+            event for event in events
+            if event.event_type == "LearningObservationRecorded"
+            and event.correlation_id == episode_id
+        ]
+        if (
+            set(required) <= set(positions)
+            and positions["ExitFillRecorded"] < positions["EpisodeClosed"]
+            < positions["CostsReconciled"] < positions["OutcomeAttributed"]
+            and positions["EpisodeClosed"] < positions["ReviewRecorded"]
+            and learning
+            and max(
+                episode[positions["OutcomeAttributed"]].occurred_at,
+                episode[positions["ReviewRecorded"]].occurred_at,
+            ) <= learning[-1].occurred_at
+        ):
+            qualifying.append(episode_id)
+    missing = [] if qualifying else list(required) + ["LearningObservationRecorded"]
     return CertificationCheck(
         "closed_episode_learning_chain",
         not missing,
         "A closed governed episode reached reviewed learning" if not missing
         else "No complete governed exit-to-learning chain is proven",
-        {"missing_event_types": missing},
+        {"missing_event_types": missing, "qualifying_episode_ids": qualifying},
     )
+
+
+def _rehearsal_matches(
+    rehearsal: Mapping[str, object],
+    *,
+    journal_path: Path,
+    config_path: Path,
+    now: datetime,
+    event_count: int,
+) -> bool:
+    try:
+        generated = datetime.fromisoformat(str(rehearsal["as_of"]))
+        binding = rehearsal["diagnostics"]["evidence_binding"]
+        return (
+            generated.tzinfo is not None
+            and timedelta(0) <= now - generated <= timedelta(hours=24)
+            and binding["source_journal_sha256"] == _file_digest(journal_path)
+            and binding["scheduler_config_sha256"] == _file_digest(config_path)
+            and binding["source_code_sha256"] == _tree_digest(
+                Path(__file__).resolve().parents[1]
+            )
+            and int(binding["source_events"]) == event_count
+        )
+    except (KeyError, TypeError, ValueError, OSError):
+        return False
+
+
+def _file_digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _tree_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    for item in sorted(path.rglob("*.py")):
+        digest.update(str(item.relative_to(path)).encode())
+        digest.update(item.read_bytes())
+    return digest.hexdigest()
 
 
 def _load_rehearsal(path: Path) -> Mapping[str, object]:
