@@ -245,10 +245,10 @@ class ProductionPaperSession:
         ).run(now=now)
         if result.halted_episode_ids:
             return TaskOutcome(
-                TaskOutcomeState.HALTED,
-                ("GOVERNED_EXIT_EPISODE_FAILED",),
+                TaskOutcomeState.COMPLETED,
+                ("GOVERNED_EOD_DEGRADED",),
                 (
-                    "governed exit halted for episode(s): "
+                    "governed exit quarantined episode(s) for operator review: "
                     + ", ".join(result.halted_episode_ids)
                 ),
             )

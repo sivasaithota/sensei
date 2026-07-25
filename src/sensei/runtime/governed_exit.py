@@ -12,6 +12,7 @@ import pandas as pd
 
 from sensei.kernel import (
     BrokerCommand,
+    CancelEntryCommand,
     EntryCommand,
     GatewayReceipt,
     ProtectionCommand,
@@ -192,11 +193,18 @@ class GovernedExitProcessor:
         self._checkpoint("exit_fill", episode.episode_id)
         current = self._episodes.get(episode.episode_id)
         if current.open_quantity:
-            self._resize_protection(
+            protection_receipt = self._resize_protection(
                 episode.intent_id,
                 quantity=current.open_quantity,
                 occurred_at=now,
             )
+            if (
+                not isinstance(protection_receipt, GatewayReceipt)
+                or not protection_receipt.accepted
+            ):
+                raise RuntimeError(
+                    "partial exit protection resize was not accepted"
+                )
             return
         self._advance_settlement(current, now=now)
 
@@ -370,7 +378,9 @@ class PaperEpisodeBrokerBridge:
     def __call__(
         self, command: BrokerCommand, receipt: GatewayReceipt
     ) -> None:
-        if not isinstance(command, (EntryCommand, ProtectionCommand)):
+        if not isinstance(
+            command, (EntryCommand, ProtectionCommand, CancelEntryCommand)
+        ):
             return
         episode_id = self._episode_id(command.intent_id)
         now = self._clock()
@@ -403,6 +413,21 @@ class PaperEpisodeBrokerBridge:
                     occurred_at=now,
                     command_id=f"episode-entry-fill:{command.command_id}",
                 ))
+            if not receipt.accepted:
+                self._terminate_entry(
+                    episode_id,
+                    broker_command_id=command.command_id,
+                    reason="ENTRY_REJECTED",
+                    now=now,
+                )
+        elif isinstance(command, CancelEntryCommand):
+            if receipt.accepted:
+                self._terminate_entry(
+                    episode_id,
+                    broker_command_id=command.command_id,
+                    reason="ENTRY_REMAINDER_CANCELLED",
+                    now=now,
+                )
         elif receipt.accepted:
             self._record_once(EpisodeCommand(
                 episode_id=episode_id,
@@ -418,6 +443,27 @@ class PaperEpisodeBrokerBridge:
                 occurred_at=now,
                 command_id=f"episode-protection:{command.command_id}",
             ))
+
+    def _terminate_entry(
+        self,
+        episode_id: str,
+        *,
+        broker_command_id: str,
+        reason: str,
+        now: datetime,
+    ) -> None:
+        episode = self._episodes.get(episode_id)
+        self._record_once(EpisodeCommand(
+            episode_id=episode_id,
+            event_type=EpisodeEventType.ENTRY_TERMINATED,
+            payload={
+                "reason": reason,
+                "broker_command_id": broker_command_id,
+                "open_quantity": episode.open_quantity,
+            },
+            occurred_at=now,
+            command_id=f"episode-entry-terminal:{broker_command_id}",
+        ))
 
     def _episode_id(self, intent_id: str) -> str:
         matches = {

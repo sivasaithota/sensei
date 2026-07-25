@@ -24,6 +24,7 @@ class EpisodeEventType(str, Enum):
     APPROVAL_RECORDED = "ApprovalRecorded"
     INTENT_ACCEPTED = "IntentAccepted"
     ORDER_SUBMITTED = "OrderSubmitted"
+    ENTRY_TERMINATED = "EntryTerminated"
     ENTRY_FILL_RECORDED = "EntryFillRecorded"
     PROTECTION_VERIFIED = "ProtectionVerified"
     EXIT_FILL_RECORDED = "ExitFillRecorded"
@@ -38,6 +39,7 @@ class EpisodeStatus(str, Enum):
     REJECTED = "REJECTED"
     APPROVED = "APPROVED"
     WORKING = "WORKING"
+    CANCELLED = "CANCELLED"
     OPEN = "OPEN"
     CLOSED = "CLOSED"
 
@@ -259,7 +261,9 @@ def _project(events: tuple[JournalEvent, ...]) -> tuple[TradeEpisode, _Projectio
 def _validate_command(
     episode: TradeEpisode, state: _ProjectionState, command: EpisodeCommand
 ) -> None:
-    if episode.status in (EpisodeStatus.CLOSED, EpisodeStatus.REJECTED):
+    if episode.status in (
+        EpisodeStatus.CLOSED, EpisodeStatus.REJECTED, EpisodeStatus.CANCELLED
+    ):
         if command.event_type not in (
             EpisodeEventType.COSTS_RECONCILED,
             EpisodeEventType.RECONCILIATION_RECORDED,
@@ -294,6 +298,13 @@ def _validate_command(
         fill_id = _require_identity("fill_id", payload.get("fill_id"))
         if fill_id in state.entry_fill_ids:
             raise EpisodeInvariantError("entry fill was already recorded")
+    elif command.event_type is EpisodeEventType.ENTRY_TERMINATED:
+        if episode.status not in {EpisodeStatus.WORKING, EpisodeStatus.OPEN}:
+            raise EpisodeInvariantError(
+                "entry termination requires a working or partially filled order"
+            )
+        _require_identity("reason", payload.get("reason"))
+        _require_identity("broker_command_id", payload.get("broker_command_id"))
     elif command.event_type is EpisodeEventType.PROTECTION_VERIFIED:
         if state.open_quantity <= 0:
             raise EpisodeInvariantError("protection requires an open position")
@@ -346,6 +357,9 @@ def _apply(state: _ProjectionState, event_type: str, payload: Mapping[str, Any])
         state.open_quantity += int(payload["quantity"])
         state.entry_fill_ids.add(str(payload["fill_id"]))
         state.status = EpisodeStatus.OPEN
+    elif event_type == EpisodeEventType.ENTRY_TERMINATED.value:
+        if state.open_quantity == 0:
+            state.status = EpisodeStatus.CANCELLED
     elif event_type == EpisodeEventType.PROTECTION_VERIFIED.value:
         state.protected_quantity = int(payload["protected_quantity"])
     elif event_type == EpisodeEventType.EXIT_FILL_RECORDED.value:

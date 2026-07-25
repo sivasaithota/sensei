@@ -4,14 +4,17 @@ from decimal import Decimal
 import pandas as pd
 import pytest
 
-from sensei.kernel import GatewayReceipt
+from sensei.kernel import CancelEntryCommand, EntryCommand, GatewayReceipt
 from sensei.learning.episodes import (
     EpisodeCommand,
     EpisodeEventType,
     TradeEpisodeJournal,
 )
 from sensei.operations import OperationalJournal
-from sensei.runtime.governed_exit import GovernedExitProcessor
+from sensei.runtime.governed_exit import (
+    GovernedExitProcessor,
+    PaperEpisodeBrokerBridge,
+)
 
 
 NOW = datetime(2026, 7, 25, 12, 0, tzinfo=timezone.utc)
@@ -65,6 +68,39 @@ def _open_episode(journal, suffix="one", instrument="INFY", *, protect=True):
             occurred_at=NOW - timedelta(days=1, seconds=10 - index),
             command_id=f"open-{suffix}-{index}",
         ))
+
+
+def _accepted_episode(journal, suffix):
+    episodes = TradeEpisodeJournal(journal)
+    intent_id = f"intent:{suffix}"
+    episode_id = f"EP-{suffix}"
+    episodes.start(
+        episode_id=episode_id,
+        strategy_lineage_id=f"lineage-{suffix}",
+        plan_version_id="sha256:" + "a" * 64,
+        decision_trace_id=f"trace:{suffix}",
+        market_snapshot_id="snapshot:" + "b" * 64,
+        account_snapshot_id="snapshot:" + "c" * 64,
+        intent_id=intent_id,
+        instrument_id="INFY",
+        timeframe="1d",
+        planned_entry_price_paise=10_000,
+        planned_exit_price_paise=11_000,
+        signal_time=NOW - timedelta(minutes=2),
+        command_id=f"start-{suffix}",
+    )
+    for index, (event_type, payload) in enumerate((
+        (EpisodeEventType.APPROVAL_RECORDED, {"approved": True}),
+        (EpisodeEventType.INTENT_ACCEPTED, {"intent_id": intent_id}),
+    )):
+        episodes.record(EpisodeCommand(
+            episode_id=episode_id,
+            event_type=event_type,
+            payload=payload,
+            occurred_at=NOW - timedelta(minutes=1, seconds=1 - index),
+            command_id=f"accept-{suffix}-{index}",
+        ))
+    return episodes, episode_id, intent_id
 
 
 def test_stop_exit_closes_attributes_reviews_and_teaches_coach(tmp_path):
@@ -164,7 +200,11 @@ def test_partial_exit_retries_only_remaining_quantity_and_learns_once(tmp_path):
     processor = GovernedExitProcessor(
         journal=journal,
         exit_position=exit_position,
-        resize_protection=lambda *_args, **_kwargs: None,
+        resize_protection=lambda *_args, **_kwargs: GatewayReceipt(
+            command_id="command:" + "f" * 64,
+            accepted=True,
+            broker_reference="protection-resized",
+        ),
         bars=lambda _instrument: bars,
         maximum_holding_sessions=lambda _plan: 25,
         trading_sessions_between=lambda _start, _end: 2,
@@ -339,3 +379,102 @@ def test_one_malformed_episode_does_not_block_other_protective_exits(tmp_path):
     assert result.halted_episode_ids == ("EP-one",)
     assert result.closed_episode_ids == ("EP-two",)
     assert len(exited) == 1
+
+
+def test_rejected_entry_becomes_terminal_without_learning(tmp_path):
+    journal = OperationalJournal(tmp_path / "operations.sqlite3")
+    episodes, episode_id, intent_id = _accepted_episode(journal, "rejected")
+    entry = EntryCommand(intent_id, "INFY", 2, 10_000)
+    bridge = PaperEpisodeBrokerBridge(journal, clock=lambda: NOW)
+
+    bridge(entry, GatewayReceipt(
+        command_id=entry.command_id,
+        accepted=False,
+        broker_reference="rejected-by-paper-broker",
+    ))
+
+    episode = episodes.get(episode_id)
+    assert episode.status.value == "CANCELLED"
+    assert episode.open_quantity == 0
+    assert not any(
+        event.event_type == "LearningObservationRecorded"
+        for event in journal.read_all()
+    )
+
+
+def test_zero_fill_cancel_terminates_but_partial_fill_cancel_stays_open(tmp_path):
+    journal = OperationalJournal(tmp_path / "operations.sqlite3")
+    episodes, zero_id, zero_intent = _accepted_episode(journal, "zero")
+    _, partial_id, partial_intent = _accepted_episode(journal, "partial")
+    bridge = PaperEpisodeBrokerBridge(journal, clock=lambda: NOW)
+
+    zero_entry = EntryCommand(zero_intent, "INFY", 2, 10_000)
+    bridge(zero_entry, GatewayReceipt(
+        command_id=zero_entry.command_id,
+        accepted=True,
+        broker_reference="working-zero",
+    ))
+    zero_cancel = CancelEntryCommand(
+        zero_intent, "INFY", zero_entry.command_id, 2
+    )
+    bridge(zero_cancel, GatewayReceipt(
+        command_id=zero_cancel.command_id,
+        accepted=True,
+        broker_reference="cancel-zero",
+    ))
+
+    partial_entry = EntryCommand(partial_intent, "INFY", 2, 10_000)
+    bridge(partial_entry, GatewayReceipt(
+        command_id=partial_entry.command_id,
+        accepted=True,
+        broker_reference="partial-fill",
+        cumulative_fill_quantity=1,
+        average_fill_price_paise=10_000,
+    ))
+    partial_cancel = CancelEntryCommand(
+        partial_intent, "INFY", partial_entry.command_id, 1
+    )
+    bridge(partial_cancel, GatewayReceipt(
+        command_id=partial_cancel.command_id,
+        accepted=True,
+        broker_reference="cancel-remainder",
+    ))
+
+    assert episodes.get(zero_id).status.value == "CANCELLED"
+    assert episodes.get(partial_id).status.value == "OPEN"
+    assert episodes.get(partial_id).open_quantity == 1
+
+
+def test_partial_exit_halts_when_remaining_protection_is_rejected(tmp_path):
+    journal = OperationalJournal(tmp_path / "operations.sqlite3")
+    _open_episode(journal)
+    frame = pd.DataFrame(
+        [{
+            "open": 94.0, "high": 97.0, "low": 93.0,
+            "close": 95.0, "volume": 1_000_000,
+        }],
+        index=pd.to_datetime(["2026-07-25"]),
+    )
+
+    result = GovernedExitProcessor(
+        journal=journal,
+        exit_position=lambda _intent, **_kwargs: GatewayReceipt(
+            command_id="command:" + "7" * 64,
+            accepted=True,
+            broker_reference="partial-exit",
+            cumulative_fill_quantity=1,
+            average_fill_price_paise=9_400,
+        ),
+        resize_protection=lambda *_args, **_kwargs: GatewayReceipt(
+            command_id="command:" + "6" * 64,
+            accepted=False,
+            broker_reference="resize-rejected",
+        ),
+        bars=lambda _instrument: frame,
+        maximum_holding_sessions=lambda _plan: 25,
+        trading_sessions_between=lambda _start, _end: 2,
+        market_regime=lambda _now: "mixed",
+    ).run(now=NOW)
+
+    assert result.halted_episode_ids == ("EP-one",)
+    assert TradeEpisodeJournal(journal).get("EP-one").open_quantity == 1

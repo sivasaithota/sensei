@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 
 from sensei.reporting.qualification import (
     DeskQualificationRunner,
@@ -70,3 +71,52 @@ def test_qualification_report_is_json_serializable(tmp_path):
     assert payload["failed_scenarios"] == []
     assert payload["results"][0]["name"] == "agents"
     assert payload["results"][0]["passed"] is True
+
+
+def test_timeout_is_attributed_and_later_scenarios_still_run(tmp_path):
+    calls = 0
+
+    def execute(_node_ids):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise subprocess.TimeoutExpired("pytest", 300)
+        return 0, "passed"
+
+    report = DeskQualificationRunner(
+        repo_root=tmp_path,
+        scenarios=(
+            QualificationScenario("hung", ("tests/a.py",)),
+            QualificationScenario("later", ("tests/b.py",)),
+        ),
+        execute=execute,
+    ).run()
+
+    assert calls == 2
+    assert report.failed_scenarios == ("hung",)
+    assert "TIMED_OUT" in report.results[0].detail
+    assert report.results[1].passed is True
+
+
+def test_default_manifest_has_unique_existing_tests():
+    root = Path(__file__).resolve().parents[1]
+    runner = DeskQualificationRunner(repo_root=root)
+
+    assert runner.validate_manifest() == ()
+
+
+def test_current_runtime_evidence_is_part_of_the_final_verdict(tmp_path):
+    report = DeskQualificationRunner(
+        repo_root=tmp_path,
+        scenarios=(QualificationScenario("code", ("tests/a.py",)),),
+        execute=lambda _node_ids: (0, "passed"),
+        current_runtime_check=lambda: (
+            False,
+            "current surveillance is stale",
+            {"blockers": ["surveillance"]},
+        ),
+    ).run()
+
+    assert report.passed is False
+    assert report.failed_scenarios == ("current_runtime_evidence",)
+    assert report.results[-1].evidence == {"blockers": ["surveillance"]}

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,6 +22,7 @@ class QualificationResult:
     passed: bool
     detail: str
     node_ids: tuple[str, ...]
+    evidence: Mapping[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -29,6 +30,7 @@ class QualificationResult:
             "passed": self.passed,
             "detail": self.detail,
             "node_ids": list(self.node_ids),
+            "evidence": dict(self.evidence or {}),
         }
 
 
@@ -113,6 +115,9 @@ DEFAULT_SCENARIOS = (
         "learning_memory_and_reporting",
         (
             "tests/test_trade_episodes_learning.py",
+            "tests/test_operations_drift.py",
+            "tests/test_research_examiner.py",
+            "tests/test_research_lab.py",
             "tests/test_operational_reporting.py",
             "tests/test_desk_reporting.py",
         ),
@@ -136,25 +141,70 @@ class DeskQualificationRunner:
         repo_root: Path,
         scenarios: Sequence[QualificationScenario] = DEFAULT_SCENARIOS,
         execute: Callable[[tuple[str, ...]], tuple[int, str]] | None = None,
+        current_runtime_check: (
+            Callable[[], tuple[bool, str, Mapping[str, object]]] | None
+        ) = None,
     ) -> None:
         self._repo_root = Path(repo_root)
         self.scenarios = tuple(scenarios)
         self._execute = execute or self._run_pytest
+        self._current_runtime_check = current_runtime_check
 
     def run(self) -> DeskQualificationReport:
         results = []
         for scenario in self.scenarios:
-            code, output = self._execute(scenario.node_ids)
+            try:
+                code, output = self._execute(scenario.node_ids)
+            except subprocess.TimeoutExpired as exc:
+                code, output = 124, (
+                    f"QUALIFICATION_SCENARIO_TIMED_OUT after {exc.timeout}s"
+                )
+            except OSError as exc:
+                code, output = 126, (
+                    f"QUALIFICATION_SCENARIO_COULD_NOT_START: {exc}"
+                )
             results.append(QualificationResult(
                 name=scenario.name,
                 passed=code == 0,
                 detail=_last_output(output),
                 node_ids=scenario.node_ids,
             ))
+        if self._current_runtime_check is not None:
+            try:
+                passed, detail, evidence = self._current_runtime_check()
+            except Exception as exc:
+                passed, detail, evidence = (
+                    False,
+                    f"CURRENT_RUNTIME_QUALIFICATION_FAILED: "
+                    f"{type(exc).__name__}: {exc}",
+                    {},
+                )
+            results.append(QualificationResult(
+                name="current_runtime_evidence",
+                passed=passed,
+                detail=detail,
+                node_ids=(),
+                evidence=evidence,
+            ))
         return DeskQualificationReport(
             generated_at=datetime.now(timezone.utc),
             results=tuple(results),
         )
+
+    def validate_manifest(self) -> tuple[str, ...]:
+        errors: list[str] = []
+        seen: set[str] = set()
+        for scenario in self.scenarios:
+            if not scenario.node_ids:
+                errors.append(f"{scenario.name}: scenario has no tests")
+            for node_id in scenario.node_ids:
+                path = node_id.split("::", 1)[0]
+                if node_id in seen:
+                    errors.append(f"{scenario.name}: duplicate node id {node_id}")
+                seen.add(node_id)
+                if not (self._repo_root / path).is_file():
+                    errors.append(f"{scenario.name}: missing {path}")
+        return tuple(errors)
 
     def _run_pytest(self, node_ids: tuple[str, ...]) -> tuple[int, str]:
         completed = subprocess.run(

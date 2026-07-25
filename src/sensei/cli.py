@@ -102,14 +102,44 @@ def main() -> None:
     qualify_p.add_argument(
         "--report", default="data/reports/desk-qualification-latest.json"
     )
+    qualify_p.add_argument("--journal", default="data/operations.sqlite3")
+    qualify_p.add_argument("--config", default="config/scheduler.json")
     args = parser.parse_args()
 
     if args.cmd == "qualify-desk":
         from pathlib import Path
+        from sensei.reporting.prelive import PreLiveCertifier
         from sensei.reporting.qualification import DeskQualificationRunner
+        from sensei.runtime.rehearsal import PaperEntryRehearsal
 
         root = Path(__file__).resolve().parents[2]
-        report = DeskQualificationRunner(repo_root=root).run()
+
+        def current_runtime_check():
+            certification = PreLiveCertifier(
+                journal_path=Path(args.journal),
+                config_path=Path(args.config),
+                rehearsal_run=lambda: PaperEntryRehearsal(
+                    journal_path=Path(args.journal),
+                    config_path=Path(args.config),
+                ).run(as_of=datetime.now(timezone.utc)).to_dict(),
+            ).run()
+            payload = certification.to_dict()
+            passed = certification.ready_for_unattended_paper
+            return (
+                passed,
+                (
+                    "current journal, 500-symbol replay, and isolated "
+                    "production composition passed"
+                    if passed else
+                    "current runtime evidence is not ready for unattended paper"
+                ),
+                payload,
+            )
+
+        report = DeskQualificationRunner(
+            repo_root=root,
+            current_runtime_check=current_runtime_check,
+        ).run()
         payload = report.to_dict()
         destination = Path(args.report)
         destination.parent.mkdir(parents=True, exist_ok=True)
