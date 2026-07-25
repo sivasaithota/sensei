@@ -437,6 +437,25 @@ class GovernedSchedulerApplication:
                         else None
                     ),
                 )
+                legacy_eod_session = eod_session
+
+                def governed_and_legacy_eod(task, now):
+                    legacy_outcome = legacy_eod_session(task, now)
+                    if legacy_outcome.state is TaskOutcomeState.HALTED:
+                        return legacy_outcome
+                    governed_outcome = entry_session.eod(task, now)
+                    if governed_outcome.state is TaskOutcomeState.HALTED:
+                        return governed_outcome
+                    return TaskOutcome(
+                        TaskOutcomeState.COMPLETED,
+                        tuple(dict.fromkeys(
+                            legacy_outcome.reason_codes
+                            + governed_outcome.reason_codes
+                        )),
+                        legacy_outcome.detail + "; " + governed_outcome.detail,
+                    )
+
+                eod_session = governed_and_legacy_eod
             from .shadow_session import DailyCanonicalShadowSession
 
             from .market_ingestion import (

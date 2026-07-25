@@ -17,6 +17,7 @@ class CommandKind(StrEnum):
     ENTRY = "ENTRY"
     PROTECTION = "PROTECTION"
     CANCEL_ENTRY = "CANCEL_ENTRY"
+    EXIT = "EXIT"
 
 
 def _command_id(payload: dict[str, object]) -> str:
@@ -140,7 +141,52 @@ class CancelEntryCommand:
         return payload
 
 
-BrokerCommand: TypeAlias = EntryCommand | ProtectionCommand | CancelEntryCommand
+@dataclass(frozen=True)
+class ExitCommand:
+    intent_id: str
+    instrument_id: str
+    quantity: int
+    reference_price_paise: int
+    reason_code: str
+    kind: CommandKind = field(default=CommandKind.EXIT, init=False)
+    command_id: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        _validate_identity(self.intent_id, self.instrument_id)
+        if isinstance(self.quantity, bool) or not isinstance(self.quantity, int):
+            raise TypeError("quantity must be an integer")
+        if self.quantity <= 0:
+            raise ValueError("quantity must be positive")
+        require_positive_integer(
+            self.reference_price_paise, "reference_price_paise"
+        )
+        if (
+            not self.reason_code
+            or not self.reason_code.replace("_", "").isalnum()
+            or self.reason_code != self.reason_code.upper()
+        ):
+            raise ValueError("reason_code must be an uppercase identifier")
+        object.__setattr__(
+            self, "command_id", _command_id(self.to_payload(include_id=False))
+        )
+
+    def to_payload(self, *, include_id: bool = True) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "kind": self.kind.value,
+            "intent_id": self.intent_id,
+            "instrument_id": self.instrument_id,
+            "quantity": self.quantity,
+            "reference_price_paise": self.reference_price_paise,
+            "reason_code": self.reason_code,
+        }
+        if include_id:
+            payload["command_id"] = self.command_id
+        return payload
+
+
+BrokerCommand: TypeAlias = (
+    EntryCommand | ProtectionCommand | CancelEntryCommand | ExitCommand
+)
 
 
 def command_from_payload(payload: Mapping[str, object]) -> BrokerCommand:
@@ -160,12 +206,20 @@ def command_from_payload(payload: Mapping[str, object]) -> BrokerCommand:
             stop_price_paise=int(payload["stop_price_paise"]),
             target_price_paise=int(payload["target_price_paise"]),
         )
-    else:
+    elif kind is CommandKind.CANCEL_ENTRY:
         command = CancelEntryCommand(
             intent_id=str(payload["intent_id"]),
             instrument_id=str(payload["instrument_id"]),
             entry_command_id=str(payload["entry_command_id"]),
             remaining_quantity=int(payload["remaining_quantity"]),
+        )
+    else:
+        command = ExitCommand(
+            intent_id=str(payload["intent_id"]),
+            instrument_id=str(payload["instrument_id"]),
+            quantity=int(payload["quantity"]),
+            reference_price_paise=int(payload["reference_price_paise"]),
+            reason_code=str(payload["reason_code"]),
         )
     supplied_id = payload.get("command_id")
     if supplied_id is not None and supplied_id != command.command_id:

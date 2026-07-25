@@ -26,7 +26,9 @@ from sensei.portfolio_risk.models import require_positive_integer
 from .commands import (
     BrokerCommand,
     CancelEntryCommand,
+    CommandKind,
     EntryCommand,
+    ExitCommand,
     ProtectionCommand,
     command_from_payload,
 )
@@ -166,6 +168,7 @@ class RecordingPaperGateway:
         }
         position_quantities: dict[str, int] = {}
         protections: dict[str, BrokerProtection] = {}
+        exited_intents: set[str] = set()
         working_orders: list[BrokerWorkingOrder] = []
         for record in records:
             command = record.command
@@ -193,7 +196,19 @@ class RecordingPaperGateway:
                             quantity=command.quantity,
                         )
                     )
+            elif isinstance(command, ExitCommand):
+                if receipt.cumulative_fill_quantity:
+                    position_quantities[command.instrument_id] = max(
+                        0,
+                        position_quantities.get(command.instrument_id, 0)
+                        - receipt.cumulative_fill_quantity,
+                    )
+                    if position_quantities[command.instrument_id] == 0:
+                        exited_intents.add(command.intent_id)
+                        protections.pop(command.instrument_id, None)
             elif isinstance(command, ProtectionCommand):
+                if command.intent_id in exited_intents:
+                    continue
                 protections[command.instrument_id] = BrokerProtection(
                     instrument_id=command.instrument_id,
                     quantity=command.quantity,
@@ -217,9 +232,17 @@ class RecordingPaperGateway:
             positions=tuple(
                 BrokerPosition(instrument_id, quantity)
                 for instrument_id, quantity in position_quantities.items()
+                if quantity > 0
             ),
             protections=tuple(protections.values()),
-            working_orders=tuple(working_orders),
+            working_orders=tuple(
+                order
+                for order in working_orders
+                if (
+                    order.kind != CommandKind.PROTECTION.value
+                    or order.instrument_id in protections
+                )
+            ),
         )
 
     def queue_entry_fill(
@@ -328,6 +351,30 @@ class RecordingPaperGateway:
         consume_queued: bool,
     ) -> tuple[int, int | None, bool, Mapping[str, object] | None]:
         if not isinstance(command, EntryCommand):
+            if not isinstance(command, ExitCommand):
+                return 0, None, False, None
+            if self._execution_model is not None and self._market_observation is not None:
+                observation = self._market_observation(command.instrument_id)
+                fill = self._execution_model.simulate_exit(
+                    quantity=command.quantity,
+                    reference_price_paise=observation.reference_price_paise,
+                    available_volume=observation.traded_volume,
+                    lower_circuit_paise=observation.lower_circuit_paise,
+                    reason_code=command.reason_code,
+                )
+                return (
+                    fill.filled_quantity,
+                    fill.fill_price_paise,
+                    False,
+                    fill.to_payload(),
+                )
+            if self._auto_fill_at_limit:
+                return (
+                    command.quantity,
+                    command.reference_price_paise,
+                    False,
+                    None,
+                )
             return 0, None, False, None
         if self._queued_entry_fills:
             fill_quantity, queued_price = self._queued_entry_fills[0]

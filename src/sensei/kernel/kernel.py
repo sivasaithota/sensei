@@ -32,6 +32,7 @@ from .commands import (
     CancelEntryCommand,
     CommandKind,
     EntryCommand,
+    ExitCommand,
     ProtectionCommand,
     command_from_payload,
 )
@@ -420,6 +421,54 @@ class TradingKernel:
             remaining_quantity=remaining,
         )
         self._prepare(command, occurred_at)
+
+    def exit_position(
+        self,
+        intent_id: str,
+        *,
+        quantity: int,
+        reference_price_paise: int,
+        reason_code: str,
+        occurred_at: datetime,
+    ) -> GatewayReceipt:
+        """Durably dispatch one idempotent reduction of governed exposure."""
+
+        require_timestamp(occurred_at, "occurred_at")
+        state = self._state()
+        intent = state.intents.get(intent_id)
+        if intent is None:
+            raise ValueError(f"unknown intent {intent_id!r}")
+        command = ExitCommand(
+            intent_id=intent_id,
+            instrument_id=intent.instrument_id,
+            quantity=quantity,
+            reference_price_paise=reference_price_paise,
+            reason_code=reason_code,
+        )
+        existing = state.commands.get(command.command_id)
+        if existing is not None:
+            receipt = state.receipts.get(command.command_id)
+            if receipt is not None:
+                return receipt
+            recovered = self._gateway.receipt_for(command.command_id)
+            if recovered is not None:
+                self._record_completion(command, recovered, occurred_at)
+                return recovered
+            return self._dispatch(command, occurred_at)
+
+        filled, _average = state.fills.get(intent_id, (0, 0))
+        already_exited = sum(
+            receipt.cumulative_fill_quantity
+            for command_id, receipt in state.receipts.items()
+            if isinstance(state.commands.get(command_id), ExitCommand)
+            and state.commands[command_id].intent_id == intent_id
+        )
+        if filled <= 0:
+            raise ValueError("exit requires a filled governed position")
+        if quantity > filled - already_exited:
+            raise ValueError("exit quantity exceeds remaining governed position")
+        self._prepare(command, occurred_at)
+        return self._dispatch(command, occurred_at)
 
     def observe_fill(
         self,
@@ -1079,6 +1128,7 @@ class TradingKernel:
             CommandKind.ENTRY: SafetyAction.ENTRY,
             CommandKind.PROTECTION: SafetyAction.PROTECTION,
             CommandKind.CANCEL_ENTRY: SafetyAction.CANCEL_ENTRY,
+            CommandKind.EXIT: SafetyAction.EXIT,
         }[command.kind]
         self._safety.assert_allowed(action)
         try:

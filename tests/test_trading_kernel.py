@@ -14,6 +14,7 @@ from sensei.kernel import (
     CancelEntryCommand,
     CommandKind,
     EntryCommand,
+    ExitCommand,
     EntryAuthorizationInvalid,
     EntryDispatchAuthorization,
     KernelAdmissionAuthority,
@@ -417,6 +418,36 @@ def test_accept_only_journals_and_run_once_uses_durable_outbox(tmp_path):
     restarted, _, _, _ = _kernel(tmp_path, gateway)
     _run_once(restarted)
     assert [c.command_id for c in gateway.commands].count(entries[0].command_id) == 1
+
+
+def test_governed_exit_is_durable_and_idempotent_across_restart(tmp_path):
+    gateway = RecordingPaperGateway(auto_fill_at_limit=True)
+    kernel, gateway, _, journal = _kernel(tmp_path, gateway)
+    intent = _accept(kernel, journal, _intent(quantity=4))
+    _run_once(kernel)
+
+    first = kernel.exit_position(
+        intent.intent_id,
+        quantity=4,
+        reference_price_paise=155_000,
+        reason_code="TARGET",
+        occurred_at=NOW + timedelta(minutes=1),
+    )
+    restarted, gateway, _, _ = _kernel(tmp_path, gateway)
+    second = restarted.exit_position(
+        intent.intent_id,
+        quantity=4,
+        reference_price_paise=155_000,
+        reason_code="TARGET",
+        occurred_at=NOW + timedelta(minutes=2),
+    )
+
+    exits = [
+        command for command in gateway.commands
+        if isinstance(command, ExitCommand)
+    ]
+    assert first.command_id == second.command_id
+    assert len(exits) == 1
 
 
 def test_governed_run_dispatches_only_the_selected_intent(tmp_path):

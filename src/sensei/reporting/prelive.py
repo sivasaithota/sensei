@@ -52,6 +52,7 @@ class CertificationCheck:
 @dataclass(frozen=True)
 class PreLiveCertificationReport:
     generated_at: datetime
+    ready_for_unattended_paper: bool
     ready_for_live_capital: bool
     checks: tuple[CertificationCheck, ...]
 
@@ -62,6 +63,7 @@ class PreLiveCertificationReport:
     def to_dict(self) -> dict[str, object]:
         return {
             "generated_at": self.generated_at.isoformat(),
+            "ready_for_unattended_paper": self.ready_for_unattended_paper,
             "ready_for_live_capital": self.ready_for_live_capital,
             "blockers": list(self.blockers),
             "checks": [check.to_dict() for check in self.checks],
@@ -138,10 +140,17 @@ class PreLiveCertifier:
             _committee_check(events, rehearsal),
             _entry_protection_check(events, rehearsal),
             _governed_exit_capability_check(),
-            _closed_learning_check(events),
+            _closed_learning_check(events, rehearsal),
+            _paper_soak_check(events),
+        )
+        paper_checks = tuple(
+            check for check in checks if check.name != "paper_soak_evidence"
         )
         return PreLiveCertificationReport(
             generated_at=now,
+            ready_for_unattended_paper=all(
+                check.passed for check in paper_checks
+            ),
             ready_for_live_capital=all(check.passed for check in checks),
             checks=checks,
         )
@@ -425,7 +434,7 @@ def _governed_exit_capability_check() -> CertificationCheck:
     )
 
 
-def _closed_learning_check(events) -> CertificationCheck:
+def _closed_learning_check(events, rehearsal) -> CertificationCheck:
     required = (
         "ExitFillRecorded", "EpisodeClosed", "CostsReconciled",
         "OutcomeAttributed", "ReviewRecorded",
@@ -457,16 +466,63 @@ def _closed_learning_check(events) -> CertificationCheck:
             ) <= learning[-1].occurred_at
         ):
             qualifying.append(episode_id)
-    missing = [] if qualifying else list(required) + ["LearningObservationRecorded"]
+    rehearsal_qualifying = tuple(
+        rehearsal.get("diagnostics", {}).get(
+            "closed_learning_episode_ids", ()
+        )
+    )
+    passed = bool(qualifying or rehearsal_qualifying)
+    missing = (
+        [] if passed else list(required) + ["LearningObservationRecorded"]
+    )
     return CertificationCheck(
         "closed_episode_learning_chain",
-        not missing,
-        "A closed governed episode reached reviewed learning" if not missing
+        passed,
+        "A closed governed episode reached reviewed learning" if passed
         else "No complete governed exit-to-learning chain is proven",
-        {"missing_event_types": missing, "qualifying_episode_ids": qualifying},
+        {
+            "missing_event_types": missing,
+            "qualifying_episode_ids": qualifying,
+            "rehearsal_qualifying_episode_ids": list(rehearsal_qualifying),
+        },
     )
 
 
+def _paper_soak_check(events) -> CertificationCheck:
+    closed = [
+        event for event in events
+        if event.event_type == "EpisodeClosed"
+        and event.stream_id.startswith("episode:")
+    ]
+    sessions = {
+        event.occurred_at.astimezone().date().isoformat() for event in closed
+    }
+    completed_episode_ids = {
+        event.stream_id.removeprefix("episode:") for event in closed
+    }
+    learned_episode_ids = {
+        event.correlation_id
+        for event in events
+        if event.event_type == "LearningObservationRecorded"
+    }
+    learned_closed = completed_episode_ids & learned_episode_ids
+    passed = len(learned_closed) >= 10 and len(sessions) >= 3
+    return CertificationCheck(
+        "paper_soak_evidence",
+        passed,
+        (
+            "At least 10 governed paper episodes closed and learned across "
+            "3 sessions"
+            if passed
+            else "Real capital requires 10 governed paper closures across 3 sessions"
+        ),
+        {
+            "required_closed_episodes": 10,
+            "actual_closed_and_learned_episodes": len(learned_closed),
+            "required_sessions": 3,
+            "actual_sessions": len(sessions),
+        },
+    )
 def _rehearsal_matches(
     rehearsal: Mapping[str, object],
     *,

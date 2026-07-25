@@ -101,7 +101,6 @@ def main() -> None:
         from pathlib import Path
         from sensei.reporting.prelive import PreLiveCertifier
         from sensei.runtime.rehearsal import PaperEntryRehearsal
-        from datetime import datetime, timezone
 
         report = PreLiveCertifier(
             journal_path=Path(args.journal),

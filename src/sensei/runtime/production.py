@@ -190,6 +190,57 @@ class ProductionPaperSession:
             result.cycles[-1].reason,
         )
 
+    def eod(self, task: ScheduledTask, now: datetime) -> TaskOutcome:
+        """Manage governed positions before lifecycle/shadow maintenance."""
+
+        from sensei.runtime.governed_exit import GovernedExitProcessor
+
+        journal = OperationalJournal(self._journal_path)
+        secrets = RuntimeSecretStore.load(self._config.runtime_secrets_path)
+        gateway = RecordingPaperGateway(
+            journal,
+            execution_model=NseExecutionModel(
+                max_volume_participation_bps=100,
+                base_impact_bps=5,
+            ),
+            market_observation=lambda instrument_id: (
+                self._execution_observation(instrument_id, now)
+            ),
+            clock=lambda: now,
+        )
+        composition, _inputs = self._compose(
+            journal=journal,
+            gateway=gateway,
+            secrets=secrets,
+            now=now,
+            command_id=f"{task.task_id}:governed-exit",
+        )
+        catalog = StrategyPlanCatalog(journal)
+
+        def maximum_holding_sessions(plan_id: str) -> int:
+            record = catalog.get(plan_id)
+            if record is None:
+                raise RuntimeTrustError(
+                    f"open episode references unknown plan {plan_id}"
+                )
+            return record.plan.exits.max_hold_sessions.value
+
+        result = GovernedExitProcessor(
+            journal=journal,
+            exit_position=composition.kernel.exit_position,
+            bars=self._bars,
+            maximum_holding_sessions=maximum_holding_sessions,
+            market_regime=lambda _now: self._regime().label,
+        ).run(now=now)
+        return TaskOutcome(
+            TaskOutcomeState.COMPLETED,
+            ("GOVERNED_EOD_POSITIONS_PROCESSED",),
+            (
+                f"closed {len(result.closed_episode_ids)} governed episode(s); "
+                f"{len(result.open_episode_ids)} remain open"
+            ),
+        )
+
     def _compose(self, *, journal, gateway, secrets, now, command_id):
         risk_config = RiskConfig.load(self._risk_path)
         limits = _risk_limits(risk_config)
@@ -248,6 +299,8 @@ class ProductionPaperSession:
         supervisor_signer = HmacFactSigner(
             "desk-supervisor", secrets["desk-supervisor"]
         )
+        from sensei.runtime.governed_exit import PaperEpisodeBrokerBridge
+
         kernel = TradingKernel(
             journal,
             risk,
@@ -261,6 +314,9 @@ class ProductionPaperSession:
                 {"desk-supervisor": secrets["desk-supervisor"]}
             ),
             expected_supervisor_issuer_id="desk-supervisor",
+            after_command_completed=PaperEpisodeBrokerBridge(
+                journal, clock=lambda: now
+            ),
         )
         dossiers = StageDossierRegistry(
             journal,

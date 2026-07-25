@@ -25,7 +25,7 @@ def _append(journal, stream, event_type, payload, *, correlation_id=None):
     )
 
 
-def test_certification_blocks_live_capital_when_governed_exit_is_absent(tmp_path):
+def test_certification_blocks_live_capital_until_exit_learning_is_proven(tmp_path):
     journal = OperationalJournal(tmp_path / "operations.sqlite3")
     _append(
         journal,
@@ -50,13 +50,12 @@ def test_certification_blocks_live_capital_when_governed_exit_is_absent(tmp_path
     ).run(generated_at=NOW)
 
     assert report.ready_for_live_capital is False
-    assert "governed_exit_capability" in report.blockers
+    assert "closed_episode_learning_chain" in report.blockers
     exit_check = next(
         check for check in report.checks
         if check.name == "governed_exit_capability"
     )
-    assert exit_check.passed is False
-    assert "no typed automated EXIT" in exit_check.detail
+    assert exit_check.passed is True
 
 
 def test_certification_requires_one_complete_nine_role_cycle(tmp_path):
@@ -205,4 +204,7 @@ def test_isolated_production_rehearsal_proves_agents_committee_and_protection(
     assert by_name["nine_agent_production_cycle"].passed is True
     assert by_name["l1_l4_committee_evidence"].passed is True
     assert by_name["paper_entry_and_protection"].passed is True
-    assert by_name["governed_exit_capability"].passed is False
+    assert by_name["governed_exit_capability"].passed is True
+    assert by_name["closed_episode_learning_chain"].passed is False
+    assert report.ready_for_unattended_paper is False
+    assert report.ready_for_live_capital is False

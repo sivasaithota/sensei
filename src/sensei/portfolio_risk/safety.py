@@ -23,6 +23,7 @@ class SafetyAction(StrEnum):
     ENTRY = "ENTRY"
     PROTECTION = "PROTECTION"
     CANCEL_ENTRY = "CANCEL_ENTRY"
+    EXIT = "EXIT"
 
 
 class SafetyBlocked(RuntimeError):

@@ -7,6 +7,7 @@ from .commands import (
     CancelEntryCommand,
     CommandKind,
     EntryCommand,
+    ExitCommand,
     ProtectionCommand,
 )
 from .gateway import GatewayReceipt, PaperGateway, RecordingPaperGateway
@@ -36,6 +37,7 @@ __all__ = [
     "CancelEntryCommand",
     "CommandKind",
     "EntryCommand",
+    "ExitCommand",
     "EntryAuthorizationInvalid",
     "ENTRY_DISPATCH_AUTHORIZATION_FACT_TYPE",
     "EntryDispatchAuthorization",

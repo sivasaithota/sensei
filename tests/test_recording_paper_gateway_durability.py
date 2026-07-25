@@ -8,6 +8,7 @@ from sensei.kernel import (
     CancelEntryCommand,
     CommandKind,
     EntryCommand,
+    ExitCommand,
     ProtectionCommand,
     RecordingPaperGateway,
 )
@@ -170,3 +171,39 @@ def test_broker_snapshot_reconstructs_protection_and_cancelled_entry(tmp_path):
     cancelled = resting_gateway.broker_snapshot(captured_at=NOW)
     assert cancelled.positions == ()
     assert cancelled.working_orders == ()
+
+
+def test_filled_exit_removes_position_and_protection_after_restart(tmp_path):
+    path = tmp_path / "exit.sqlite3"
+    gateway = RecordingPaperGateway(
+        OperationalJournal(path),
+        auto_fill_at_limit=True,
+        clock=lambda: NOW,
+    )
+    entry = _entry(quantity=4)
+    gateway.execute(entry)
+    protection = ProtectionCommand(
+        intent_id=entry.intent_id,
+        instrument_id=entry.instrument_id,
+        quantity=4,
+        stop_price_paise=145_000,
+        target_price_paise=160_000,
+    )
+    gateway.execute(protection)
+
+    exit_command = ExitCommand(
+        intent_id=entry.intent_id,
+        instrument_id=entry.instrument_id,
+        quantity=4,
+        reference_price_paise=155_000,
+        reason_code="TARGET",
+    )
+    receipt = gateway.execute(exit_command)
+    restarted = RecordingPaperGateway(OperationalJournal(path))
+    snapshot = restarted.broker_snapshot(captured_at=NOW)
+
+    assert receipt.cumulative_fill_quantity == 4
+    assert receipt.average_fill_price_paise == 155_000
+    assert snapshot.positions == ()
+    assert snapshot.protections == ()
+    assert snapshot.working_orders == ()

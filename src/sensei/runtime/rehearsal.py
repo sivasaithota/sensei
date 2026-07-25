@@ -240,12 +240,35 @@ def _run_governed_scheduler(
             symbol, on, cache_file=config_path.parent / "earnings_cache.json"
         ),
     )
-    return GovernedSchedulerApplication.open(
+    result = GovernedSchedulerApplication.open(
         journal_path,
         config_path=config_path,
         entry_session=entry,
         manages_legacy_positions=config.legacy_positions_path.is_file(),
     ).run_once(effective_at).to_dict()
+    if any(
+        "GOVERNED_PAPER_DISPATCHED"
+        in item.get("outcome", {}).get("reason_codes", ())
+        for item in result.get("task_results", ())
+    ):
+        # Advance beyond the longest currently valid swing-plan horizon. The
+        # production exit processor still reads the exact plan-specific limit.
+        exit_at = effective_at + timedelta(days=120)
+        while exit_at.weekday() >= 5:
+            exit_at += timedelta(days=1)
+        exit_at = exit_at.replace(hour=18, minute=31, second=0, microsecond=0)
+        exit_task = next(
+            task
+            for task in SwingSessionPolicy(
+                closed_dates=config.closed_dates
+            ).due_tasks(exit_at).tasks
+            if task.kind is SchedulerTaskKind.END_OF_DAY_SESSION
+        )
+        entry.eod(
+            exit_task,
+            exit_at,
+        )
+    return result
 
 
 def _legacy_baseline_source(journal_path, config):
@@ -451,6 +474,8 @@ def _diagnostics(events) -> dict[str, object]:
     gateway_commands = 0
     gateway_command_kinds = []
     gateway_command_intent_ids = []
+    episode_event_types: dict[str, set[str]] = {}
+    learned_episode_ids: set[str] = set()
     for event in events:
         if event.event_type == "TradeIntentAccepted":
             intent = dict(event.payload.get("intent", {}))
@@ -487,6 +512,24 @@ def _diagnostics(events) -> dict[str, object]:
             command = event.payload.get("command", {})
             gateway_command_kinds.append(str(command.get("kind")))
             gateway_command_intent_ids.append(str(command.get("intent_id")))
+        if event.stream_id.startswith("episode:"):
+            episode_event_types.setdefault(
+                event.stream_id.removeprefix("episode:"), set()
+            ).add(event.event_type)
+        if (
+            event.event_type == "LearningObservationRecorded"
+            and event.correlation_id is not None
+        ):
+            learned_episode_ids.add(event.correlation_id)
+    learning_required = {
+        "ExitFillRecorded", "EpisodeClosed", "CostsReconciled",
+        "OutcomeAttributed", "ReviewRecorded",
+    }
+    closed_learning = sorted(
+        episode_id
+        for episode_id, event_types in episode_event_types.items()
+        if learning_required <= event_types and episode_id in learned_episode_ids
+    )
     return {
         "cycle": cycle, "intent": intent, "committee_verdicts": verdicts,
         "roles_completed": sorted(set(roles)),
@@ -494,6 +537,7 @@ def _diagnostics(events) -> dict[str, object]:
         "sandbox_gateway_commands": gateway_commands,
         "gateway_command_kinds": gateway_command_kinds,
         "gateway_command_intent_ids": gateway_command_intent_ids,
+        "closed_learning_episode_ids": closed_learning,
         "supervisor_terminal": supervisor_terminal,
     }
 
