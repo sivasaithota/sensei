@@ -108,30 +108,65 @@ def main() -> None:
 
     if args.cmd == "qualify-desk":
         from pathlib import Path
+        from sensei.automation import SchedulerApplicationConfig
         from sensei.reporting.prelive import PreLiveCertifier
         from sensei.reporting.qualification import DeskQualificationRunner
         from sensei.runtime.rehearsal import PaperEntryRehearsal
 
         root = Path(__file__).resolve().parents[2]
+        scheduler_config = SchedulerApplicationConfig.from_json(
+            Path(args.config)
+        )
 
         def current_runtime_check():
+            rehearsal = PaperEntryRehearsal(
+                journal_path=Path(args.journal),
+                config_path=Path(args.config),
+            ).run(as_of=datetime.now(timezone.utc)).to_dict()
             certification = PreLiveCertifier(
                 journal_path=Path(args.journal),
                 config_path=Path(args.config),
-                rehearsal_run=lambda: PaperEntryRehearsal(
-                    journal_path=Path(args.journal),
-                    config_path=Path(args.config),
-                ).run(as_of=datetime.now(timezone.utc)).to_dict(),
+                playbook_path=scheduler_config.playbook_path,
+                rehearsal_run=lambda: rehearsal,
             ).run()
             payload = certification.to_dict()
-            passed = certification.ready_for_unattended_paper
+            diagnostics = rehearsal.get("diagnostics", {})
+            roles = set(diagnostics.get("roles_completed", ()))
+            levels = {
+                item.get("level")
+                for item in diagnostics.get("committee_verdicts", ())
+            }
+            command_kinds = set(
+                diagnostics.get("gateway_command_kinds", ())
+            )
+            fresh_rehearsal_passed = (
+                rehearsal.get("state") == "WOULD_TRADE"
+                and rehearsal.get("production_state_unchanged") is True
+                and {
+                    "orchestrator", "historian", "reporter", "crowd-reader",
+                    "analyst", "committee", "trader", "coach", "secretary",
+                } <= roles
+                and {"L1", "L2", "L3", "L4"} <= levels
+                and {"ENTRY", "PROTECTION", "EXIT"} <= command_kinds
+                and bool(diagnostics.get("closed_learning_episode_ids"))
+            )
+            blockers = list(certification.blockers)
+            if not fresh_rehearsal_passed:
+                blockers.append("fresh_production_rehearsal")
+            passed = (
+                certification.ready_for_unattended_paper
+                and fresh_rehearsal_passed
+            )
+            payload["fresh_rehearsal_passed"] = fresh_rehearsal_passed
+            payload["fresh_rehearsal"] = rehearsal
             return (
                 passed,
                 (
-                    "current journal, 500-symbol replay, and isolated "
-                    "production composition passed"
+                    "current journal, 500 requested / configured eligible "
+                    "symbol replay, and fresh isolated production composition "
+                    "passed"
                     if passed else
-                    "current runtime evidence is not ready for unattended paper"
+                    "current runtime blockers: " + ", ".join(blockers)
                 ),
                 payload,
             )

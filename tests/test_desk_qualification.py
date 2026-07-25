@@ -23,6 +23,7 @@ def test_qualification_runs_every_scenario_and_reports_exact_failure(tmp_path):
             QualificationScenario("settlement", ("tests/test_b.py",)),
         ),
         execute=execute,
+        enforce_manifest=False,
     )
 
     report = runner.run()
@@ -41,6 +42,7 @@ def test_default_matrix_covers_the_whole_governed_desk(tmp_path):
     runner = DeskQualificationRunner(
         repo_root=tmp_path,
         execute=lambda _node_ids: (0, "passed"),
+        enforce_manifest=False,
     )
 
     names = {scenario.name for scenario in runner.scenarios}
@@ -63,6 +65,7 @@ def test_qualification_report_is_json_serializable(tmp_path):
         repo_root=Path(tmp_path),
         scenarios=(QualificationScenario("agents", ("tests/test_a.py",)),),
         execute=lambda _node_ids: (0, "2 passed in 0.1s"),
+        enforce_manifest=False,
     ).run()
 
     payload = report.to_dict()
@@ -90,6 +93,7 @@ def test_timeout_is_attributed_and_later_scenarios_still_run(tmp_path):
             QualificationScenario("later", ("tests/b.py",)),
         ),
         execute=execute,
+        enforce_manifest=False,
     ).run()
 
     assert calls == 2
@@ -110,6 +114,7 @@ def test_current_runtime_evidence_is_part_of_the_final_verdict(tmp_path):
         repo_root=tmp_path,
         scenarios=(QualificationScenario("code", ("tests/a.py",)),),
         execute=lambda _node_ids: (0, "passed"),
+        enforce_manifest=False,
         current_runtime_check=lambda: (
             False,
             "current surveillance is stale",
@@ -120,3 +125,22 @@ def test_current_runtime_evidence_is_part_of_the_final_verdict(tmp_path):
     assert report.passed is False
     assert report.failed_scenarios == ("current_runtime_evidence",)
     assert report.results[-1].evidence == {"blockers": ["surveillance"]}
+
+
+def test_invalid_manifest_fails_closed_without_running_pytest(tmp_path):
+    calls = 0
+
+    def execute(_node_ids):
+        nonlocal calls
+        calls += 1
+        return 0, "passed"
+
+    report = DeskQualificationRunner(
+        repo_root=tmp_path,
+        scenarios=(QualificationScenario("empty", ()),),
+        execute=execute,
+    ).run()
+
+    assert calls == 0
+    assert report.failed_scenarios == ("qualification_manifest",)
+    assert "scenario has no tests" in report.results[0].detail

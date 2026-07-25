@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import hashlib
 from pathlib import Path
 import subprocess
 import sys
@@ -38,6 +39,8 @@ class QualificationResult:
 class DeskQualificationReport:
     generated_at: datetime
     results: tuple[QualificationResult, ...]
+    valid_until: datetime
+    environment: Mapping[str, object]
 
     @property
     def passed(self) -> bool:
@@ -50,6 +53,8 @@ class DeskQualificationReport:
     def to_dict(self) -> dict[str, object]:
         return {
             "generated_at": self.generated_at.isoformat(),
+            "valid_until": self.valid_until.isoformat(),
+            "environment": dict(self.environment),
             "passed": self.passed,
             "failed_scenarios": list(self.failed_scenarios),
             "results": [result.to_dict() for result in self.results],
@@ -144,15 +149,29 @@ class DeskQualificationRunner:
         current_runtime_check: (
             Callable[[], tuple[bool, str, Mapping[str, object]]] | None
         ) = None,
+        enforce_manifest: bool = True,
     ) -> None:
         self._repo_root = Path(repo_root)
         self.scenarios = tuple(scenarios)
         self._execute = execute or self._run_pytest
         self._current_runtime_check = current_runtime_check
+        self._enforce_manifest = enforce_manifest
 
     def run(self) -> DeskQualificationReport:
         results = []
+        manifest_errors = (
+            self.validate_manifest() if self._enforce_manifest else ()
+        )
+        if manifest_errors:
+            results.append(QualificationResult(
+                name="qualification_manifest",
+                passed=False,
+                detail="\n".join(manifest_errors),
+                node_ids=(),
+            ))
         for scenario in self.scenarios:
+            if manifest_errors:
+                break
             try:
                 code, output = self._execute(scenario.node_ids)
             except subprocess.TimeoutExpired as exc:
@@ -186,9 +205,12 @@ class DeskQualificationRunner:
                 node_ids=(),
                 evidence=evidence,
             ))
+        generated_at = datetime.now(timezone.utc)
         return DeskQualificationReport(
-            generated_at=datetime.now(timezone.utc),
+            generated_at=generated_at,
             results=tuple(results),
+            valid_until=generated_at + timedelta(hours=12),
+            environment=self._environment_identity(),
         )
 
     def validate_manifest(self) -> tuple[str, ...]:
@@ -220,6 +242,28 @@ class DeskQualificationRunner:
             if part.strip()
         )
         return completed.returncode, output
+
+    def _environment_identity(self) -> Mapping[str, object]:
+        lock = self._repo_root / "uv.lock"
+        try:
+            revision = subprocess.run(
+                ("git", "rev-parse", "HEAD"),
+                cwd=self._repo_root,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=True,
+            ).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            revision = "unavailable"
+        return {
+            "git_revision": revision,
+            "python_version": sys.version.split()[0],
+            "dependency_lock_sha256": (
+                hashlib.sha256(lock.read_bytes()).hexdigest()
+                if lock.is_file() else None
+            ),
+        }
 
 
 def _last_output(output: str, *, lines: int = 12) -> str:
