@@ -21,22 +21,26 @@ NO_TRADE_DAYS_BEFORE = 2   # block entries this close to results
 NO_TRADE_DAYS_AFTER = 1    # and right after (gap risk, thesis reset)
 
 
-def _load_cache() -> dict:
-    if CACHE_FILE.exists():
-        cache = json.loads(CACHE_FILE.read_text())
+def _load_cache(cache_file: Path | None = None) -> dict:
+    cache_file = cache_file or CACHE_FILE
+    if cache_file.exists():
+        cache = json.loads(cache_file.read_text())
         if cache.get("as_of") == date.today().isoformat():
             return cache
     return {"as_of": date.today().isoformat(), "symbols": {}}
 
 
-def _save_cache(cache: dict) -> None:
-    CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CACHE_FILE.write_text(json.dumps(cache, indent=2))
+def _save_cache(cache: dict, cache_file: Path | None = None) -> None:
+    cache_file = cache_file or CACHE_FILE
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    cache_file.write_text(json.dumps(cache, indent=2))
 
 
-def next_earnings_date(symbol: str) -> date | None:
+def next_earnings_date(
+    symbol: str, *, cache_file: Path | None = None
+) -> date | None:
     """Next known earnings date for an NSE symbol; None if unknown."""
-    cache = _load_cache()
+    cache = _load_cache(cache_file)
     if symbol in cache["symbols"]:
         v = cache["symbols"][symbol]
         return date.fromisoformat(v) if v else None
@@ -71,15 +75,24 @@ def next_earnings_date(symbol: str) -> date | None:
         result = None
 
     cache["symbols"][symbol] = result.isoformat() if result else None
-    _save_cache(cache)
+    _save_cache(cache, cache_file)
     return result
 
 
-def in_no_trade_window(symbol: str, on: date | None = None) -> tuple[bool, str]:
+def in_no_trade_window(
+    symbol: str,
+    on: date | None = None,
+    *,
+    cache_file: Path | None = None,
+) -> tuple[bool, str]:
     """(blocked, reason). Blocked when `on` falls inside
     [earnings - NO_TRADE_DAYS_BEFORE, earnings + NO_TRADE_DAYS_AFTER]."""
     on = on or date.today()
-    ed = next_earnings_date(symbol)
+    ed = (
+        next_earnings_date(symbol)
+        if cache_file is None
+        else next_earnings_date(symbol, cache_file=cache_file)
+    )
     if ed is None:
         return True, "earnings date unknown — entry blocked"
     lo = ed - timedelta(days=NO_TRADE_DAYS_BEFORE)

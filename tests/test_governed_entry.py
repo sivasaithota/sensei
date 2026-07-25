@@ -92,3 +92,47 @@ def test_planner_emits_no_work_when_health_blocks_entries():
         account_snapshot=account(), operational_health=health(allowed=False),
         now=NOW, command_id="halted-entry",
     ) is None
+
+
+def test_planner_reads_each_instrument_once_across_authorized_plans():
+    plan = hammer_follow_through_plan()
+    second = plan.model_copy(update={"name": "second hammer plan"})
+    bars = hammer_bars()
+    reads = 0
+
+    def load(_instrument):
+        nonlocal reads
+        reads += 1
+        return bars
+
+    planner = CanonicalSignalPlanner(
+        plans=lambda: (
+            AuthorizedPlan(
+                "first",
+                plan,
+                StrategyEvidenceStats(1.2, 0.45, 100),
+            ),
+            AuthorizedPlan(
+                "second",
+                second,
+                StrategyEvidenceStats(1.1, 0.45, 100),
+            ),
+        ),
+        instruments=lambda: ("NSE:TEST",),
+        bars=load,
+        quote=lambda instrument, now: ExecutableQuote(
+            instrument,
+            "snapshot:" + "f" * 64,
+            10_000,
+            now,
+        ),
+        average_turnover=lambda _instrument: 100_000_000.0,
+    )
+
+    assert planner.build(
+        account_snapshot=account(),
+        operational_health=health(),
+        now=NOW,
+        command_id="cached-bars",
+    ) is not None
+    assert reads == 1

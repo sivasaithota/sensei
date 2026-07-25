@@ -85,7 +85,33 @@ def main() -> None:
     rehearsal_p.add_argument(
         "--report", default="data/reports/entry-rehearsal-latest.json"
     )
+    certify_p = sub.add_parser("prelive-certify")
+    certify_p.add_argument("--journal", default="data/operations.sqlite3")
+    certify_p.add_argument(
+        "--report", default="data/reports/prelive-certification-latest.json"
+    )
+    certify_p.add_argument(
+        "--rehearsal",
+        default="data/reports/entry-rehearsal-latest.json",
+    )
     args = parser.parse_args()
+
+    if args.cmd == "prelive-certify":
+        from pathlib import Path
+        from sensei.reporting.prelive import PreLiveCertifier
+
+        report = PreLiveCertifier(
+            journal_path=Path(args.journal),
+            rehearsal_path=Path(args.rehearsal),
+        ).run()
+        payload = report.to_dict()
+        destination = Path(args.report)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        print(json.dumps(payload, indent=2))
+        raise SystemExit(0 if report.ready_for_live_capital else 2)
 
     if args.cmd == "rehearse-entry":
         from pathlib import Path

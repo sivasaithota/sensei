@@ -11,9 +11,24 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 
-from sensei.automation import GovernedSchedulerApplication, SchedulerApplicationConfig
-from sensei.automation.scheduling import SwingSessionPolicy
-from sensei.operations import OperationalJournal
+import pandas as pd
+
+from sensei.automation import (
+    GovernedSchedulerApplication,
+    SchedulerApplicationConfig,
+    SchedulerLedger,
+)
+from sensei.automation.scheduling import SchedulerTaskKind, SwingSessionPolicy
+from sensei.execution.nse import NseMarketObservation
+from sensei.data.events import CACHE_FILE, in_no_trade_window
+from sensei.operations import EventAppend, OperationalJournal
+from sensei.orchestration import ExecutableQuote
+from sensei.runtime.activation import (
+    RuntimeSecretStore,
+    RuntimeTrustError,
+    VerifiedSurveillanceSource,
+)
+from sensei.runtime.production import ProductionPaperSession, _entry_limit_paise
 
 
 class RehearsalState(StrEnum):
@@ -128,9 +143,17 @@ class PaperEntryRehearsal:
                 if config.provenance_path.is_dir():
                     shutil.copytree(config.provenance_path, sandbox_provenance)
                 raw["provenance_path"] = str(sandbox_provenance)
+                sandbox_earnings = root / "earnings_cache.json"
+                if CACHE_FILE.is_file():
+                    shutil.copy2(CACHE_FILE, sandbox_earnings)
                 sandbox_config = root / "scheduler.json"
                 sandbox_config.write_text(
                     json.dumps(raw, sort_keys=True), encoding="utf-8"
+                )
+                _prepare_sandbox_surveillance(
+                    journal_path=sandbox_journal,
+                    config_path=sandbox_config,
+                    effective_at=effective_at,
                 )
                 result = _run_governed_scheduler(
                     sandbox_journal, sandbox_config, effective_at
@@ -195,9 +218,181 @@ class PaperEntryRehearsal:
 def _run_governed_scheduler(
     journal_path: Path, config_path: Path, effective_at: datetime
 ) -> dict:
+    config = SchedulerApplicationConfig.from_json(config_path)
+    legacy_baseline = _legacy_baseline_source(journal_path, config)
+    entry = _HistoricalProductionPaperSession(
+        journal_path=journal_path,
+        scheduler_config=config,
+        risk_path=config.risk_path,
+        playbook_path=config.playbook_path,
+        prices_path=config.prices_path,
+        provenance_path=config.provenance_path,
+        legacy_baseline=legacy_baseline,
+        event_window=lambda symbol, on: in_no_trade_window(
+            symbol, on, cache_file=config_path.parent / "earnings_cache.json"
+        ),
+    )
     return GovernedSchedulerApplication.open(
-        journal_path, config_path=config_path
+        journal_path,
+        config_path=config_path,
+        entry_session=entry,
+        manages_legacy_positions=config.legacy_positions_path.is_file(),
     ).run_once(effective_at).to_dict()
+
+
+def _legacy_baseline_source(journal_path, config):
+    if not config.legacy_positions_path.is_file():
+        return None
+    from sensei.runtime.adoption import LegacyPositionAdoptionRegistry
+
+    payload = json.loads(
+        config.legacy_positions_path.read_text(encoding="utf-8")
+    )
+    symbols = tuple(str(item["symbol"]) for item in payload.get("positions", ()))
+
+    def baseline(captured_at):
+        marks = {
+            symbol: round(
+                float(pd.read_parquet(
+                    config.prices_path / f"{symbol}.parquet"
+                )["close"].iloc[-1])
+                * 100
+            )
+            for symbol in symbols
+        }
+        return LegacyPositionAdoptionRegistry(
+            OperationalJournal(journal_path),
+            positions_path=config.legacy_positions_path,
+        ).reconcile(
+            mark_prices_paise=marks,
+            captured_at=captured_at,
+            command_id=f"rehearsal-legacy-baseline:{captured_at.isoformat()}",
+        ).account_snapshot
+
+    return baseline
+
+
+class _HistoricalProductionPaperSession(ProductionPaperSession):
+    """Production composition with deterministic local-bar market adapters."""
+
+    def _quote(self, instrument_id, now):
+        frame = self._bars(instrument_id)
+        if frame.empty:
+            return None
+        paise = _entry_limit_paise(
+            round(float(frame["close"].iloc[-1]) * 100)
+        )
+        snapshot = "snapshot:" + hashlib.sha256(
+            f"rehearsal:{instrument_id}:{paise}:{now.isoformat()}".encode()
+        ).hexdigest()
+        return ExecutableQuote(instrument_id, snapshot, paise, now)
+
+    def _execution_observation(self, instrument_id, now):
+        frame = self._bars(instrument_id)
+        row = frame.iloc[-1]
+        reference = round(float(row["close"]) * 100)
+        half_spread = max(5, round(reference * 0.0005))
+        return NseMarketObservation(
+            instrument_id=(
+                instrument_id if instrument_id.startswith("NSE:")
+                else f"NSE:{instrument_id}"
+            ),
+            observed_at=now,
+            reference_price_paise=reference,
+            best_bid_paise=max(1, reference - half_spread),
+            best_ask_paise=reference,
+            traded_volume=int(max(0, float(row["volume"]))),
+            lower_circuit_paise=max(1, round(reference * 0.8)),
+            upper_circuit_paise=round(reference * 1.2),
+            evidence_source="LOCAL_DAILY_BAR_REHEARSAL_ONLY",
+            spread_is_estimated=True,
+            circuit_is_estimated=True,
+        )
+
+
+def _prepare_sandbox_surveillance(
+    *,
+    journal_path: Path,
+    config_path: Path,
+    effective_at: datetime,
+) -> None:
+    """Date-bind the already verified source snapshot inside the sandbox."""
+
+    config = SchedulerApplicationConfig.from_json(config_path)
+    raw = json.loads(config.surveillance_path.read_text(encoding="utf-8"))
+    stages = raw.get("stages")
+    if not isinstance(stages, dict) or not stages:
+        raise RuntimeTrustError("rehearsal surveillance snapshot has no stages")
+    secrets = RuntimeSecretStore.load(config.runtime_secrets_path)
+    source_session = datetime.fromisoformat(
+        str(raw["source_session"])
+    ).date()
+    source_snapshot_session = datetime.fromisoformat(str(raw["session"])).date()
+    verifier = VerifiedSurveillanceSource(
+        config.surveillance_path,
+        issuer_id="market-surveillance",
+        secret=secrets["market-surveillance"],
+        maximum_age=timedelta(days=7),
+        clock=lambda: effective_at,
+    )
+    first_symbol = next(iter(stages))
+    if verifier(first_symbol, source_snapshot_session) is None:
+        raise RuntimeTrustError("rehearsal source surveillance is not trustworthy")
+
+    policy = SwingSessionPolicy(closed_dates=config.closed_dates)
+    preflight_at = effective_at.replace(hour=8, minute=41, second=0, microsecond=0)
+    preflight = max(
+        (
+            task
+            for task in policy.due_tasks(preflight_at).tasks
+            if task.kind is SchedulerTaskKind.SURVEILLANCE_PREFLIGHT
+        ),
+        key=lambda task: task.due_at,
+    )
+    VerifiedSurveillanceSource.publish(
+        config.surveillance_path,
+        stages={str(symbol): int(stage) for symbol, stage in stages.items()},
+        session=effective_at.date(),
+        observed_at=preflight_at,
+        issuer_id="market-surveillance",
+        secret=secrets["market-surveillance"],
+        source_session=source_session,
+        source_report_type=str(raw["source_report_type"]),
+        source_content_sha256=str(raw["source_content_sha256"]),
+    )
+    snapshot_sha = hashlib.sha256(config.surveillance_path.read_bytes()).hexdigest()
+    journal = OperationalJournal(journal_path)
+    ledger = SchedulerLedger(journal)
+    claim = ledger.claim(preflight, occurred_at=preflight_at)
+    completed = journal.append(
+        EventAppend(
+            stream_id=f"rehearsal-surveillance:{preflight.task_id}",
+            event_type="SurveillancePreflightCompleted",
+            payload={
+                "schema_version": "1.0",
+                "trading_date": effective_at.date().isoformat(),
+                "symbols": len(stages),
+                "snapshot_sha256": snapshot_sha,
+                "source_session": source_session.isoformat(),
+                "source_report_type": str(raw["source_report_type"]),
+                "source_content_sha256": str(raw["source_content_sha256"]),
+                "snapshot_ready": True,
+                "can_authorize_trading": False,
+                "authority": "REHEARSAL_TRUST_INPUT_ONLY",
+            },
+            idempotency_key=f"rehearsal-surveillance:{preflight.task_id}",
+            expected_version=0,
+            occurred_at=preflight_at,
+            correlation_id=preflight.task_id,
+        )
+    )
+    ledger.complete(
+        preflight.task_id,
+        claimant_id=claim.record.claimant_id,
+        occurred_at=preflight_at + timedelta(seconds=1),
+        detail=f"rehearsal snapshot {completed.event_id}",
+        reason_codes=("SURVEILLANCE_PREFLIGHT_READY",),
+    )
 
 
 def classify_rehearsal_outcome(
@@ -241,7 +436,9 @@ def classify_rehearsal_outcome(
 def _diagnostics(events) -> dict[str, object]:
     intent = None
     cycle = None
+    supervisor_terminal = None
     verdicts = []
+    roles = []
     risk_reservations = 0
     gateway_commands = 0
     for event in events:
@@ -252,6 +449,17 @@ def _diagnostics(events) -> dict[str, object]:
                 "status": event.payload.get("status"),
                 "reason": event.payload.get("reason"),
             }
+        elif event.event_type in {
+            "DeskSupervisorCompleted",
+            "DeskSupervisorHalted",
+            "DeskSupervisorFailed",
+        }:
+            supervisor_terminal = {
+                "event_type": event.event_type,
+                "reason_codes": list(event.payload.get("reason_codes", ())),
+                "error_type": event.payload.get("error_type"),
+                "detail": event.payload.get("detail"),
+            }
         elif event.event_type == "TradeCommitteeVerdictProduced":
             fact = event.payload.get("fact", {})
             verdict = fact.get("verdict", {})
@@ -260,14 +468,18 @@ def _diagnostics(events) -> dict[str, object]:
                 "approved": verdict.get("approved"),
                 "reasoning": verdict.get("reasoning"),
             })
+        elif event.event_type == "DeskRoleCompleted":
+            roles.append(str(event.payload.get("role")))
         elif event.event_type == "RiskReserved":
             risk_reservations += 1
         elif event.event_type == "PaperGatewayCommandExecuted":
             gateway_commands += 1
     return {
         "cycle": cycle, "intent": intent, "committee_verdicts": verdicts,
+        "roles_completed": sorted(set(roles)),
         "risk_reservations": risk_reservations,
         "sandbox_gateway_commands": gateway_commands,
+        "supervisor_terminal": supervisor_terminal,
     }
 
 
@@ -280,7 +492,9 @@ def _artifact_digests(config: SchedulerApplicationConfig) -> dict[str, str | Non
 
     files = {
         str(path): _sha256(path) if path.is_file() else None
-        for path in (config.legacy_positions_path, config.surveillance_path)
+        for path in (
+            config.legacy_positions_path, config.surveillance_path, CACHE_FILE
+        )
     }
     files[str(config.provenance_path)] = (
         _tree_digest(config.provenance_path)

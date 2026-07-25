@@ -70,9 +70,13 @@ class CanonicalSignalPlanner:
         if not operational_health.new_entries_allowed:
             return None
         candidates = []
+        frames: dict[str, pd.DataFrame] = {}
         for authorized in sorted(self._plans(), key=lambda item: item.plan.name):
             for instrument_id in sorted(self._instruments()):
-                frame = self._bars(instrument_id)
+                frame = frames.get(instrument_id)
+                if frame is None:
+                    frame = self._bars(instrument_id)
+                    frames[instrument_id] = frame
                 if frame.empty:
                     continue
                 evaluation_session = frame.index[-1].date()
@@ -84,48 +88,54 @@ class CanonicalSignalPlanner:
                 ))
                 if trace.action is not DecisionAction.ENTER_LONG:
                     continue
-                executable = self._quote(instrument_id, now)
-                if executable is None:
-                    continue
-                snapshot_payload = _market_snapshot_payload(
-                    authorized.plan, instrument_id, frame, evaluation_session
-                )
-                snapshot_id = _market_snapshot_id(snapshot_payload)
-                if self._journal is not None:
-                    self._record_market_snapshot(
-                        snapshot_id=snapshot_id,
-                        plan=authorized.plan,
-                        instrument_id=instrument_id,
-                        evaluation_session=evaluation_session,
-                        snapshot_payload=snapshot_payload,
-                        observed_at=now,
-                    )
                 candidates.append((
                     -authorized.stats.expectancy_pct,
                     authorized.plan.name,
                     instrument_id,
-                    DeskCycleRequest(
-                        lineage_id=authorized.lineage_id,
-                        plan=authorized.plan,
-                        bars=frame,
-                        evaluation_session=evaluation_session,
-                        decision_market_snapshot_id=snapshot_id,
-                        quote=executable,
-                        account_snapshot=account_snapshot,
-                        operational_health=operational_health,
-                        signal_observed_at=now,
-                        now=now,
-                        command_id=f"{command_id}:{authorized.plan.plan_id}:{instrument_id}",
-                        strategy_stats=authorized.stats,
-                        committee_context=CommitteeInputs(
-                            portfolio_state=_portfolio_state(account_snapshot),
-                            average_daily_turnover_inr=float(
-                                self._average_turnover(instrument_id)
-                            ),
-                        ),
-                    ),
+                    authorized,
+                    frame,
+                    evaluation_session,
                 ))
-        return min(candidates, default=(None, None, None, None))[-1]
+        for _, _, instrument_id, authorized, frame, evaluation_session in sorted(
+            candidates
+        ):
+            executable = self._quote(instrument_id, now)
+            if executable is None:
+                continue
+            snapshot_payload = _market_snapshot_payload(
+                authorized.plan, instrument_id, frame, evaluation_session
+            )
+            snapshot_id = _market_snapshot_id(snapshot_payload)
+            if self._journal is not None:
+                self._record_market_snapshot(
+                    snapshot_id=snapshot_id,
+                    plan=authorized.plan,
+                    instrument_id=instrument_id,
+                    evaluation_session=evaluation_session,
+                    snapshot_payload=snapshot_payload,
+                    observed_at=now,
+                )
+            return DeskCycleRequest(
+                lineage_id=authorized.lineage_id,
+                plan=authorized.plan,
+                bars=frame,
+                evaluation_session=evaluation_session,
+                decision_market_snapshot_id=snapshot_id,
+                quote=executable,
+                account_snapshot=account_snapshot,
+                operational_health=operational_health,
+                signal_observed_at=now,
+                now=now,
+                command_id=f"{command_id}:{authorized.plan.plan_id}:{instrument_id}",
+                strategy_stats=authorized.stats,
+                committee_context=CommitteeInputs(
+                    portfolio_state=_portfolio_state(account_snapshot),
+                    average_daily_turnover_inr=float(
+                        self._average_turnover(instrument_id)
+                    ),
+                ),
+            )
+        return None
 
     def _record_market_snapshot(
         self, *, snapshot_id: str, plan: StrategyPlan, instrument_id: str,

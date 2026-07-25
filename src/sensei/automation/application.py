@@ -500,6 +500,7 @@ class GovernedSchedulerApplication:
         *,
         config_path: Path | None = None,
         entry_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
+        manages_legacy_positions: bool = False,
     ) -> "GovernedSchedulerApplication":
         path = Path(journal_path)
         if not path.is_file():
@@ -518,6 +519,7 @@ class GovernedSchedulerApplication:
             journal=journal,
             config=config,
             entry_session=entry_session,
+            manages_legacy_positions=manages_legacy_positions,
             journal_path=path,
         )
 

@@ -83,7 +83,7 @@ class GatewayReceipt:
             "broker_reference": self.broker_reference,
             "cumulative_fill_quantity": self.cumulative_fill_quantity,
             "average_fill_price_paise": self.average_fill_price_paise,
-            "execution_quality": self.execution_quality,
+            "execution_quality": _plain_json(self.execution_quality),
         }
 
 
@@ -514,6 +514,14 @@ def _validate_execution_quality(receipt: GatewayReceipt) -> None:
         raise ValueError("execution quality slippage is invalid")
     if quality["net_cash_flow_paise"] != expected_cash_flow:
         raise ValueError("execution quality cash flow is invalid")
+
+
+def _plain_json(value):
+    if isinstance(value, Mapping):
+        return {str(key): _plain_json(child) for key, child in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain_json(child) for child in value]
+    return value
 
 
 def _command_digest(command_id: str) -> str:

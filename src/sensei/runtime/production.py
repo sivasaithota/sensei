@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -102,6 +103,7 @@ class ProductionPaperSession:
         prices_path: Path = Path("data/prices"),
         provenance_path: Path = Path("data/provenance"),
         legacy_baseline=None,
+        event_window=None,
     ) -> None:
         self._journal_path = Path(journal_path)
         self._config = scheduler_config
@@ -110,6 +112,7 @@ class ProductionPaperSession:
         self._prices_path = Path(prices_path)
         self._provenance_path = Path(provenance_path)
         self._legacy_baseline = legacy_baseline
+        self._event_window = event_window
 
     def __call__(self, task: ScheduledTask, now: datetime) -> TaskOutcome:
         secrets = RuntimeSecretStore.load(self._config.runtime_secrets_path)
@@ -169,7 +172,9 @@ class ProductionPaperSession:
         if result.state is not SupervisorState.COMPLETED:
             return TaskOutcome(
                 TaskOutcomeState.HALTED,
-                result.reason_codes or ("GOVERNED_SUPERVISOR_HALTED",),
+                _scheduler_reason_codes(
+                    result.reason_codes or ("GOVERNED_SUPERVISOR_HALTED",)
+                ),
                 "governed paper Supervisor halted the bounded entry session",
             )
         if not result.cycles:
@@ -323,7 +328,13 @@ class ProductionPaperSession:
                 trace_authority,
                 HmacFactSigner("historian", secrets["historian"]),
             ),
-            reporter=EarningsReporter(surveillance=surveillance),
+            reporter=EarningsReporter(
+                surveillance=surveillance,
+                **(
+                    {"event_window": self._event_window}
+                    if self._event_window is not None else {}
+                ),
+            ),
             crowd_reader=RegimeCrowdReader(reader=self._regime),
             analyst=GovernedAnalyst(),
             committee=committee,
@@ -335,7 +346,7 @@ class ProductionPaperSession:
         )
         planner = CanonicalSignalPlanner(
             plans=lambda: self._authorized_plans(journal, lifecycle),
-            instruments=self._instruments,
+            instruments=lambda: self._instruments(now.date()),
             bars=self._bars,
             quote=self._quote,
             average_turnover=self._turnover,
@@ -464,7 +475,8 @@ class ProductionPaperSession:
         price = live_price(symbol)
         if price is None or price <= 0:
             return None
-        paise = round(price * 100)
+        reference_paise = round(price * 100)
+        paise = _entry_limit_paise(reference_paise)
         snapshot = "snapshot:" + hashlib.sha256(
             f"{instrument_id}:{paise}:{now.isoformat()}".encode()
         ).hexdigest()
@@ -534,7 +546,7 @@ class ProductionPaperSession:
         )
 
     def _market_data_check(self, surveillance, now):
-        instruments = self._instruments()
+        instruments = self._instruments(now.date())
         if not instruments:
             return ComponentCheckResult(ComponentState.DEGRADED, "no price data")
         expected_session = _previous_trading_session(
@@ -574,6 +586,24 @@ def _risk_limits(config: RiskConfig) -> RiskLimits:
         max_weekly_loss_paise=round(capital * config.weekly_loss_halt_pct / 100),
         max_drawdown_bps=round(config.max_drawdown_pct * 100),
     )
+
+
+def _scheduler_reason_codes(reason_codes) -> tuple[str, ...]:
+    normalized = tuple(
+        "".join(
+            character if character.isalnum() else "_"
+            for character in str(reason)
+        ).upper()
+        for reason in reason_codes
+    )
+    return tuple(dict.fromkeys(normalized))
+
+
+def _entry_limit_paise(reference_paise: int) -> int:
+    """Bound the modeled spread/impact while retaining a real limit order."""
+
+    buffered = math.ceil(reference_paise * 1.0015)
+    return math.ceil(buffered / 5) * 5
 
 
 def _playbook_stats(path: Path) -> dict[str, StrategyEvidenceStats]:

@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import json
 
 import pytest
 
@@ -135,6 +136,9 @@ def test_execution_quality_survives_gateway_restart(tmp_path):
 
     assert recovered == original
     assert recovered.execution_quality["reason_code"] == "PARTIAL_LIQUIDITY_FILL"
+    assert json.loads(json.dumps(recovered.to_payload()))[
+        "execution_quality"
+    ]["charges"]["total_paise"] > 0
 
 
 def test_gateway_receipt_rejects_execution_quality_that_disagrees_with_fill():
