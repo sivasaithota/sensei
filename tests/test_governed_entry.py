@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from sensei.automation.governed_entry import AuthorizedPlan, CanonicalSignalPlanner
 from sensei.operations.health import HealthState, OperationalHealth
 from sensei.orchestration import ExecutableQuote, StrategyEvidenceStats
-from sensei.portfolio_risk import AccountSnapshot
+from sensei.portfolio_risk import AccountPosition, AccountSnapshot
 from sensei.operations import OperationalJournal
 from tests.test_strategy_plan import hammer_bars, hammer_follow_through_plan
 
@@ -91,6 +91,45 @@ def test_planner_emits_no_work_when_health_blocks_entries():
     assert planner.build(
         account_snapshot=account(), operational_health=health(allowed=False),
         now=NOW, command_id="halted-entry",
+    ) is None
+
+
+def test_planner_does_not_pyramid_into_an_instrument_already_held():
+    plan = hammer_follow_through_plan()
+    bars = hammer_bars()
+    held = account().__class__(
+        available_cash_paise=9_000_000,
+        marked_equity_paise=10_000_000,
+        high_water_mark_paise=10_000_000,
+        day_pnl_paise=0,
+        week_pnl_paise=0,
+        positions=(AccountPosition(
+            instrument_id="TEST",
+            quantity=1,
+            notional_paise=1_000_000,
+            risk_to_stop_paise=50_000,
+        ),),
+        included_reservation_ids=(),
+        reconciled=True,
+        captured_at=NOW,
+    )
+    planner = CanonicalSignalPlanner(
+        plans=lambda: (AuthorizedPlan(
+            "lineage", plan, StrategyEvidenceStats(1.0, 0.5, 100)
+        ),),
+        instruments=lambda: ("NSE:TEST",),
+        bars=lambda _instrument: bars,
+        quote=lambda instrument, _now: ExecutableQuote(
+            instrument, "snapshot:" + "e" * 64, 10_000, NOW
+        ),
+        average_turnover=lambda _instrument: 100_000_000.0,
+    )
+
+    assert planner.build(
+        account_snapshot=held,
+        operational_health=health(),
+        now=NOW,
+        command_id="no-pyramid",
     ) is None
 
 

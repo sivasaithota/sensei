@@ -792,9 +792,26 @@ class TradingKernel:
         known_by_instrument: dict[str, int] = {}
         for intent_id, (quantity, _) in state.fills.items():
             instrument = state.intents[intent_id].instrument_id
-            known_by_instrument[instrument] = (
-                known_by_instrument.get(instrument, 0) + quantity
+            exited = sum(
+                receipt.cumulative_fill_quantity
+                for command_id, receipt in state.receipts.items()
+                if isinstance(state.commands.get(command_id), ExitCommand)
+                and state.commands[command_id].intent_id == intent_id
+                and receipt.accepted
             )
+            remaining = quantity - exited
+            if remaining < 0:
+                raise RuntimeError(
+                    f"durable exits exceed fills for {intent_id}"
+                )
+            known_by_instrument[instrument] = (
+                known_by_instrument.get(instrument, 0) + remaining
+            )
+        known_by_instrument = {
+            instrument: quantity
+            for instrument, quantity in known_by_instrument.items()
+            if quantity > 0
+        }
         issues: list[str] = []
         protected: dict[str, int] = {}
         for broker_protection in snapshot.protections:

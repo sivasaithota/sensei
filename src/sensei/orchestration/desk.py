@@ -23,10 +23,15 @@ from sensei.kernel import (
 from sensei.learning.outcomes import LearningObservation
 from sensei.operations import EventAppend, OperationalJournal
 from sensei.operations.health import OperationalHealth, OperationsMonitor
-from sensei.portfolio_risk import AccountSnapshot, SafetyControl, TradeIntent
+from sensei.portfolio_risk import (
+    AccountSnapshot,
+    RiskRejected,
+    SafetyControl,
+    TradeIntent,
+)
 from sensei.strategy import PlanDecisionTrace, StrategyPlan
 
-from .intents import ExecutableQuote, IntentBuildResult
+from .intents import ExecutableQuote, IntentBuildError, IntentBuildResult
 from .paper import GovernedPaperCoordinator, PaperAcceptance
 
 
@@ -136,6 +141,7 @@ class DeskCycleStatus(StrEnum):
     NO_SIGNAL = "NO_SIGNAL"
     ANALYST_DECLINED = "ANALYST_DECLINED"
     COMMITTEE_VETOED = "COMMITTEE_VETOED"
+    RISK_REJECTED = "RISK_REJECTED"
     PAPER_DISPATCHED = "PAPER_DISPATCHED"
 
 
@@ -689,13 +695,44 @@ class DeskRuntime:
                 role_events,
             )
 
-        candidate = self.trader.derive_candidate(
-            plan=request.plan,
-            trace=history.trace,
-            quote=request.quote,
-            account_snapshot=request.account_snapshot,
-            now=request.now,
-        )
+        try:
+            candidate = self.trader.derive_candidate(
+                plan=request.plan,
+                trace=history.trace,
+                quote=request.quote,
+                account_snapshot=request.account_snapshot,
+                now=request.now,
+            )
+        except IntentBuildError as exc:
+            reason = f"candidate sizing declined: {exc}"
+            role_events.append(
+                self._role(
+                    stream,
+                    request,
+                    cycle_id,
+                    "analyst",
+                    {"proceed": False, "reason": reason},
+                )
+            )
+            self._skip_many(
+                stream,
+                request,
+                cycle_id,
+                ("committee", "trader"),
+                reason,
+                role_events,
+            )
+            return self._finish(
+                stream,
+                request,
+                cycle_id,
+                DeskCycleStatus.ANALYST_DECLINED,
+                reason,
+                history,
+                None,
+                None,
+                role_events,
+            )
         thesis = self.analyst.draft(
             AnalystBrief(
                 plan=request.plan,
@@ -795,14 +832,47 @@ class DeskRuntime:
                 role_events,
             )
 
-        acceptance = self.trader.execute(
-            PaperExecutionRequest(
-                cycle=request,
-                history=history,
-                decision=decision,
-                authorize_dispatch=authorize_dispatch,
+        try:
+            acceptance = self.trader.execute(
+                PaperExecutionRequest(
+                    cycle=request,
+                    history=history,
+                    decision=decision,
+                    authorize_dispatch=authorize_dispatch,
+                )
             )
-        )
+        except RiskRejected as exc:
+            if str(exc) not in {
+                "insufficient cash capacity after existing reservations",
+                "total portfolio notional capacity exceeded",
+                "instrument position notional capacity exceeded",
+                "open-position slots exhausted",
+            }:
+                raise
+            role_events.append(
+                self._role(
+                    stream,
+                    request,
+                    cycle_id,
+                    "trader",
+                    {
+                        "dispatched": False,
+                        "reason": str(exc),
+                        "execution_mode": "paper",
+                    },
+                )
+            )
+            return self._finish(
+                stream,
+                request,
+                cycle_id,
+                DeskCycleStatus.RISK_REJECTED,
+                str(exc),
+                history,
+                thesis,
+                None,
+                role_events,
+            )
         role_events.append(
             self._role(
                 stream,

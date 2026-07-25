@@ -5,7 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from datetime import datetime
 
-from sensei.kernel import BrokerSnapshot, EntryCommand, RecordingPaperGateway
+from sensei.kernel import (
+    BrokerSnapshot,
+    EntryCommand,
+    ExitCommand,
+    RecordingPaperGateway,
+)
 from sensei.portfolio_risk.models import (
     AccountPosition,
     AccountSnapshot,
@@ -145,28 +150,32 @@ class PaperAccountProjector:
 
         filled_quantities: dict[str, int] = {}
         filled_cost_paise = 0
-        included_reservations: set[str] = set()
+        remaining_by_intent: dict[str, int] = {}
         for command in self._gateway.commands:
-            if not isinstance(command, EntryCommand):
+            if not isinstance(command, (EntryCommand, ExitCommand)):
                 continue
             receipt = self._gateway.receipt_for(command.command_id)
             if receipt is None:
                 raise PaperAccountProjectionError(
-                    f"durable entry receipt is missing for {command.command_id}"
+                    f"durable broker receipt is missing for {command.command_id}"
                 )
             if not receipt.accepted or not receipt.cumulative_fill_quantity:
                 continue
             average_price = receipt.average_fill_price_paise
             if average_price is None:
                 raise PaperAccountProjectionError(
-                    f"filled entry has no average price for {command.command_id}"
+                    f"filled command has no average price for {command.command_id}"
                 )
+            direction = 1 if isinstance(command, EntryCommand) else -1
+            quantity = receipt.cumulative_fill_quantity
             filled_quantities[command.instrument_id] = (
                 filled_quantities.get(command.instrument_id, 0)
-                + receipt.cumulative_fill_quantity
+                + direction * quantity
             )
-            filled_cost_paise += (
-                receipt.cumulative_fill_quantity * average_price
+            filled_cost_paise += direction * quantity * average_price
+            remaining_by_intent[command.intent_id] = (
+                remaining_by_intent.get(command.intent_id, 0)
+                + direction * quantity
             )
             quality = receipt.execution_quality
             if quality is not None:
@@ -185,9 +194,20 @@ class PaperAccountProjector:
                         f"execution charges are malformed for {command.command_id}"
                     )
                 filled_cost_paise += total_charges
-            included_reservations.add(
-                "reservation:" + command.intent_id.removeprefix("intent:")
+        if any(quantity < 0 for quantity in filled_quantities.values()):
+            raise PaperAccountProjectionError(
+                "durable exits exceed durable entry fills"
             )
+        filled_quantities = {
+            instrument_id: quantity
+            for instrument_id, quantity in filled_quantities.items()
+            if quantity
+        }
+        included_reservations = {
+            "reservation:" + intent_id.removeprefix("intent:")
+            for intent_id, quantity in remaining_by_intent.items()
+            if quantity > 0
+        }
 
         broker_quantities = {
             instrument_id: position.quantity

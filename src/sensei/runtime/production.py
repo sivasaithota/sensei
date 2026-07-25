@@ -104,6 +104,12 @@ class ProductionPaperSession:
         provenance_path: Path = Path("data/provenance"),
         legacy_baseline=None,
         event_window=None,
+        surveillance_report_types: frozenset[str] = frozenset(
+            {"REG1_IND", "REG_IND"}
+        ),
+        surveillance_issuer_id: str = "market-surveillance",
+        surveillance_secret: bytes | None = None,
+        allow_simulation_surveillance: bool = False,
     ) -> None:
         self._journal_path = Path(journal_path)
         self._config = scheduler_config
@@ -113,13 +119,21 @@ class ProductionPaperSession:
         self._provenance_path = Path(provenance_path)
         self._legacy_baseline = legacy_baseline
         self._event_window = event_window
+        self._surveillance_report_types = surveillance_report_types
+        self._surveillance_issuer_id = surveillance_issuer_id
+        self._surveillance_secret = surveillance_secret
+        self._allow_simulation_surveillance = allow_simulation_surveillance
 
     def __call__(self, task: ScheduledTask, now: datetime) -> TaskOutcome:
         secrets = RuntimeSecretStore.load(self._config.runtime_secrets_path)
         surveillance = VerifiedSurveillanceSource(
             self._config.surveillance_path,
-            issuer_id="market-surveillance",
-            secret=secrets["market-surveillance"],
+            issuer_id=self._surveillance_issuer_id,
+            secret=(
+                self._surveillance_secret
+                if self._surveillance_secret is not None
+                else secrets["market-surveillance"]
+            ),
             maximum_age=timedelta(days=4),
             clock=lambda: now,
         )
@@ -138,6 +152,8 @@ class ProductionPaperSession:
             journal_path=self._journal_path,
             snapshot_path=self._config.surveillance_path,
             entry_task=task,
+            allowed_source_report_types=self._surveillance_report_types,
+            allow_simulation_authority=self._allow_simulation_surveillance,
         )
 
         def compose(journal, gateway):
@@ -384,8 +400,12 @@ class ProductionPaperSession:
         )
         surveillance = VerifiedSurveillanceSource(
             self._config.surveillance_path,
-            issuer_id="market-surveillance",
-            secret=secrets["market-surveillance"],
+            issuer_id=self._surveillance_issuer_id,
+            secret=(
+                self._surveillance_secret
+                if self._surveillance_secret is not None
+                else secrets["market-surveillance"]
+            ),
             maximum_age=timedelta(days=4),
             clock=lambda: now,
         )

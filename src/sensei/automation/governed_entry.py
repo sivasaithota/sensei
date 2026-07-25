@@ -71,6 +71,10 @@ class CanonicalSignalPlanner:
             return None
         candidates = []
         frames: dict[str, pd.DataFrame] = {}
+        held_instruments = {
+            position.instrument_id.split(":")[-1]
+            for position in account_snapshot.positions
+        }
         for authorized in sorted(self._plans(), key=lambda item: item.plan.name):
             for instrument_id in sorted(self._instruments()):
                 frame = frames.get(instrument_id)
@@ -99,6 +103,8 @@ class CanonicalSignalPlanner:
         for _, _, instrument_id, authorized, frame, evaluation_session in sorted(
             candidates
         ):
+            if instrument_id.split(":")[-1] in held_instruments:
+                continue
             executable = self._quote(instrument_id, now)
             if executable is None:
                 continue

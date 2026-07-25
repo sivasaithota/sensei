@@ -1,0 +1,279 @@
+import json
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+from sensei.automation import SchedulerApplicationConfig
+from sensei.governance.lifecycle import LifecycleStage
+from sensei.operations import OperationalJournal
+from sensei.runtime.production_replay import (
+    complete_market_sessions,
+    publish_replay_ingestion,
+    preregister_replay_plans,
+    publish_replay_surveillance,
+    ReplayArtifactSandbox,
+    _project_session_result,
+)
+from sensei.runtime import RuntimeSecretStore, VerifiedSurveillanceSource
+from sensei.strategy import StrategyPlanCatalog
+
+
+NOW = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+
+def _strategy_files(tmp_path):
+    playbook = tmp_path / "playbook.json"
+    rules = tmp_path / "rules.json"
+    playbook.write_text(json.dumps({
+        "version": "2025-01-01",
+        "thresholds": {},
+        "strategies": [{
+            "name": "accepted",
+            "adopted": True,
+            "out_of_sample": {
+                "trades": 100,
+                "expectancy_pct": 1.0,
+                "hit_rate": 0.5,
+            },
+        }],
+    }))
+    rules.write_text(json.dumps([{
+        "name": "accepted",
+        "source": "book",
+        "principle": "trend",
+        "conditions": [{
+            "left": "close",
+            "op": ">",
+            "right": "sma_20",
+            "factor": 1.0,
+        }],
+        "stop_pct": 5.0,
+        "target_pct": 10.0,
+        "max_hold_days": 20,
+    }]))
+    return playbook, rules
+
+
+def test_replay_governance_starts_clean_and_preregisters_paper_plans(tmp_path):
+    playbook, rules = _strategy_files(tmp_path)
+    journal = OperationalJournal(tmp_path / "replay.sqlite3")
+    config = SchedulerApplicationConfig(
+        playbook_path=playbook,
+        provenance_path=tmp_path / "provenance",
+        execution_backend="governed_paper",
+    )
+
+    plan_ids = preregister_replay_plans(
+        journal=journal,
+        config=config,
+        rules_path=rules,
+        artifact_root=tmp_path / "artifacts",
+        occurred_at=NOW,
+    )
+
+    assert len(plan_ids) == 1
+    catalog = StrategyPlanCatalog(journal)
+    assert [record.plan_id for record in catalog.list()] == list(plan_ids)
+    assert not any(
+        event.event_type in {
+            "EpisodeStarted",
+            "PaperGatewayCommandExecuted",
+            "LearningObservationRecorded",
+        }
+        for event in journal.read_all()
+    )
+    from sensei.automation import GovernedSchedulerApplication
+
+    app = GovernedSchedulerApplication(journal=journal, config=config)
+    assert [
+        record.plan_id
+        for record in catalog.plans_at_stage(app.lifecycle, LifecycleStage.PAPER)
+    ] == list(plan_ids)
+
+
+def test_replay_sandbox_redirects_every_mutable_runtime_artifact(tmp_path):
+    production = tmp_path / "production"
+    production.mkdir()
+    surveillance = production / "surveillance.json"
+    surveillance.write_text('{"production":true}')
+    positions = production / "positions.json"
+    positions.write_text('{"positions":[]}')
+    provenance = production / "provenance"
+    provenance.mkdir()
+    (provenance / "claim.json").write_text('{"production":true}')
+    config_path = production / "scheduler.json"
+    config_path.write_text(json.dumps({
+        "execution_backend": "governed_paper",
+        "surveillance_path": str(surveillance),
+        "legacy_positions_path": str(positions),
+        "provenance_path": str(provenance),
+    }))
+    before = {
+        path: path.read_bytes()
+        for path in (surveillance, positions, provenance / "claim.json")
+    }
+
+    sandbox = ReplayArtifactSandbox.materialize(
+        source_config_path=config_path,
+        root=tmp_path / "sandbox",
+    )
+    replay_config = SchedulerApplicationConfig.from_json(sandbox.config_path)
+    replay_config.surveillance_path.write_text('{"sandbox":true}')
+    sandbox.earnings_cache_path.write_text('{"sandbox":true}')
+
+    assert replay_config.surveillance_path.is_relative_to(sandbox.root)
+    assert replay_config.legacy_positions_path.is_relative_to(sandbox.root)
+    assert replay_config.provenance_path.is_relative_to(sandbox.root)
+    assert sandbox.journal_path.is_relative_to(sandbox.root)
+    assert all(path.read_bytes() == content for path, content in before.items())
+
+
+def test_replay_surveillance_is_signed_date_bound_and_final_preflight(tmp_path):
+    secrets_path = tmp_path / "runtime-secrets.json"
+    secrets = RuntimeSecretStore.bootstrap(secrets_path)
+    config = SchedulerApplicationConfig(
+        runtime_secrets_path=secrets_path,
+        surveillance_path=tmp_path / "surveillance.json",
+        execution_backend="governed_paper",
+    )
+    journal = OperationalJournal(tmp_path / "operations.sqlite3")
+    entry_at = datetime(
+        2026, 1, 5, 9, 21, tzinfo=ZoneInfo("Asia/Kolkata")
+    )
+
+    task = publish_replay_surveillance(
+        journal=journal,
+        config=config,
+        symbols=("INFY", "TCS"),
+        entry_at=entry_at,
+    )
+
+    verifier = VerifiedSurveillanceSource(
+        config.surveillance_path,
+        issuer_id="historical-replay-surveillance",
+        secret=__import__("hashlib").sha256(
+            b"sensei-historical-replay-surveillance-v1"
+        ).digest(),
+        maximum_age=timedelta(days=1),
+        clock=lambda: entry_at,
+    )
+    assert verifier("INFY", entry_at.date()) == 0
+    assert task.trading_date == entry_at.date()
+    assert task.policy_version.endswith(":surveillance-0850")
+    event = journal.read_stream(
+        f"historical-replay-surveillance:{task.task_id}"
+    )[0]
+    assert event.payload["authority"] == "SIMULATION_ONLY"
+    from sensei.automation.scheduling import (
+        SchedulerTaskKind,
+        SwingSessionPolicy,
+    )
+    from sensei.automation.surveillance import require_surveillance_preflight
+
+    entry_task = next(
+        value for value in SwingSessionPolicy().due_tasks(entry_at).tasks
+        if value.kind is SchedulerTaskKind.ENTRY_SESSION
+    )
+    require_surveillance_preflight(
+        journal_path=tmp_path / "operations.sqlite3",
+        snapshot_path=config.surveillance_path,
+        entry_task=entry_task,
+        allowed_source_report_types=frozenset({
+            "COUNTERFACTUAL_NEUTRAL_SURVEILLANCE"
+        }),
+        allow_simulation_authority=True,
+    )
+    import pytest
+    from sensei.runtime import SurveillanceSourceUnavailable
+
+    with pytest.raises(SurveillanceSourceUnavailable):
+        require_surveillance_preflight(
+            journal_path=tmp_path / "operations.sqlite3",
+            snapshot_path=config.surveillance_path,
+            entry_task=entry_task,
+            allowed_source_report_types=frozenset({
+                "COUNTERFACTUAL_NEUTRAL_SURVEILLANCE"
+            }),
+        )
+
+
+def test_session_calendar_requires_declared_universe_completeness(tmp_path):
+    prices = tmp_path / "prices"
+    prices.mkdir()
+    import pandas as pd
+
+    for symbol, dates in {
+        "A": ["2026-01-01", "2026-01-02", "2026-01-05"],
+        "B": ["2026-01-01", "2026-01-02", "2026-01-05"],
+        "C": ["2026-01-01", "2026-01-05"],
+    }.items():
+        pd.DataFrame(
+            {"close": [100.0] * len(dates)},
+            index=pd.to_datetime(dates),
+        ).to_parquet(prices / f"{symbol}.parquet")
+
+    sessions = complete_market_sessions(
+        prices_path=prices,
+        required_sessions=2,
+        minimum_completeness=1.0,
+    )
+
+    assert sessions == (date(2026, 1, 1), date(2026, 1, 5))
+
+
+def test_replay_ingestion_records_exact_point_in_time_universe(tmp_path):
+    prices = tmp_path / "prices"
+    prices.mkdir()
+    import pandas as pd
+
+    pd.DataFrame(
+        {"close": [100.0]}, index=pd.to_datetime(["2026-01-02"])
+    ).to_parquet(prices / "A.parquet")
+    pd.DataFrame(
+        {"close": [100.0]}, index=pd.to_datetime(["2026-01-01"])
+    ).to_parquet(prices / "STALE.parquet")
+    journal = OperationalJournal(tmp_path / "operations.sqlite3")
+
+    event = publish_replay_ingestion(
+        journal=journal,
+        prices_path=prices,
+        source_session=date(2026, 1, 2),
+        target_session=date(2026, 7, 27),
+        occurred_at=datetime(
+            2026, 7, 27, 8, 20, tzinfo=ZoneInfo("Asia/Kolkata")
+        ),
+    )
+
+    assert event.payload["eligible_symbols"] == ("A",)
+    assert event.payload["failed_symbols"] == ("STALE",)
+    assert event.payload["completeness"] == 0.5
+    assert event.payload["authority"] == "SIMULATION_ONLY"
+
+
+def test_halted_entry_task_can_never_be_certified_by_reason_spelling(tmp_path):
+    journal = OperationalJournal(tmp_path / "operations.sqlite3")
+    result = _project_session_result(
+        session=date(2026, 1, 2),
+        events=(),
+        entry={"task_results": [{
+            "task": {"kind": "ENTRY_SESSION"},
+            "outcome": {
+                "state": "HALTED",
+                "reason_codes": ["NO_AUTHORIZED_PLANS"],
+                "detail": "halted",
+            },
+        }]},
+        eod={"task_results": [{
+            "task": {"kind": "END_OF_DAY_SESSION"},
+            "outcome": {
+                "state": "COMPLETED",
+                "reason_codes": [],
+                "detail": "done",
+            },
+        }]},
+        entry_kind="ENTRY_SESSION",
+        eod_kind="END_OF_DAY_SESSION",
+        journal=journal,
+    )
+
+    assert result.completed is False
+    assert any("ENTRY_SESSION:HALTED" in value for value in result.blockers)

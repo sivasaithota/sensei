@@ -187,16 +187,13 @@ class GovernedPaperCoordinator:
     ) -> IntentBuildResult:
         """Derive exact thesis numbers without granting admission or dispatch."""
 
-        try:
-            return self._intent_factory.build(
-                plan=plan,
-                trace=trace,
-                quote=quote,
-                account_snapshot=account_snapshot,
-                now=now,
-            )
-        except IntentBuildError as exc:
-            raise PaperAdmissionRejected(str(exc)) from exc
+        return self._intent_factory.build(
+            plan=plan,
+            trace=trace,
+            quote=quote,
+            account_snapshot=account_snapshot,
+            now=now,
+        )
 
     def accept(
         self,

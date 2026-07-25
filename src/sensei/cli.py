@@ -104,7 +104,71 @@ def main() -> None:
     )
     qualify_p.add_argument("--journal", default="data/operations.sqlite3")
     qualify_p.add_argument("--config", default="config/scheduler.json")
+    replay_p = sub.add_parser("replay-desk")
+    replay_p.add_argument("--journal", default="data/operations.sqlite3")
+    replay_p.add_argument("--config", default="config/scheduler.json")
+    replay_p.add_argument("--rules", default="data/studied_rules.json")
+    replay_p.add_argument("--sessions", type=int, default=60)
+    replay_p.add_argument(
+        "--report", default="data/reports/historical-desk-replay-latest.json"
+    )
     args = parser.parse_args()
+
+    if args.cmd == "replay-desk":
+        import tempfile
+        from pathlib import Path
+        from sensei.automation import SchedulerApplicationConfig
+        from sensei.runtime.production_replay import (
+            complete_market_sessions,
+            production_artifact_fingerprints,
+            ProductionHistoricalDeskReplay,
+        )
+
+        config_path = Path(args.config)
+        journal_path = Path(args.journal)
+        config = SchedulerApplicationConfig.from_json(config_path)
+        source_sessions = complete_market_sessions(
+            prices_path=config.prices_path,
+            required_sessions=args.sessions + 1,
+            minimum_completeness=0.99,
+        )
+
+        def fingerprints():
+            return production_artifact_fingerprints(
+                config_path=config_path,
+                journal_path=journal_path,
+            )
+
+        with tempfile.TemporaryDirectory(
+            prefix="sensei-historical-desk-replay-"
+        ) as workspace:
+            report = ProductionHistoricalDeskReplay(
+                source_config_path=config_path,
+                rules_path=Path(args.rules),
+                source_sessions=source_sessions,
+                workspace=Path(workspace),
+                production_fingerprints=fingerprints,
+            ).run()
+        payload = report.to_dict()
+        payload["replay_kind"] = (
+            "CURRENT_PLAN_COUNTERFACTUAL_WITH_SIMULATION_ASSUMPTIONS"
+        )
+        payload["limitations"] = [
+            (
+                "SIMULATED_PAPER_AUTHORIZATION_WITHOUT_SHADOW_TRIAL; "
+                "does not validate SHADOW-to-PAPER promotion"
+            ),
+            "neutral surveillance assumption; not historical NSE surveillance",
+            "no historical earnings blackout calendar",
+            "historical price paths only; current plans preregistered before replay",
+        ]
+        destination = Path(args.report)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        print(json.dumps(payload, indent=2))
+        raise SystemExit(0 if report.certified else 2)
 
     if args.cmd == "qualify-desk":
         from pathlib import Path

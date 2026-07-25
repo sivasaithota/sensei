@@ -11,6 +11,7 @@ from sensei.kernel import (
     entry_dispatch_authorization_fact,
 )
 from sensei.operations import EventAppend, HmacFactSigner, OperationalJournal
+from sensei.portfolio_risk import RiskRejected
 from sensei.orchestration import (
     AuthenticatedCommitteeDecision,
     CoachReflection,
@@ -331,6 +332,38 @@ def test_desk_runtime_invokes_all_nine_roles_and_dispatches_only_after_approval(
         "coach",
         "secretary",
     }
+
+
+def test_capacity_rejection_completes_cycle_without_dispatching(tmp_path):
+    runtime, request, coach, secretary, gateway, journal, _ = _runtime_fixture(
+        tmp_path
+    )
+    real_trader = runtime.trader
+
+    class CapacityRejectingTrader:
+        def derive_candidate(self, **kwargs):
+            return real_trader.derive_candidate(**kwargs)
+
+        def execute(self, execution_request):
+            raise RiskRejected("open-position slots exhausted")
+
+    runtime.trader = CapacityRejectingTrader()
+
+    result = runtime.run_cycle(
+        request,
+        authorize_dispatch=_authorize_dispatch_for(journal),
+    )
+
+    assert result.status is DeskCycleStatus.RISK_REJECTED
+    assert result.intent_id is None
+    assert gateway.commands == ()
+    assert coach.calls == 1
+    assert secretary.calls == 1
+    terminal = next(
+        event for event in journal.read_all()
+        if event.event_type == "DeskCycleCompleted"
+    )
+    assert terminal.payload["reason"] == "open-position slots exhausted"
 
 
 def test_supervised_dispatch_uses_fresh_authorization_after_committee(tmp_path):

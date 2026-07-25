@@ -177,6 +177,10 @@ def completed_surveillance_preflight(
     snapshot_path: Path,
     trading_date: date,
     base_policy_version: str,
+    allowed_source_report_types: frozenset[str] = frozenset(
+        {"REG1_IND", "REG_IND"}
+    ),
+    allow_simulation_authority: bool = False,
 ) -> SurveillancePreflightEvidence | None:
     """Resolve exact snapshot evidence only after its scheduler task completed."""
 
@@ -192,6 +196,11 @@ def completed_surveillance_preflight(
         if event.payload.get("trading_date") != trading_date.isoformat():
             continue
         if event.payload.get("snapshot_sha256") != snapshot_sha256:
+            continue
+        if (
+            event.payload.get("authority") == "SIMULATION_ONLY"
+            and not allow_simulation_authority
+        ):
             continue
         task_id = event.correlation_id
         if task_id is None:
@@ -217,7 +226,7 @@ def completed_surveillance_preflight(
         except (KeyError, TypeError, ValueError):
             continue
         if (
-            source_report_type not in {"REG1_IND", "REG_IND"}
+            source_report_type not in allowed_source_report_types
             or not isinstance(source_content_sha256, str)
             or len(source_content_sha256) != 64
             or any(
@@ -246,6 +255,10 @@ def require_surveillance_preflight(
     journal_path: Path,
     snapshot_path: Path,
     entry_task: ScheduledTask,
+    allowed_source_report_types: frozenset[str] = frozenset(
+        {"REG1_IND", "REG_IND"}
+    ),
+    allow_simulation_authority: bool = False,
 ) -> SurveillancePreflightEvidence:
     journal = OperationalJournal.open_read_only(journal_path)
     evidence = completed_surveillance_preflight(
@@ -253,6 +266,8 @@ def require_surveillance_preflight(
         snapshot_path=snapshot_path,
         trading_date=entry_task.trading_date,
         base_policy_version=entry_task.policy_version,
+        allowed_source_report_types=allowed_source_report_types,
+        allow_simulation_authority=allow_simulation_authority,
     )
     if evidence is None:
         raise SurveillanceSourceUnavailable(

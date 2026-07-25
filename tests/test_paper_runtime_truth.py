@@ -160,6 +160,31 @@ def test_account_projector_deducts_durable_execution_charges(tmp_path):
     )
 
 
+def test_account_projector_releases_cost_and_position_after_durable_exit(
+    tmp_path,
+):
+    from sensei.kernel import ExitCommand
+
+    gateway, entry = _filled_and_protected_gateway(tmp_path)
+    gateway.execute(ExitCommand(
+        intent_id=entry.intent_id,
+        instrument_id=entry.instrument_id,
+        quantity=entry.quantity,
+        reference_price_paise=155_000,
+        reason_code="TARGET",
+    ))
+
+    snapshot = PaperAccountProjector(
+        gateway,
+        starting_capital_paise=10_000_000,
+        high_water_mark_paise=10_000_000,
+    ).project(captured_at=NOW, mark_prices_paise={})
+
+    assert snapshot.positions == ()
+    assert snapshot.available_cash_paise == 10_020_000
+    assert snapshot.marked_equity_paise == 10_020_000
+
+
 def test_account_projector_keeps_a_new_high_water_mark_monotonic(tmp_path):
     gateway, _ = _filled_and_protected_gateway(tmp_path)
     projector = PaperAccountProjector(
