@@ -98,7 +98,26 @@ def main() -> None:
     certify_p.add_argument(
         "--target", choices=("paper", "real"), default="paper"
     )
+    qualify_p = sub.add_parser("qualify-desk")
+    qualify_p.add_argument(
+        "--report", default="data/reports/desk-qualification-latest.json"
+    )
     args = parser.parse_args()
+
+    if args.cmd == "qualify-desk":
+        from pathlib import Path
+        from sensei.reporting.qualification import DeskQualificationRunner
+
+        root = Path(__file__).resolve().parents[2]
+        report = DeskQualificationRunner(repo_root=root).run()
+        payload = report.to_dict()
+        destination = Path(args.report)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        print(json.dumps(payload, indent=2))
+        raise SystemExit(0 if report.passed else 2)
 
     if args.cmd == "prelive-certify":
         from pathlib import Path

@@ -1,0 +1,185 @@
+"""Repeatable qualification matrix for the complete governed trading desk."""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+import subprocess
+import sys
+
+
+@dataclass(frozen=True)
+class QualificationScenario:
+    name: str
+    node_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class QualificationResult:
+    name: str
+    passed: bool
+    detail: str
+    node_ids: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "passed": self.passed,
+            "detail": self.detail,
+            "node_ids": list(self.node_ids),
+        }
+
+
+@dataclass(frozen=True)
+class DeskQualificationReport:
+    generated_at: datetime
+    results: tuple[QualificationResult, ...]
+
+    @property
+    def passed(self) -> bool:
+        return bool(self.results) and all(result.passed for result in self.results)
+
+    @property
+    def failed_scenarios(self) -> tuple[str, ...]:
+        return tuple(result.name for result in self.results if not result.passed)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "generated_at": self.generated_at.isoformat(),
+            "passed": self.passed,
+            "failed_scenarios": list(self.failed_scenarios),
+            "results": [result.to_dict() for result in self.results],
+        }
+
+
+DEFAULT_SCENARIOS = (
+    QualificationScenario(
+        "nine_agent_orchestration",
+        ("tests/test_desk_runtime.py", "tests/test_desk_roles.py"),
+    ),
+    QualificationScenario(
+        "l1_l4_committee",
+        (
+            "tests/test_trade_committee_gate.py",
+            "tests/test_committee_verdict_authority.py",
+            "tests/test_chain.py",
+        ),
+    ),
+    QualificationScenario(
+        "strategy_governance",
+        (
+            "tests/test_strategy_autopilot.py",
+            "tests/test_governed_migration.py",
+            "tests/test_shadow_trial_automation.py",
+            "tests/test_accelerated_paper_gate.py",
+        ),
+    ),
+    QualificationScenario(
+        "surveillance_and_trust",
+        (
+            "tests/test_surveillance_preflight.py",
+            "tests/test_runtime_activation.py",
+        ),
+    ),
+    QualificationScenario(
+        "scheduler_and_ingestion",
+        (
+            "tests/test_production_scheduler_composition.py",
+            "tests/test_scheduler_liveness.py",
+            "tests/test_scheduler_paper_sessions.py",
+            "tests/test_shadow_market_ingestion.py",
+        ),
+    ),
+    QualificationScenario(
+        "entry_execution_and_restart",
+        (
+            "tests/test_governed_entry_end_to_end.py",
+            "tests/test_governed_paper_coordinator.py",
+            "tests/test_recording_paper_gateway_durability.py",
+            "tests/test_trading_kernel.py",
+        ),
+    ),
+    QualificationScenario(
+        "exit_settlement_and_reconciliation",
+        (
+            "tests/test_governed_exit.py",
+            "tests/test_legacy_position_reconciliation.py",
+            "tests/test_legacy_risk_containment.py",
+        ),
+    ),
+    QualificationScenario(
+        "learning_memory_and_reporting",
+        (
+            "tests/test_trade_episodes_learning.py",
+            "tests/test_operational_reporting.py",
+            "tests/test_desk_reporting.py",
+        ),
+    ),
+    QualificationScenario(
+        "production_rehearsal_and_certification",
+        (
+            "tests/test_entry_rehearsal.py",
+            "tests/test_prelive_certification.py",
+        ),
+    ),
+)
+
+
+class DeskQualificationRunner:
+    """Execute bounded fault suites independently so failures stay attributable."""
+
+    def __init__(
+        self,
+        *,
+        repo_root: Path,
+        scenarios: Sequence[QualificationScenario] = DEFAULT_SCENARIOS,
+        execute: Callable[[tuple[str, ...]], tuple[int, str]] | None = None,
+    ) -> None:
+        self._repo_root = Path(repo_root)
+        self.scenarios = tuple(scenarios)
+        self._execute = execute or self._run_pytest
+
+    def run(self) -> DeskQualificationReport:
+        results = []
+        for scenario in self.scenarios:
+            code, output = self._execute(scenario.node_ids)
+            results.append(QualificationResult(
+                name=scenario.name,
+                passed=code == 0,
+                detail=_last_output(output),
+                node_ids=scenario.node_ids,
+            ))
+        return DeskQualificationReport(
+            generated_at=datetime.now(timezone.utc),
+            results=tuple(results),
+        )
+
+    def _run_pytest(self, node_ids: tuple[str, ...]) -> tuple[int, str]:
+        completed = subprocess.run(
+            (sys.executable, "-m", "pytest", "-q", *node_ids),
+            cwd=self._repo_root,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+        output = "\n".join(
+            part.strip() for part in (completed.stdout, completed.stderr)
+            if part.strip()
+        )
+        return completed.returncode, output
+
+
+def _last_output(output: str, *, lines: int = 12) -> str:
+    values = output.strip().splitlines()
+    return "\n".join(values[-lines:]) if values else "no output"
+
+
+__all__ = [
+    "DeskQualificationReport",
+    "DeskQualificationRunner",
+    "QualificationResult",
+    "QualificationScenario",
+]
