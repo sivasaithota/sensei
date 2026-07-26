@@ -874,6 +874,78 @@ def test_session_recovers_kernel_before_polling_or_running_desk_cycles(
     assert truth_events[2].payload["authorized_intent_id"] is None
 
 
+def test_restart_accepts_completed_capacity_rejection_after_dispatch_gate(
+    tmp_path: Path,
+):
+    journal_path = tmp_path / "operations.sqlite3"
+    OperationalJournal(journal_path)
+    gateway = RecordingPaperGateway()
+    truth = healthy_truth()
+    cycle = pending_cycle("capacity-rejected-cycle", truth=truth)
+    truth = authorize_cycles(truth, cycle)
+    result = DeskCycleResult(
+        cycle_id="cycle:capacity-rejected",
+        status=DeskCycleStatus.RISK_REJECTED,
+        reason="open-position slots exhausted",
+        trace_id="trace:capacity-rejected",
+        thesis_id="thesis:capacity-rejected",
+        intent_id=None,
+        episode_id=None,
+        role_event_ids=(),
+    )
+
+    class Kernel:
+        def enforce(self, *, now):
+            pass
+
+    class CycleSource:
+        def pending(self, *, now):
+            return (cycle,)
+
+    class Desk:
+        def run_cycle(self, request):
+            return result
+
+    def compose(journal, configured_gateway):
+        return composition_fixture(
+            journal,
+            configured_gateway,
+            kernel=Kernel(),
+            cycle_source=CycleSource(),
+            desk=Desk(),
+            truth=truth,
+        )
+
+    first = open_supervisor(
+        journal_path=journal_path,
+        gateway=gateway,
+        compose=compose,
+    )
+    completed = first.run_session(
+        SupervisorSessionRequest(now=NOW, command_id="capacity-session")
+    )
+    first.close()
+    assert completed.cycles == (result,)
+
+    reopened = open_supervisor(
+        journal_path=journal_path,
+        gateway=gateway,
+        compose=compose,
+    )
+    replayed = reopened.run_session(
+        SupervisorSessionRequest(now=NOW, command_id="capacity-session")
+    )
+    assert replayed == completed
+    next_session = reopened.run_session(
+        SupervisorSessionRequest(now=NOW, command_id="capacity-next-session")
+    )
+    reopened.close()
+
+    assert next_session.state is SupervisorState.COMPLETED
+    assert next_session.cycles == (result,)
+    assert gateway.commands == ()
+
+
 def test_cross_session_desk_cycle_replay_uses_prior_terminal_proof(
     tmp_path: Path,
 ):

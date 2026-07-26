@@ -1664,7 +1664,7 @@ def _session_record(
         expected_phases: list[str] = ["INITIAL"]
         for index, cycle in enumerate(result.cycles, start=1):
             pre_dispatch_phase = f"PRE_DISPATCH:{index}"
-            if cycle.status is DeskCycleStatus.PAPER_DISPATCHED:
+            if _requires_pre_dispatch_truth(cycle.status):
                 if pre_dispatch_phase in phases:
                     expected_phases.append(pre_dispatch_phase)
                 elif (
@@ -1701,6 +1701,15 @@ def _session_record(
         terminal=terminal,
         result=result,
     )
+
+
+def _requires_pre_dispatch_truth(status: DeskCycleStatus) -> bool:
+    """Return whether this terminal status crosses the final dispatch gate."""
+
+    return status in {
+        DeskCycleStatus.PAPER_DISPATCHED,
+        DeskCycleStatus.RISK_REJECTED,
+    }
 
 
 def _truth_phase_from_event(
