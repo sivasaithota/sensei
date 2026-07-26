@@ -1,10 +1,14 @@
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+
+import pandas as pd
 
 from sensei.automation.governed_entry import AuthorizedPlan, CanonicalSignalPlanner
 from sensei.operations.health import HealthState, OperationalHealth
 from sensei.orchestration import ExecutableQuote, StrategyEvidenceStats
 from sensei.portfolio_risk import AccountPosition, AccountSnapshot
 from sensei.operations import OperationalJournal
+from sensei.strategy import DecisionAction
 from tests.test_strategy_plan import hammer_bars, hammer_follow_through_plan
 
 
@@ -175,3 +179,238 @@ def test_planner_reads_each_instrument_once_across_authorized_plans():
         command_id="cached-bars",
     ) is not None
     assert reads == 1
+
+
+def test_planner_ranks_every_signal_by_market_quality_not_ticker_order():
+    plan = hammer_follow_through_plan()
+    weak = _ranking_bars(
+        start=100.0,
+        sixty_third_close=101.0,
+        twentieth_close=102.0,
+        final_close=103.0,
+        final_volume=900.0,
+    )
+    strong = _ranking_bars(
+        start=100.0,
+        sixty_third_close=112.0,
+        twentieth_close=128.0,
+        final_close=140.0,
+        final_volume=2_000.0,
+    )
+    evaluated = []
+
+    class EveryFrameSignals:
+        def evaluate(self, request):
+            evaluated.append(request.instrument_id)
+            return SimpleNamespace(action=DecisionAction.ENTER_LONG)
+
+    planner = CanonicalSignalPlanner(
+        plans=lambda: (AuthorizedPlan(
+            "lineage",
+            plan,
+            StrategyEvidenceStats(1.0, 0.5, 100),
+        ),),
+        instruments=lambda: ("NSE:ZZZBEST", "NSE:AAWEAK"),
+        bars=lambda instrument: {
+            "NSE:AAWEAK": weak,
+            "NSE:ZZZBEST": strong,
+        }[instrument],
+        quote=lambda instrument, now: ExecutableQuote(
+            instrument,
+            "snapshot:" + "f" * 64,
+            10_000,
+            now,
+        ),
+        average_turnover=lambda instrument: {
+            "NSE:AAWEAK": 10_000_000.0,
+            "NSE:ZZZBEST": 100_000_000.0,
+        }[instrument],
+        engine=EveryFrameSignals(),
+    )
+
+    request = planner.build(
+        account_snapshot=account(),
+        operational_health=health(),
+        now=NOW,
+        command_id="rank-all-signals",
+    )
+
+    assert set(evaluated) == {"NSE:AAWEAK", "NSE:ZZZBEST"}
+    assert request is not None
+    assert request.quote.instrument_id == "NSE:ZZZBEST"
+
+
+def test_planner_selection_is_invariant_to_universe_order():
+    plan = hammer_follow_through_plan()
+    frames = {
+        "NSE:ALPHA": _ranking_bars(
+            start=100, sixty_third_close=104, twentieth_close=108,
+            final_close=110, final_volume=1_100,
+        ),
+        "NSE:OMEGA": _ranking_bars(
+            start=100, sixty_third_close=112, twentieth_close=125,
+            final_close=135, final_volume=1_800,
+        ),
+    }
+
+    class EveryFrameSignals:
+        def evaluate(self, _request):
+            return SimpleNamespace(action=DecisionAction.ENTER_LONG)
+
+    def selected(universe):
+        planner = CanonicalSignalPlanner(
+            plans=lambda: (AuthorizedPlan(
+                "lineage", plan, StrategyEvidenceStats(1.0, 0.5, 100),
+            ),),
+            instruments=lambda: universe,
+            bars=frames.__getitem__,
+            quote=lambda instrument, now: ExecutableQuote(
+                instrument, "snapshot:" + "f" * 64, 10_000, now,
+            ),
+            average_turnover=lambda instrument: {
+                "NSE:ALPHA": 50_000_000.0,
+                "NSE:OMEGA": 80_000_000.0,
+            }[instrument],
+            engine=EveryFrameSignals(),
+        )
+        request = planner.build(
+            account_snapshot=account(),
+            operational_health=health(),
+            now=NOW,
+            command_id="permutation-invariant",
+        )
+        assert request is not None
+        return request.quote.instrument_id
+
+    assert selected(("NSE:ALPHA", "NSE:OMEGA")) == "NSE:OMEGA"
+    assert selected(("NSE:OMEGA", "NSE:ALPHA")) == "NSE:OMEGA"
+
+
+def test_planner_audits_full_signal_count_and_selected_rank(tmp_path):
+    plan = hammer_follow_through_plan()
+    bars = _ranking_bars(
+        start=100, sixty_third_close=110, twentieth_close=120,
+        final_close=130, final_volume=1_500,
+    )
+    journal = OperationalJournal(tmp_path / "operations.sqlite3")
+
+    class EveryFrameSignals:
+        def evaluate(self, _request):
+            return SimpleNamespace(action=DecisionAction.ENTER_LONG)
+
+    planner = CanonicalSignalPlanner(
+        plans=lambda: (AuthorizedPlan(
+            "lineage", plan, StrategyEvidenceStats(1.0, 0.5, 100),
+        ),),
+        instruments=lambda: ("NSE:ONE", "NSE:TWO", "NSE:THREE"),
+        bars=lambda _instrument: bars,
+        quote=lambda instrument, now: ExecutableQuote(
+            instrument, "snapshot:" + "f" * 64, 10_000, now,
+        ),
+        average_turnover=lambda _instrument: 50_000_000.0,
+        journal=journal,
+        engine=EveryFrameSignals(),
+    )
+
+    assert planner.build(
+        account_snapshot=account(),
+        operational_health=health(),
+        now=NOW,
+        command_id="audited-ranking",
+    ) is not None
+
+    event = next(
+        event for event in journal.read_all()
+        if event.event_type == "SignalRankingRecorded"
+    )
+    assert event.payload["signal_candidate_count"] == 3
+    assert event.payload["selected_signal_rank"] == 1
+    assert event.payload["policy"]["version"] == (
+        "full-universe-market-quality-v1"
+    )
+    assert len(event.payload["candidates"]) == 3
+    assert all(
+        0.0 <= candidate["score"]["total"] <= 1.0
+        for candidate in event.payload["candidates"]
+    )
+
+
+def test_planner_audits_quote_fallback_without_mislabeling_signal_count(tmp_path):
+    plan = hammer_follow_through_plan()
+    journal = OperationalJournal(tmp_path / "operations.sqlite3")
+    frames = {
+        "NSE:BEST": _ranking_bars(
+            start=100, sixty_third_close=115, twentieth_close=125,
+            final_close=140, final_volume=2_000,
+        ),
+        "NSE:NEXT": _ranking_bars(
+            start=100, sixty_third_close=108, twentieth_close=115,
+            final_close=125, final_volume=1_500,
+        ),
+    }
+
+    class EveryFrameSignals:
+        def evaluate(self, _request):
+            return SimpleNamespace(action=DecisionAction.ENTER_LONG)
+
+    planner = CanonicalSignalPlanner(
+        plans=lambda: (AuthorizedPlan(
+            "lineage", plan, StrategyEvidenceStats(1.0, 0.5, 100),
+        ),),
+        instruments=lambda: ("NSE:BEST", "NSE:NEXT"),
+        bars=frames.__getitem__,
+        quote=lambda instrument, now: (
+            None if instrument == "NSE:BEST"
+            else ExecutableQuote(
+                instrument, "snapshot:" + "f" * 64, 10_000, now,
+            )
+        ),
+        average_turnover=lambda instrument: {
+            "NSE:BEST": 100_000_000.0,
+            "NSE:NEXT": 80_000_000.0,
+        }[instrument],
+        journal=journal,
+        engine=EveryFrameSignals(),
+    )
+
+    request = planner.build(
+        account_snapshot=account(),
+        operational_health=health(),
+        now=NOW,
+        command_id="quote-fallback",
+    )
+
+    assert request is not None
+    assert request.quote.instrument_id == "NSE:NEXT"
+    ranking = next(
+        event for event in journal.read_all()
+        if event.event_type == "SignalRankingRecorded"
+    )
+    assert ranking.payload["signal_candidate_count"] == 2
+    assert ranking.payload["selected_signal_rank"] == 2
+    assert ranking.payload["quote_attempts"] == 2
+
+
+def _ranking_bars(
+    *,
+    start: float,
+    sixty_third_close: float,
+    twentieth_close: float,
+    final_close: float,
+    final_volume: float,
+) -> pd.DataFrame:
+    periods = 252
+    closes = [start] * periods
+    closes[-64] = sixty_third_close
+    closes[-21] = twentieth_close
+    closes[-1] = final_close
+    volumes = [1_000.0] * periods
+    volumes[-1] = final_volume
+    index = pd.date_range("2024-01-01", periods=periods, freq="D")
+    return pd.DataFrame({
+        "open": closes,
+        "high": [value * 1.01 for value in closes],
+        "low": [value * 0.99 for value in closes],
+        "close": closes,
+        "volume": volumes,
+    }, index=index)
