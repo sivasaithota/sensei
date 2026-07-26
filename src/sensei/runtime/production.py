@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -14,7 +15,11 @@ import pandas as pd
 from sensei.execution.nse import NseExecutionModel, NseMarketObservation
 
 from sensei.agents.chain import ApprovalChain
-from sensei.automation.governed_entry import AuthorizedPlan, CanonicalSignalPlanner
+from sensei.automation.governed_entry import (
+    AuthorizedPlan,
+    CanonicalSignalPlanner,
+    PortfolioAdmissionExclusionReason,
+)
 from sensei.automation.runner import TaskOutcome, TaskOutcomeState
 from sensei.automation.scheduling import ScheduledTask
 from sensei.governance.evidence import StageDossierRegistry
@@ -38,7 +43,7 @@ from sensei.operations import (
     OperationsControlPlane,
     OperationalJournal,
 )
-from sensei.operations.health import OperationsMonitor
+from sensei.operations.health import OperationalHealth, OperationsMonitor
 from sensei.operations.supervisor import (
     GovernedDeskSupervisor,
     SupervisorComposition,
@@ -48,6 +53,8 @@ from sensei.operations.supervisor import (
 from sensei.orchestration import (
     ApprovalChainCommittee,
     CommitteeVerdictAuthority,
+    DeskCycleRequest,
+    DeskCycleStatus,
     DeskRuntime,
     EarningsReporter,
     ExecutableQuote,
@@ -63,6 +70,7 @@ from sensei.orchestration import (
     TradeIntentFactory,
 )
 from sensei.portfolio_risk import (
+    AccountSnapshot,
     AccountSnapshotAuthority,
     PortfolioRisk,
     RiskLimits,
@@ -90,6 +98,73 @@ from sensei.strategy import (
 )
 
 
+@dataclass
+class _EntryShortlistState:
+    requests: list[DeskCycleRequest] | None = None
+    consumed: int = 0
+
+    def next_request(
+        self, *, planner: CanonicalSignalPlanner,
+        account_snapshot: AccountSnapshot,
+        operational_health: OperationalHealth,
+        now: datetime,
+        command_id: str,
+        maximum_candidates: int,
+    ) -> DeskCycleRequest | None:
+        if self.requests is None:
+            self.requests = list(planner.build_shortlist(
+                account_snapshot=account_snapshot,
+                operational_health=operational_health,
+                now=now,
+                command_id=command_id,
+                maximum_candidates=maximum_candidates,
+            ))
+        while self.requests:
+            template = self.requests.pop(0)
+            self.consumed += 1
+            correlated = planner.correlated_holding(
+                template, account_snapshot
+            )
+            if correlated is not None:
+                held_instrument, coefficient = correlated
+                planner.record_admission_exclusion(
+                    command_id=command_id,
+                    shortlist_position=self.consumed,
+                    instrument_id=template.quote.instrument_id,
+                    reason=(
+                        PortfolioAdmissionExclusionReason
+                        .CORRELATED_WITH_CURRENT_HOLDING
+                    ),
+                    observed_at=now,
+                    detail={
+                        "held_instrument_id": held_instrument,
+                        "correlation": round(coefficient, 8),
+                    },
+                )
+                continue
+            refreshed = planner.refresh_request(
+                template,
+                account_snapshot=account_snapshot,
+                operational_health=operational_health,
+                command_id=command_id,
+                now=now,
+            )
+            if refreshed is None:
+                planner.record_admission_exclusion(
+                    command_id=command_id,
+                    shortlist_position=self.consumed,
+                    instrument_id=template.quote.instrument_id,
+                    reason=(
+                        PortfolioAdmissionExclusionReason
+                        .REFRESHED_QUOTE_UNAVAILABLE
+                    ),
+                    observed_at=now,
+                )
+                continue
+            return refreshed
+        return None
+
+
 class ProductionPaperSession:
     """Build, own and close the exact governed graph for one scheduler task."""
 
@@ -110,6 +185,8 @@ class ProductionPaperSession:
         surveillance_issuer_id: str = "market-surveillance",
         surveillance_secret: bytes | None = None,
         allow_simulation_surveillance: bool = False,
+        maximum_shortlist_candidates: int = 10,
+        maximum_daily_admissions: int = 3,
     ) -> None:
         self._journal_path = Path(journal_path)
         self._config = scheduler_config
@@ -123,6 +200,25 @@ class ProductionPaperSession:
         self._surveillance_issuer_id = surveillance_issuer_id
         self._surveillance_secret = surveillance_secret
         self._allow_simulation_surveillance = allow_simulation_surveillance
+        if (
+            isinstance(maximum_shortlist_candidates, bool)
+            or not isinstance(maximum_shortlist_candidates, int)
+            or maximum_shortlist_candidates < 1
+        ):
+            raise ValueError(
+                "maximum_shortlist_candidates must be a positive integer"
+            )
+        if (
+            isinstance(maximum_daily_admissions, bool)
+            or not isinstance(maximum_daily_admissions, int)
+            or maximum_daily_admissions < 1
+            or maximum_daily_admissions > maximum_shortlist_candidates
+        ):
+            raise ValueError(
+                "maximum_daily_admissions must be within the shortlist bound"
+            )
+        self._maximum_shortlist_candidates = maximum_shortlist_candidates
+        self._maximum_daily_admissions = maximum_daily_admissions
 
     def __call__(self, task: ScheduledTask, now: datetime) -> TaskOutcome:
         secrets = RuntimeSecretStore.load(self._config.runtime_secrets_path)
@@ -156,54 +252,95 @@ class ProductionPaperSession:
             allow_simulation_authority=self._allow_simulation_surveillance,
         )
 
-        def compose(journal, gateway):
-            composition, _inputs = self._compose(
-                journal=journal,
-                gateway=gateway,
-                secrets=secrets,
-                now=now,
-                command_id=task.task_id,
+        shortlist = _EntryShortlistState()
+        evaluated = 0
+        admitted = 0
+        last_cycle = None
+        for candidate_index in range(1, self._maximum_shortlist_candidates + 1):
+            candidate_now = now + timedelta(seconds=candidate_index - 1)
+            command_id = (
+                f"{task.task_id}:portfolio-candidate:{candidate_index}"
             )
-            return composition
 
-        with GovernedDeskSupervisor.paper_only_from_gateway_factory(
-            journal_path=self._journal_path,
-            gateway_factory=lambda journal: RecordingPaperGateway(
-                journal,
-                execution_model=NseExecutionModel(
-                    max_volume_participation_bps=100,
-                    base_impact_bps=5,
+            def compose(journal, gateway):
+                composition, _inputs = self._compose(
+                    journal=journal,
+                    gateway=gateway,
+                    secrets=secrets,
+                    now=candidate_now,
+                    command_id=command_id,
+                    shortlist=shortlist,
+                )
+                return composition
+
+            with GovernedDeskSupervisor.paper_only_from_gateway_factory(
+                journal_path=self._journal_path,
+                gateway_factory=lambda journal: RecordingPaperGateway(
+                    journal,
+                    execution_model=NseExecutionModel(
+                        max_volume_participation_bps=100,
+                        base_impact_bps=5,
+                    ),
+                    market_observation=lambda instrument_id: (
+                        self._execution_observation(
+                            instrument_id, candidate_now
+                        )
+                    ),
+                    clock=lambda: candidate_now,
                 ),
-                market_observation=lambda instrument_id: (
-                    self._execution_observation(instrument_id, now)
-                ),
-                clock=lambda: now,
-            ),
-            compose=compose,
-            clock=lambda: now,
-        ) as supervisor:
-            result = supervisor.run_session(
-                SupervisorSessionRequest(now=now, command_id=task.task_id)
-            )
-        if result.state is not SupervisorState.COMPLETED:
-            return TaskOutcome(
-                TaskOutcomeState.HALTED,
-                _scheduler_reason_codes(
-                    result.reason_codes or ("GOVERNED_SUPERVISOR_HALTED",)
-                ),
-                "governed paper Supervisor halted the bounded entry session",
-            )
-        if not result.cycles:
+                compose=compose,
+                clock=lambda: candidate_now,
+            ) as supervisor:
+                result = supervisor.run_session(
+                    SupervisorSessionRequest(
+                        now=candidate_now, command_id=command_id
+                    )
+                )
+            if result.state is not SupervisorState.COMPLETED:
+                return TaskOutcome(
+                    TaskOutcomeState.HALTED,
+                    _scheduler_reason_codes(
+                        result.reason_codes
+                        or ("GOVERNED_SUPERVISOR_HALTED",)
+                    ),
+                    (
+                        "governed paper Supervisor halted portfolio admission "
+                        f"after {evaluated} candidate(s)"
+                    ),
+                )
+            if not result.cycles:
+                break
+            evaluated += 1
+            last_cycle = result.cycles[-1]
+            if last_cycle.status is DeskCycleStatus.PAPER_DISPATCHED:
+                admitted += 1
+                if admitted >= self._maximum_daily_admissions:
+                    break
+            if last_cycle.status is DeskCycleStatus.RISK_REJECTED:
+                break
+        if last_cycle is None:
             return TaskOutcome(
                 TaskOutcomeState.COMPLETED,
                 ("NO_CANONICAL_SIGNAL",),
                 "no exact PAPER plan produced an executable entry",
             )
-        status = result.cycles[-1].status.value
+        if admitted:
+            return TaskOutcome(
+                TaskOutcomeState.COMPLETED,
+                ("GOVERNED_PAPER_DISPATCHED",),
+                (
+                    f"admitted {admitted} of {evaluated} governed candidate(s) "
+                    f"from a maximum {self._maximum_shortlist_candidates}-name "
+                    "diversified shortlist"
+                ),
+            )
         return TaskOutcome(
             TaskOutcomeState.COMPLETED,
-            ("GOVERNED_" + status,),
-            result.cycles[-1].reason,
+            ("GOVERNED_" + last_cycle.status.value,),
+            (
+                f"admitted 0 of {evaluated} governed candidate(s); "
+                f"last decision: {last_cycle.reason}"
+            ),
         )
 
     def eod(self, task: ScheduledTask, now: datetime) -> TaskOutcome:
@@ -277,7 +414,10 @@ class ProductionPaperSession:
             ),
         )
 
-    def _compose(self, *, journal, gateway, secrets, now, command_id):
+    def _compose(
+        self, *, journal, gateway, secrets, now, command_id,
+        shortlist: _EntryShortlistState | None = None,
+    ):
         risk_config = RiskConfig.load(self._risk_path)
         limits = _risk_limits(risk_config)
         component_secrets = {
@@ -488,10 +628,22 @@ class ProductionPaperSession:
             },
             maximum_pin_age=timedelta(seconds=30),
         )
+        cycle_builder = planner.build
+        if shortlist is not None:
+            def cycle_builder(**kwargs):
+                return shortlist.next_request(
+                    planner=planner,
+                    account_snapshot=kwargs["account_snapshot"],
+                    operational_health=kwargs["operational_health"],
+                    now=kwargs["now"],
+                    command_id=kwargs["command_id"],
+                    maximum_candidates=self._maximum_shortlist_candidates,
+                )
+
         inputs.prepare(
             now=now,
             command_id=command_id,
-            cycle_builder=planner.build,
+            cycle_builder=cycle_builder,
         )
         return SupervisorComposition(
             kernel=kernel,

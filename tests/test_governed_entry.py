@@ -1,7 +1,9 @@
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 
 from sensei.automation.governed_entry import AuthorizedPlan, CanonicalSignalPlanner
 from sensei.operations.health import HealthState, OperationalHealth
@@ -391,6 +393,156 @@ def test_planner_audits_quote_fallback_without_mislabeling_signal_count(tmp_path
     assert ranking.payload["quote_attempts"] == 2
 
 
+def test_planner_builds_ranked_executable_shortlist_from_one_full_scan():
+    plan = hammer_follow_through_plan()
+    frames = {
+        "NSE:BEST": _oscillating_ranking_bars(
+            phase=0.0, final_close=140, final_volume=2_000,
+        ),
+        "NSE:SECOND": _oscillating_ranking_bars(
+            phase=1.7, final_close=132, final_volume=1_800,
+        ),
+        "NSE:THIRD": _oscillating_ranking_bars(
+            phase=3.4, final_close=126, final_volume=1_600,
+        ),
+    }
+    evaluations = []
+
+    class EveryFrameSignals:
+        def evaluate(self, request):
+            evaluations.append(request.instrument_id)
+            return SimpleNamespace(action=DecisionAction.ENTER_LONG)
+
+    planner = CanonicalSignalPlanner(
+        plans=lambda: (AuthorizedPlan(
+            "lineage", plan, StrategyEvidenceStats(1.0, 0.5, 100),
+        ),),
+        instruments=lambda: tuple(frames),
+        bars=frames.__getitem__,
+        quote=lambda instrument, now: ExecutableQuote(
+            instrument, "snapshot:" + "f" * 64, 10_000, now,
+        ),
+        average_turnover=lambda instrument: {
+            "NSE:BEST": 100_000_000,
+            "NSE:SECOND": 90_000_000,
+            "NSE:THIRD": 80_000_000,
+        }[instrument],
+        engine=EveryFrameSignals(),
+    )
+
+    requests = planner.build_shortlist(
+        account_snapshot=account(),
+        operational_health=health(),
+        now=NOW,
+        command_id="ranked-shortlist",
+        maximum_candidates=3,
+    )
+
+    assert set(evaluations) == set(frames)
+    assert [request.quote.instrument_id for request in requests] == [
+        "NSE:BEST",
+        "NSE:SECOND",
+        "NSE:THIRD",
+    ]
+
+
+def test_planner_detects_candidate_correlation_with_actual_holding():
+    plan = hammer_follow_through_plan()
+    leader = _oscillating_ranking_bars(
+        phase=0.0, final_close=140.0, final_volume=2_000,
+    )
+    clone = leader.copy()
+    clone.loc[:, ("open", "high", "low", "close")] *= 2
+
+    class EveryFrameSignals:
+        def evaluate(self, _request):
+            return SimpleNamespace(action=DecisionAction.ENTER_LONG)
+
+    planner = CanonicalSignalPlanner(
+        plans=lambda: (AuthorizedPlan(
+            "lineage", plan, StrategyEvidenceStats(1.0, 0.5, 100),
+        ),),
+        instruments=lambda: ("NSE:LEADER",),
+        bars={
+            "NSE:LEADER": leader,
+            "NSE:CLONE": clone,
+        }.__getitem__,
+        quote=lambda instrument, now: ExecutableQuote(
+            instrument, "snapshot:" + "f" * 64, 10_000, now,
+        ),
+        average_turnover=lambda _instrument: 100_000_000,
+        engine=EveryFrameSignals(),
+    )
+
+    request = planner.build(
+        account_snapshot=account(),
+        operational_health=health(),
+        now=NOW,
+        command_id="diversified-shortlist",
+    )
+    assert request is not None
+    held = replace(
+        account(),
+        positions=(AccountPosition(
+            instrument_id="NSE:CLONE",
+            quantity=1,
+            notional_paise=20_000,
+            risk_to_stop_paise=1_000,
+        ),),
+    )
+
+    correlated = planner.correlated_holding(request, held)
+
+    assert correlated is not None
+    assert correlated[0] == "NSE:CLONE"
+    assert correlated[1] == pytest.approx(1.0)
+
+
+def test_planner_refreshes_shortlisted_request_with_new_exact_session_truth():
+    plan = hammer_follow_through_plan()
+    bars = hammer_bars()
+    planner = CanonicalSignalPlanner(
+        plans=lambda: (AuthorizedPlan(
+            "lineage", plan, StrategyEvidenceStats(1.0, 0.5, 100),
+        ),),
+        instruments=lambda: ("NSE:TEST",),
+        bars=lambda _instrument: bars,
+        quote=lambda instrument, now: ExecutableQuote(
+            instrument, "snapshot:" + "f" * 64, 10_000, now,
+        ),
+        average_turnover=lambda _instrument: 100_000_000,
+    )
+    original = planner.build(
+        account_snapshot=account(),
+        operational_health=health(),
+        now=NOW,
+        command_id="initial-truth",
+    )
+    assert original is not None
+    refreshed_at = NOW + timedelta(seconds=1)
+    refreshed_account = replace(
+        account(),
+        available_cash_paise=9_000_000,
+        captured_at=refreshed_at,
+    )
+
+    refreshed = planner.refresh_request(
+        original,
+        account_snapshot=refreshed_account,
+        operational_health=health(),
+        command_id="second-candidate",
+        now=refreshed_at,
+    )
+
+    assert refreshed is not None
+    assert refreshed.account_snapshot is refreshed_account
+    assert refreshed.now == refreshed_at
+    assert refreshed.signal_observed_at == refreshed_at
+    assert refreshed.quote.observed_at == refreshed_at
+    assert refreshed.committee_context.portfolio_state.cash == 90_000
+    assert refreshed.command_id.startswith("second-candidate:")
+
+
 def _ranking_bars(
     *,
     start: float,
@@ -403,6 +555,29 @@ def _ranking_bars(
     closes = [start] * periods
     closes[-64] = sixty_third_close
     closes[-21] = twentieth_close
+    closes[-1] = final_close
+    volumes = [1_000.0] * periods
+    volumes[-1] = final_volume
+    index = pd.date_range("2024-01-01", periods=periods, freq="D")
+    return pd.DataFrame({
+        "open": closes,
+        "high": [value * 1.01 for value in closes],
+        "low": [value * 0.99 for value in closes],
+        "close": closes,
+        "volume": volumes,
+    }, index=index)
+
+
+def _oscillating_ranking_bars(
+    *, phase: float, final_close: float, final_volume: float,
+) -> pd.DataFrame:
+    import math
+
+    periods = 252
+    closes = [
+        100.0 + index * 0.08 + math.sin(index / 4 + phase) * 3
+        for index in range(periods)
+    ]
     closes[-1] = final_close
     volumes = [1_000.0] * periods
     volumes[-1] = final_volume

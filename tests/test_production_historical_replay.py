@@ -7,6 +7,7 @@ from sensei.governance.lifecycle import LifecycleStage
 from sensei.operations import OperationalJournal
 from sensei.runtime.production_replay import (
     complete_market_sessions,
+    ProductionHistoricalDeskReplay,
     publish_replay_ingestion,
     preregister_replay_plans,
     publish_replay_surveillance,
@@ -277,3 +278,109 @@ def test_halted_entry_task_can_never_be_certified_by_reason_spelling(tmp_path):
 
     assert result.completed is False
     assert any("ENTRY_SESSION:HALTED" in value for value in result.blockers)
+
+
+def test_production_replay_admits_three_diversified_candidates_with_fresh_truth(
+    tmp_path,
+):
+    import math
+    import pandas as pd
+
+    playbook, rules = _strategy_files(tmp_path)
+    prices = tmp_path / "prices"
+    prices.mkdir()
+    index = pd.date_range("2025-01-01", periods=260, freq="B")
+    instruments = tuple(
+        (f"TEST{offset}", offset * 0.8)
+        for offset in range(10)
+    )
+    for symbol, phase in instruments:
+        closes = [
+            100.0 + offset * 0.2 + math.sin(offset / 4 + phase) * 2
+            for offset in range(len(index))
+        ]
+        pd.DataFrame({
+            "open": closes,
+            "high": [value * 1.01 for value in closes],
+            "low": [value * 0.99 for value in closes],
+            "close": closes,
+            "volume": [1_000_000] * len(index),
+        }, index=index).to_parquet(prices / f"{symbol}.parquet")
+    secrets = tmp_path / "runtime-secrets.json"
+    RuntimeSecretStore.bootstrap(secrets)
+    risk = tmp_path / "risk.yaml"
+    risk.write_text("""capital: 100000
+max_risk_per_trade_pct: 2.0
+max_position_pct: 20.0
+max_open_positions: 5
+daily_loss_halt_pct: 5.0
+weekly_loss_halt_pct: 10.0
+max_drawdown_pct: 40.0
+stop_loss_mandatory: true
+min_avg_daily_turnover_inr: 50000000
+leverage: false
+banned_surveillance_stages: [2, 3, 4]
+allowed_products: [CNC]
+""")
+    config_path = tmp_path / "scheduler.json"
+    config_path.write_text(json.dumps({
+        "execution_backend": "governed_paper",
+        "runtime_secrets_path": str(secrets),
+        "risk_path": str(risk),
+        "playbook_path": str(playbook),
+        "prices_path": str(prices),
+        "provenance_path": str(tmp_path / "production-provenance"),
+        "surveillance_path": str(tmp_path / "production-surveillance.json"),
+        "legacy_positions_path": str(tmp_path / "positions.json"),
+    }))
+    sessions = complete_market_sessions(
+        prices_path=prices,
+        required_sessions=260,
+        minimum_completeness=1.0,
+    )[-2:]
+    workspace = tmp_path / "replay"
+
+    report = ProductionHistoricalDeskReplay(
+        source_config_path=config_path,
+        rules_path=rules,
+        source_sessions=sessions,
+        workspace=workspace,
+        production_fingerprints=lambda: {},
+    ).run()
+
+    events = OperationalJournal.open_read_only(
+        workspace / "operations.sqlite3"
+    ).read_all()
+    entries = [
+        event.payload["command"]["instrument_id"]
+        for event in events
+        if event.event_type == "PaperGatewayCommandExecuted"
+        and event.payload["command"]["kind"] == "ENTRY"
+    ]
+    initial_truth = [
+        event.payload
+        for event in events
+        if event.event_type == "DeskSupervisorTruthCaptured"
+        and event.payload["phase"] == "INITIAL"
+    ]
+    ranking = next(
+        event.payload for event in events
+        if event.event_type == "SignalRankingRecorded"
+    )
+    assert report.completed_sessions == 1
+    assert report.sessions[0].completed is True
+    assert report.sessions[0].coherent_agent_cycle is True
+    assert len(entries) == 3
+    assert len(set(entries)) == 3
+    assert set(entries) <= {symbol for symbol, _ in instruments}
+    assert len(initial_truth) == 3
+    assert len({
+        truth["account_snapshot_id"] for truth in initial_truth
+    }) == 3
+    assert len({
+        truth["broker_snapshot_id"] for truth in initial_truth
+    }) == 3
+    assert sum(
+        event.event_type == "RiskFillApplied" for event in events
+    ) == 3
+    assert ranking["signal_candidate_count"] > 3

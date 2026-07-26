@@ -6,8 +6,9 @@ import hashlib
 import json
 import math
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import date, datetime
+from enum import StrEnum
 
 import pandas as pd
 
@@ -69,6 +70,28 @@ class _CandidateScore:
     total: float
 
 
+class PortfolioAdmissionExclusionReason(StrEnum):
+    DUPLICATE_INSTRUMENT = "DUPLICATE_INSTRUMENT"
+    EXECUTABLE_QUOTE_UNAVAILABLE = "EXECUTABLE_QUOTE_UNAVAILABLE"
+    SHORTLIST_BOUND = "SHORTLIST_BOUND"
+    CORRELATED_WITH_CURRENT_HOLDING = "CORRELATED_WITH_CURRENT_HOLDING"
+    REFRESHED_QUOTE_UNAVAILABLE = "REFRESHED_QUOTE_UNAVAILABLE"
+
+
+@dataclass(frozen=True)
+class _ShortlistedSignal:
+    rank: int
+    candidate: _RankedSignal
+    executable: ExecutableQuote
+
+
+@dataclass(frozen=True)
+class _ShortlistExclusion:
+    rank: int
+    instrument_id: str
+    reason: PortfolioAdmissionExclusionReason
+
+
 @dataclass(frozen=True)
 class _SignalRankingPolicy:
     version: str = "full-universe-market-quality-v1"
@@ -79,6 +102,8 @@ class _SignalRankingPolicy:
     liquidity_log_span: float = 4.0
     momentum_floor: float = -0.20
     momentum_span: float = 0.60
+    correlation_lookback_sessions: int = 60
+    maximum_pairwise_correlation: float = 0.85
     weight_momentum_20: float = 0.20
     weight_momentum_63: float = 0.20
     weight_range_position: float = 0.15
@@ -154,7 +179,7 @@ _RANKING_POLICY = _SignalRankingPolicy()
 
 
 class CanonicalSignalPlanner:
-    """Choose at most one exact PAPER signal using canonical plan semantics."""
+    """Rank exact PAPER signals once and build a bounded executable shortlist."""
 
     def __init__(
         self,
@@ -183,8 +208,32 @@ class CanonicalSignalPlanner:
         now: datetime,
         command_id: str,
     ) -> DeskCycleRequest | None:
+        shortlist = self.build_shortlist(
+            account_snapshot=account_snapshot,
+            operational_health=operational_health,
+            now=now,
+            command_id=command_id,
+            maximum_candidates=1,
+        )
+        return shortlist[0] if shortlist else None
+
+    def build_shortlist(
+        self,
+        *,
+        account_snapshot: AccountSnapshot,
+        operational_health: OperationalHealth,
+        now: datetime,
+        command_id: str,
+        maximum_candidates: int = 10,
+    ) -> tuple[DeskCycleRequest, ...]:
+        if (
+            isinstance(maximum_candidates, bool)
+            or not isinstance(maximum_candidates, int)
+            or maximum_candidates < 1
+        ):
+            raise ValueError("maximum_candidates must be a positive integer")
         if not operational_health.new_entries_allowed:
-            return None
+            return ()
         candidates: list[_RankedSignal] = []
         frames: dict[str, pd.DataFrame] = {}
         turnovers: dict[str, float] = {}
@@ -234,26 +283,139 @@ class CanonicalSignalPlanner:
             candidates,
             key=lambda candidate: (-candidate.score.total, candidate.tie_breaker),
         )
-        selected = None
+        selected: list[_ShortlistedSignal] = []
+        selected_symbols: set[str] = set()
+        exclusions: list[_ShortlistExclusion] = []
         quote_attempts = 0
         for rank, candidate in enumerate(ranked, start=1):
+            if len(selected) >= maximum_candidates:
+                exclusions.append(_ShortlistExclusion(
+                    rank=rank,
+                    instrument_id=candidate.instrument_id,
+                    reason=PortfolioAdmissionExclusionReason.SHORTLIST_BOUND,
+                ))
+                continue
+            symbol = candidate.instrument_id.split(":")[-1]
+            if symbol in selected_symbols:
+                exclusions.append(_ShortlistExclusion(
+                    rank=rank,
+                    instrument_id=candidate.instrument_id,
+                    reason=PortfolioAdmissionExclusionReason.DUPLICATE_INSTRUMENT,
+                ))
+                continue
             quote_attempts += 1
             executable = self._quote(candidate.instrument_id, now)
             if executable is None:
+                exclusions.append(_ShortlistExclusion(
+                    rank=rank,
+                    instrument_id=candidate.instrument_id,
+                    reason=(
+                        PortfolioAdmissionExclusionReason.EXECUTABLE_QUOTE_UNAVAILABLE
+                    ),
+                ))
                 continue
-            selected = (rank, candidate, executable)
-            break
+            selected.append(_ShortlistedSignal(rank, candidate, executable))
+            selected_symbols.add(symbol)
         if self._journal is not None:
             self._record_ranking(
                 command_id=command_id,
                 ranked=ranked,
-                selected_rank=selected[0] if selected else None,
+                shortlisted_ranks=tuple(item.rank for item in selected),
                 quote_attempts=quote_attempts,
+                shortlist_exclusions=tuple(exclusions),
                 observed_at=now,
             )
-        if selected is None:
+        requests = []
+        for item in selected:
+            requests.append(self._build_request(
+                candidate=item.candidate,
+                executable=item.executable,
+                account_snapshot=account_snapshot,
+                operational_health=operational_health,
+                now=now,
+                command_id=command_id,
+            ))
+        return tuple(requests)
+
+    def refresh_request(
+        self,
+        request: DeskCycleRequest,
+        *,
+        account_snapshot: AccountSnapshot,
+        operational_health: OperationalHealth,
+        command_id: str,
+        now: datetime,
+    ) -> DeskCycleRequest | None:
+        """Bind a ranked candidate to newly captured account and health truth."""
+
+        executable = self._quote(request.quote.instrument_id, now)
+        if executable is None:
             return None
-        _, candidate, executable = selected
+        return replace(
+            request,
+            account_snapshot=account_snapshot,
+            operational_health=operational_health,
+            quote=executable,
+            signal_observed_at=now,
+            now=now,
+            command_id=(
+                f"{command_id}:{request.plan.plan_id}:"
+                f"{request.quote.instrument_id}"
+            ),
+            committee_context=replace(
+                request.committee_context,
+                portfolio_state=_portfolio_state(account_snapshot),
+            ),
+        )
+
+    def correlated_holding(
+        self, request: DeskCycleRequest, account_snapshot: AccountSnapshot,
+    ) -> tuple[str, float] | None:
+        for position in account_snapshot.positions:
+            held = position.instrument_id
+            correlation = _return_correlation(
+                request.bars,
+                self._bars(held),
+                lookback=_RANKING_POLICY.correlation_lookback_sessions,
+            )
+            if correlation >= _RANKING_POLICY.maximum_pairwise_correlation:
+                return held, correlation
+        return None
+
+    def record_admission_exclusion(
+        self, *, command_id: str, shortlist_position: int,
+        instrument_id: str, reason: PortfolioAdmissionExclusionReason,
+        observed_at: datetime,
+        detail: Mapping[str, object] | None = None,
+    ) -> None:
+        if self._journal is None:
+            return
+        payload = {
+            "schema_version": "1.0",
+            "command_id": command_id,
+            "shortlist_position": shortlist_position,
+            "instrument_id": instrument_id,
+            "reason": reason.value,
+            "detail": dict(detail or {}),
+        }
+        digest = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        self._journal.append(EventAppend(
+            stream_id=f"portfolio-admission:{digest}",
+            event_type="PortfolioCandidateExcluded",
+            payload=payload,
+            idempotency_key=f"portfolio-admission-exclusion:{digest}",
+            expected_version=0,
+            occurred_at=observed_at,
+            correlation_id=command_id,
+        ))
+
+    def _build_request(
+        self, *, candidate: _RankedSignal, executable: ExecutableQuote,
+        account_snapshot: AccountSnapshot,
+        operational_health: OperationalHealth, now: datetime, command_id: str,
+    ) -> DeskCycleRequest:
         snapshot_payload = _market_snapshot_payload(
             candidate.authorized.plan,
             candidate.instrument_id,
@@ -294,15 +456,27 @@ class CanonicalSignalPlanner:
 
     def _record_ranking(
         self, *, command_id: str, ranked: Sequence[_RankedSignal],
-        selected_rank: int | None, quote_attempts: int, observed_at: datetime,
+        shortlisted_ranks: tuple[int, ...], quote_attempts: int,
+        shortlist_exclusions: tuple[_ShortlistExclusion, ...],
+        observed_at: datetime,
     ) -> None:
         payload = {
             "schema_version": "1.0",
             "command_id": command_id,
             "policy": asdict(_RANKING_POLICY),
             "signal_candidate_count": len(ranked),
-            "selected_signal_rank": selected_rank,
+            "selected_signal_rank": (
+                shortlisted_ranks[0] if shortlisted_ranks else None
+            ),
+            "shortlisted_signal_ranks": shortlisted_ranks,
             "quote_attempts": quote_attempts,
+            "shortlist_exclusions": [
+                {
+                    **asdict(exclusion),
+                    "reason": exclusion.reason.value,
+                }
+                for exclusion in shortlist_exclusions
+            ],
             "candidates": [
                 {
                     "rank": rank,
@@ -370,6 +544,30 @@ def _range_position(closes: pd.Series, latest: float) -> float:
     if high <= low:
         return 0.5
     return _clamp((latest - low) / (high - low))
+
+
+def _return_correlation(
+    left: pd.DataFrame, right: pd.DataFrame, *, lookback: int,
+) -> float:
+    left_returns = (
+        left["close"].astype(float).pct_change(fill_method=None).iloc[:-1].tail(
+            lookback
+        )
+    )
+    right_returns = (
+        right["close"].astype(float).pct_change(fill_method=None).iloc[:-1].tail(
+            lookback
+        )
+    )
+    paired = pd.concat(
+        (left_returns.rename("left"), right_returns.rename("right")),
+        axis=1,
+        join="inner",
+    ).dropna()
+    if len(paired) < max(10, lookback // 2):
+        return 0.0
+    correlation = float(paired["left"].corr(paired["right"]))
+    return correlation if math.isfinite(correlation) else 0.0
 
 
 def _volume_confirmation(volumes: pd.Series) -> float:
