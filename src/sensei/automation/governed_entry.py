@@ -254,12 +254,15 @@ class CanonicalSignalPlanner:
         turnovers: dict[str, float] = {}
         data_exclusions: dict[str, _DataExclusion] = {}
         instruments = tuple(dict.fromkeys(self._instruments()))
+        held_position_ids = {
+            position.instrument_id for position in account_snapshot.positions
+        }
         held_instruments = {
-            position.instrument_id.split(":")[-1]
-            for position in account_snapshot.positions
+            instrument_id.split(":")[-1]
+            for instrument_id in held_position_ids
         }
         open_lineages = _open_strategy_lineages(
-            self._journal, held_instruments
+            self._journal, held_position_ids
         )
         for authorized in sorted(self._plans(), key=lambda item: item.plan.name):
             for instrument_id in instruments:
@@ -639,15 +642,15 @@ def _return_correlation(
 
 def _open_strategy_lineages(
     journal: OperationalJournal | None,
-    held_instruments: set[str],
+    held_instrument_ids: set[str],
 ) -> frozenset[str]:
-    if journal is None or not held_instruments:
+    if journal is None or not held_instrument_ids:
         return frozenset()
     lineages = set()
     for started in journal.read_event_type("EpisodeStarted"):
-        symbol = str(started.payload.get("instrument_id", "")).split(":")[-1]
+        instrument_id = str(started.payload.get("instrument_id", ""))
         lineage_id = str(started.payload.get("strategy_lineage_id", ""))
-        if symbol not in held_instruments or not lineage_id:
+        if instrument_id not in held_instrument_ids or not lineage_id:
             continue
         events = journal.read_stream(started.stream_id)
         if (
