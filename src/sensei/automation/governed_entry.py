@@ -39,6 +39,10 @@ class AuthorizedPlan:
     stats: StrategyEvidenceStats
 
 
+class CandidateMarketDataUnavailable(RuntimeError):
+    """One candidate lacks required data but the wider desk may continue."""
+
+
 @dataclass(frozen=True)
 class _RankedSignal:
     authorized: AuthorizedPlan
@@ -76,6 +80,7 @@ class PortfolioAdmissionExclusionReason(StrEnum):
     SHORTLIST_BOUND = "SHORTLIST_BOUND"
     CORRELATED_WITH_CURRENT_HOLDING = "CORRELATED_WITH_CURRENT_HOLDING"
     REFRESHED_QUOTE_UNAVAILABLE = "REFRESHED_QUOTE_UNAVAILABLE"
+    MARKET_DATA_UNAVAILABLE = "MARKET_DATA_UNAVAILABLE"
 
 
 @dataclass(frozen=True)
@@ -90,6 +95,13 @@ class _ShortlistExclusion:
     rank: int
     instrument_id: str
     reason: PortfolioAdmissionExclusionReason
+
+
+@dataclass(frozen=True)
+class _DataExclusion:
+    instrument_id: str
+    reason: PortfolioAdmissionExclusionReason
+    detail: str
 
 
 @dataclass(frozen=True)
@@ -176,6 +188,7 @@ class _SignalRankingPolicy:
 
 
 _RANKING_POLICY = _SignalRankingPolicy()
+_MINIMUM_RANKING_OBSERVATIONS = 64
 
 
 class CanonicalSignalPlanner:
@@ -237,6 +250,7 @@ class CanonicalSignalPlanner:
         candidates: list[_RankedSignal] = []
         frames: dict[str, pd.DataFrame] = {}
         turnovers: dict[str, float] = {}
+        data_exclusions: dict[str, _DataExclusion] = {}
         instruments = tuple(dict.fromkeys(self._instruments()))
         held_instruments = {
             position.instrument_id.split(":")[-1]
@@ -246,15 +260,31 @@ class CanonicalSignalPlanner:
             for instrument_id in instruments:
                 frame = frames.get(instrument_id)
                 if frame is None:
-                    frame = self._bars(instrument_id)
+                    try:
+                        frame = self._bars(instrument_id)
+                    except CandidateMarketDataUnavailable as exc:
+                        data_exclusions[instrument_id] = _DataExclusion(
+                            instrument_id=instrument_id,
+                            reason=(
+                                PortfolioAdmissionExclusionReason
+                                .MARKET_DATA_UNAVAILABLE
+                            ),
+                            detail=str(exc),
+                        )
+                        continue
                     frames[instrument_id] = frame
                 if frame.empty:
                     continue
-                evaluation_session = frame.index[-1].date()
+                required = max(
+                    _MINIMUM_RANKING_OBSERVATIONS,
+                    StrategyPlanEngine.required_observations(authorized.plan),
+                )
+                decision_frame = frame.iloc[-required:]
+                evaluation_session = decision_frame.index[-1].date()
                 trace = self._engine.evaluate(PlanEvaluationRequest(
                     plan=authorized.plan,
                     instrument_id=instrument_id,
-                    bars=frame,
+                    bars=decision_frame,
                     evaluation_session=evaluation_session,
                 ))
                 if trace.action is not DecisionAction.ENTER_LONG:
@@ -270,7 +300,7 @@ class CanonicalSignalPlanner:
                 candidates.append(_RankedSignal(
                     authorized=authorized,
                     instrument_id=instrument_id,
-                    frame=frame,
+                    frame=decision_frame,
                     evaluation_session=evaluation_session,
                     average_turnover_inr=average_turnover,
                     score=_RANKING_POLICY.score(
@@ -323,6 +353,7 @@ class CanonicalSignalPlanner:
                 shortlisted_ranks=tuple(item.rank for item in selected),
                 quote_attempts=quote_attempts,
                 shortlist_exclusions=tuple(exclusions),
+                data_exclusions=tuple(data_exclusions.values()),
                 observed_at=now,
             )
         requests = []
@@ -458,6 +489,7 @@ class CanonicalSignalPlanner:
         self, *, command_id: str, ranked: Sequence[_RankedSignal],
         shortlisted_ranks: tuple[int, ...], quote_attempts: int,
         shortlist_exclusions: tuple[_ShortlistExclusion, ...],
+        data_exclusions: tuple[_DataExclusion, ...],
         observed_at: datetime,
     ) -> None:
         payload = {
@@ -476,6 +508,13 @@ class CanonicalSignalPlanner:
                     "reason": exclusion.reason.value,
                 }
                 for exclusion in shortlist_exclusions
+            ],
+            "data_exclusions": [
+                {
+                    **asdict(exclusion),
+                    "reason": exclusion.reason.value,
+                }
+                for exclusion in data_exclusions
             ],
             "candidates": [
                 {

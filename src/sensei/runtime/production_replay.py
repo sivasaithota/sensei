@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 from dataclasses import dataclass
 import json
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from sensei.automation import (
@@ -17,6 +17,7 @@ from sensei.automation.evidence import (
     ImmutableJsonArtifactStore,
     StageEvidencePublisher,
 )
+from sensei.automation.governed_entry import CandidateMarketDataUnavailable
 from sensei.automation.migration import (
     migrate_adopted_strategies,
     publish_pre_shadow_evidence,
@@ -33,10 +34,31 @@ from sensei.runtime.historical_replay import (
 )
 
 
-class ReplayCurrentSessionBarUnavailable(ActionableSchedulerError):
+class ReplayCurrentSessionBarUnavailable(
+    CandidateMarketDataUnavailable,
+    ActionableSchedulerError,
+):
     """A held or evaluated instrument lacks an exact point-in-time bar."""
 
     reason_code = "REPLAY_CURRENT_SESSION_BAR_UNAVAILABLE"
+
+
+class ReplayFrameCache:
+    """Load each immutable replay price artifact at most once."""
+
+    def __init__(self, *, loader: Callable[[Path], object] | None = None):
+        if loader is None:
+            import pandas as pd
+
+            loader = pd.read_parquet
+        self._loader = loader
+        self._frames: dict[Path, object] = {}
+
+    def load(self, path: Path):
+        artifact = Path(path)
+        if artifact not in self._frames:
+            self._frames[artifact] = self._loader(artifact)
+        return self._frames[artifact]
 
 
 @dataclass(frozen=True)
@@ -289,7 +311,10 @@ class ReplayProductionPaperSession(
 ):
     """Production composition whose market adapters obey one replay clock."""
 
-    def __init__(self, *, source_as_of: date, target_as_of: date, **kwargs):
+    def __init__(
+        self, *, source_as_of: date, target_as_of: date,
+        frame_cache: ReplayFrameCache | None = None, **kwargs,
+    ):
         super().__init__(
             **kwargs,
             event_window=lambda _symbol, _on: (
@@ -307,6 +332,7 @@ class ReplayProductionPaperSession(
         )
         self._source_as_of = source_as_of
         self._target_as_of = target_as_of
+        self._raw_frame_cache = frame_cache or ReplayFrameCache()
         self._frame_cache = {}
 
     def bind(self, *, source_as_of: date, target_as_of: date) -> None:
@@ -321,7 +347,9 @@ class ReplayProductionPaperSession(
         cached = self._frame_cache.get(symbol)
         if cached is not None:
             return cached
-        frame = super()._bars(instrument_id)
+        frame = self._raw_frame_cache.load(
+            self._prices_path / f"{symbol}.parquet"
+        )
         index = pd.to_datetime(frame.index)
         frame = frame.loc[index.date <= self._source_as_of].copy()
         if frame.empty or frame.index[-1].date() != self._source_as_of:
@@ -372,6 +400,30 @@ class ReplayProductionPaperSession(
             evidence_source="POINT_IN_TIME_DAILY_BAR_REPLAY",
             spread_is_estimated=True,
             circuit_is_estimated=True,
+        )
+
+    def _regime(self):
+        from sensei.data.regime import Regime
+
+        above = golden = observed = 0
+        for instrument in self._instruments():
+            try:
+                frame = self._bars(instrument)
+            except CandidateMarketDataUnavailable:
+                continue
+            if len(frame) < 200:
+                continue
+            close = frame["close"]
+            average_50 = close.tail(50).mean()
+            average_200 = close.tail(200).mean()
+            observed += 1
+            above += int(close.iloc[-1] > average_200)
+            golden += int(average_50 > average_200)
+        return Regime(
+            None,
+            above / observed * 100 if observed else 0,
+            golden / observed * 100 if observed else 0,
+            observed,
         )
 
 
@@ -447,6 +499,7 @@ class _ProductionSessionExecutor:
         self._eligibility = _eligibility_by_session(
             config.prices_path, source_sessions
         )
+        self._frame_cache = ReplayFrameCache()
 
     def __call__(
         self, source_session: date, _view: PointInTimePriceView
@@ -468,6 +521,7 @@ class _ProductionSessionExecutor:
             playbook_path=self._config.playbook_path,
             prices_path=self._config.prices_path,
             provenance_path=self._config.provenance_path,
+            frame_cache=self._frame_cache,
         )
         ist = ZoneInfo("Asia/Kolkata")
         entry_at = datetime(

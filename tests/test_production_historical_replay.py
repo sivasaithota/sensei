@@ -12,6 +12,9 @@ from sensei.runtime.production_replay import (
     preregister_replay_plans,
     publish_replay_surveillance,
     ReplayArtifactSandbox,
+    ReplayCurrentSessionBarUnavailable,
+    ReplayFrameCache,
+    ReplayProductionPaperSession,
     _project_session_result,
 )
 from sensei.runtime import RuntimeSecretStore, VerifiedSurveillanceSource
@@ -19,6 +22,60 @@ from sensei.strategy import StrategyPlanCatalog
 
 
 NOW = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+
+def test_replay_frame_cache_reads_each_price_artifact_once(tmp_path):
+    import pandas as pd
+
+    path = tmp_path / "TEST.parquet"
+    expected = pd.DataFrame(
+        {"close": [100.0, 101.0]},
+        index=pd.to_datetime(["2026-01-01", "2026-01-02"]),
+    )
+    expected.to_parquet(path)
+    reads = 0
+
+    def load(candidate):
+        nonlocal reads
+        reads += 1
+        return pd.read_parquet(candidate)
+
+    cache = ReplayFrameCache(loader=load)
+
+    first = cache.load(path)
+    second = cache.load(path)
+
+    assert first is second
+    assert reads == 1
+
+
+def test_replay_regime_excludes_symbol_without_current_session_bar():
+    import pandas as pd
+
+    index = pd.date_range("2025-01-01", periods=200, freq="B")
+    usable = pd.DataFrame({
+        "close": range(100, 300),
+    }, index=index)
+
+    class ReplayFixture(ReplayProductionPaperSession):
+        def __init__(self):
+            pass
+
+        @staticmethod
+        def _instruments():
+            return ("NSE:MISSING", "NSE:USABLE")
+
+        @staticmethod
+        def _bars(instrument):
+            if instrument == "NSE:MISSING":
+                raise ReplayCurrentSessionBarUnavailable(
+                    "CURRENT_SESSION_BAR_MISSING:MISSING:2025-10-07"
+                )
+            return usable
+
+    regime = ReplayFixture()._regime()
+
+    assert regime.n_symbols == 1
 
 
 def _strategy_files(tmp_path):

@@ -140,7 +140,7 @@ class StrategyPlanEngine:
         # A decision must be invalidated only by observations its executable
         # plan can reach. Adjusted vendor histories can contain ancient OHLC
         # anomalies that are irrelevant to every current indicator.
-        bars = bars.iloc[-self._required_observations(plan) :].copy()
+        bars = bars.iloc[-self.required_observations(plan) :].copy()
 
         try:
             bars = bars.astype(float)
@@ -162,7 +162,9 @@ class StrategyPlanEngine:
         return bars
 
     @staticmethod
-    def _required_observations(plan: StrategyPlan) -> int:
+    def required_observations(plan: StrategyPlan) -> int:
+        """Return the exact maximum history reachable by one plan decision."""
+
         required = plan.applicability.average_volume_lookback_sessions.value
 
         def rows(reference: MarketReference) -> int:

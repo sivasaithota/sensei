@@ -5,7 +5,11 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from sensei.automation.governed_entry import AuthorizedPlan, CanonicalSignalPlanner
+from sensei.automation.governed_entry import (
+    AuthorizedPlan,
+    CandidateMarketDataUnavailable,
+    CanonicalSignalPlanner,
+)
 from sensei.operations.health import HealthState, OperationalHealth
 from sensei.orchestration import ExecutableQuote, StrategyEvidenceStats
 from sensei.portfolio_risk import AccountPosition, AccountSnapshot
@@ -181,6 +185,102 @@ def test_planner_reads_each_instrument_once_across_authorized_plans():
         command_id="cached-bars",
     ) is not None
     assert reads == 1
+
+
+def test_planner_skips_one_candidate_with_unavailable_market_data(tmp_path):
+    plan = hammer_follow_through_plan()
+    journal = OperationalJournal(tmp_path / "operations.sqlite3")
+
+    def load(instrument):
+        if instrument == "NSE:MISSING":
+            raise CandidateMarketDataUnavailable(
+                "CURRENT_SESSION_BAR_MISSING:MISSING:2025-01-31"
+            )
+        return hammer_bars()
+
+    planner = CanonicalSignalPlanner(
+        plans=lambda: (AuthorizedPlan(
+            "lineage",
+            plan,
+            StrategyEvidenceStats(1.2, 0.45, 100),
+        ),),
+        instruments=lambda: ("NSE:MISSING", "NSE:USABLE"),
+        bars=load,
+        quote=lambda instrument, now: ExecutableQuote(
+            instrument,
+            "snapshot:" + "f" * 64,
+            10_000,
+            now,
+        ),
+        average_turnover=lambda _instrument: 100_000_000.0,
+        journal=journal,
+    )
+
+    request = planner.build(
+        account_snapshot=account(),
+        operational_health=health(),
+        now=NOW,
+        command_id="skip-missing-data",
+    )
+
+    assert request is not None
+    assert request.quote.instrument_id == "NSE:USABLE"
+    ranking = next(
+        event for event in journal.read_all()
+        if event.event_type == "SignalRankingRecorded"
+    )
+    assert [
+        dict(item) for item in ranking.payload["data_exclusions"]
+    ] == [{
+        "instrument_id": "NSE:MISSING",
+        "reason": "MARKET_DATA_UNAVAILABLE",
+        "detail": "CURRENT_SESSION_BAR_MISSING:MISSING:2025-01-31",
+    }]
+
+
+def test_planner_carries_only_decision_relevant_history_into_desk_cycle():
+    plan = hammer_follow_through_plan()
+    index = pd.date_range("2023-01-01", periods=500, freq="B")
+    bars = pd.DataFrame({
+        "open": range(100, 600),
+        "high": range(101, 601),
+        "low": range(99, 599),
+        "close": range(100, 600),
+        "volume": [1_000_000] * 500,
+    }, index=index)
+
+    class AlwaysSignals:
+        @staticmethod
+        def evaluate(_request):
+            return SimpleNamespace(action=DecisionAction.ENTER_LONG)
+
+    planner = CanonicalSignalPlanner(
+        plans=lambda: (AuthorizedPlan(
+            "lineage",
+            plan,
+            StrategyEvidenceStats(1.2, 0.45, 100),
+        ),),
+        instruments=lambda: ("NSE:TEST",),
+        bars=lambda _instrument: bars,
+        quote=lambda instrument, now: ExecutableQuote(
+            instrument,
+            "snapshot:" + "f" * 64,
+            60_000,
+            now,
+        ),
+        average_turnover=lambda _instrument: 100_000_000.0,
+        engine=AlwaysSignals(),
+    )
+
+    request = planner.build(
+        account_snapshot=account(),
+        operational_health=health(),
+        now=NOW,
+        command_id="bounded-history",
+    )
+
+    assert request is not None
+    assert len(request.bars) == 64
 
 
 def test_planner_ranks_every_signal_by_market_quality_not_ticker_order():
