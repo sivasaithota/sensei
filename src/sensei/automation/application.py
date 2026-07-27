@@ -341,6 +341,7 @@ class GovernedSchedulerApplication:
         shadow_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
         manages_legacy_positions: bool = False,
         journal_path: Path | None = None,
+        wall_clock=None,
     ) -> None:
         self.journal = journal
         self.config = config
@@ -436,6 +437,7 @@ class GovernedSchedulerApplication:
                         if config.legacy_positions_path.is_file()
                         else None
                     ),
+                    wall_clock=wall_clock,
                 )
                 legacy_eod_session = eod_session
 
@@ -520,6 +522,7 @@ class GovernedSchedulerApplication:
         config_path: Path | None = None,
         entry_session: Callable[[ScheduledTask, datetime], TaskOutcome] | None = None,
         manages_legacy_positions: bool = False,
+        wall_clock=None,
     ) -> "GovernedSchedulerApplication":
         path = Path(journal_path)
         if not path.is_file():
@@ -540,6 +543,7 @@ class GovernedSchedulerApplication:
             entry_session=entry_session,
             manages_legacy_positions=manages_legacy_positions,
             journal_path=path,
+            wall_clock=wall_clock,
         )
 
     def run_once(self, now: datetime) -> SchedulerRunResult:

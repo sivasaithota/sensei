@@ -674,13 +674,8 @@ class TradingKernel:
             raise EntryAuthorizationInvalid(
                 "Supervisor truth evidence journal is invalid"
             )
-        event = next(
-            (
-                candidate
-                for candidate in self._journal.read_all()
-                if candidate.event_id == authorization.evidence_event_id
-            ),
-            None,
+        event = self._journal.event_by_id(
+            authorization.evidence_event_id
         )
         if event is None:
             raise EntryAuthorizationInvalid(

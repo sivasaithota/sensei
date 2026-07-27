@@ -179,11 +179,9 @@ class OperationsMonitor:
             verification = self._journal.verify()
             if not verification.ok:
                 return False
-            event = next(
-                item
-                for item in self._journal.read_all()
-                if item.event_id == health.event_id
-            )
+            event = self._journal.event_by_id(health.event_id)
+            if event is None:
+                return False
             if (
                 event.event_type != "OperationalHealthAssessed"
                 or event.schema_version != 1

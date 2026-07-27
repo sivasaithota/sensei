@@ -121,6 +121,8 @@ class RecordingPaperGateway:
         execution_model: NseExecutionModel | None = None,
         market_observation: Callable[[str], NseMarketObservation] | None = None,
         clock: Callable[[], datetime] | None = None,
+        entry_deadline: datetime | None = None,
+        entry_admission_clock: Callable[[], datetime] | None = None,
     ) -> None:
         if journal is not None and not isinstance(journal, OperationalJournal):
             raise TypeError("journal must be an OperationalJournal")
@@ -130,11 +132,17 @@ class RecordingPaperGateway:
             raise ValueError("execution model replaces optimistic limit auto-fill")
         if (execution_model is None) != (market_observation is None):
             raise ValueError("execution model and market observation must be configured together")
+        if entry_deadline is not None and entry_deadline.tzinfo is None:
+            raise ValueError("entry_deadline must be timezone-aware")
         self._journal = journal
         self._auto_fill_at_limit = auto_fill_at_limit
         self._execution_model = execution_model
         self._market_observation = market_observation
         self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._entry_deadline = entry_deadline
+        self._entry_admission_clock = (
+            entry_admission_clock or (lambda: datetime.now(timezone.utc))
+        )
         self._commands: list[BrokerCommand] = []
         self._receipts: dict[str, GatewayReceipt] = {}
         self._queued_entry_fills: list[tuple[int, int]] = []
@@ -274,6 +282,11 @@ class RecordingPaperGateway:
         existing = self._receipts.get(command.command_id)
         if existing is not None:
             return existing
+        if self._entry_window_expired(command):
+            receipt = self._expired_entry_receipt(command)
+            self._commands.append(command)
+            self._receipts[command.command_id] = receipt
+            return receipt
         fill_quantity, fill_price, _, quality = self._planned_entry_fill(
             command,
             consume_queued=True,
@@ -300,18 +313,25 @@ class RecordingPaperGateway:
                 )
             return existing.receipt
 
-        fill_quantity, fill_price, queued_fill, quality = self._planned_entry_fill(
-            command,
-            consume_queued=False,
-        )
+        expired = self._entry_window_expired(command)
+        if expired:
+            fill_quantity, fill_price, queued_fill, quality = 0, 0, False, None
+        else:
+            fill_quantity, fill_price, queued_fill, quality = (
+                self._planned_entry_fill(command, consume_queued=False)
+            )
         digest = _command_digest(command.command_id)
-        receipt = GatewayReceipt(
-            command_id=command.command_id,
-            accepted=True,
-            broker_reference=f"paper:{digest}",
-            cumulative_fill_quantity=fill_quantity,
-            average_fill_price_paise=fill_price if fill_quantity else None,
-            execution_quality=quality,
+        receipt = (
+            self._expired_entry_receipt(command)
+            if expired
+            else GatewayReceipt(
+                command_id=command.command_id,
+                accepted=True,
+                broker_reference=f"paper:{digest}",
+                cumulative_fill_quantity=fill_quantity,
+                average_fill_price_paise=fill_price if fill_quantity else None,
+                execution_quality=quality,
+            )
         )
         append = EventAppend(
             stream_id=f"{_DURABLE_STREAM_PREFIX}{digest}",
@@ -347,6 +367,21 @@ class RecordingPaperGateway:
         if queued_fill:
             self._queued_entry_fills.pop(0)
         return durable.receipt
+
+    def _entry_window_expired(self, command: BrokerCommand) -> bool:
+        return (
+            isinstance(command, EntryCommand)
+            and self._entry_deadline is not None
+            and self._entry_admission_clock() >= self._entry_deadline
+        )
+
+    @staticmethod
+    def _expired_entry_receipt(command: BrokerCommand) -> GatewayReceipt:
+        return GatewayReceipt(
+            command_id=command.command_id,
+            accepted=False,
+            broker_reference="paper:entry-window-expired",
+        )
 
     def _planned_entry_fill(
         self,
@@ -427,8 +462,7 @@ class RecordingPaperGateway:
         assert self._journal is not None
         return tuple(
             _record_from_event(event)
-            for event in self._journal.read_all()
-            if event.event_type == _DURABLE_EVENT_TYPE
+            for event in self._journal.read_event_type(_DURABLE_EVENT_TYPE)
         )
 
     def _execution_records(self) -> tuple[_ExecutionRecord, ...]:

@@ -338,7 +338,7 @@ def test_halted_entry_task_can_never_be_certified_by_reason_spelling(tmp_path):
 
 
 def test_production_replay_admits_three_diversified_candidates_with_fresh_truth(
-    tmp_path,
+    tmp_path, monkeypatch,
 ):
     import math
     import pandas as pd
@@ -396,6 +396,17 @@ allowed_products: [CNC]
         minimum_completeness=1.0,
     )[-2:]
     workspace = tmp_path / "replay"
+    regime_calls = 0
+    original_regime = ReplayProductionPaperSession._regime
+
+    def counted_regime(session):
+        nonlocal regime_calls
+        regime_calls += 1
+        return original_regime(session)
+
+    monkeypatch.setattr(
+        ReplayProductionPaperSession, "_regime", counted_regime
+    )
 
     report = ProductionHistoricalDeskReplay(
         source_config_path=config_path,
@@ -441,3 +452,4 @@ allowed_products: [CNC]
         event.event_type == "RiskFillApplied" for event in events
     ) == 3
     assert ranking["signal_candidate_count"] > 3
+    assert regime_calls == 1

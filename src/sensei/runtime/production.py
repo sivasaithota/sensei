@@ -187,6 +187,7 @@ class ProductionPaperSession:
         allow_simulation_surveillance: bool = False,
         maximum_shortlist_candidates: int = 10,
         maximum_daily_admissions: int = 3,
+        wall_clock=None,
     ) -> None:
         self._journal_path = Path(journal_path)
         self._config = scheduler_config
@@ -219,6 +220,7 @@ class ProductionPaperSession:
             )
         self._maximum_shortlist_candidates = maximum_shortlist_candidates
         self._maximum_daily_admissions = maximum_daily_admissions
+        self._wall_clock = wall_clock
 
     def __call__(self, task: ScheduledTask, now: datetime) -> TaskOutcome:
         secrets = RuntimeSecretStore.load(self._config.runtime_secrets_path)
@@ -253,10 +255,27 @@ class ProductionPaperSession:
         )
 
         shortlist = _EntryShortlistState()
+        regime_cache = []
+
+        def session_regime():
+            if not regime_cache:
+                regime_cache.append(self._regime())
+            return regime_cache[0]
+
         evaluated = 0
         admitted = 0
         last_cycle = None
         for candidate_index in range(1, self._maximum_shortlist_candidates + 1):
+            if self._actual_now(now) >= task.expires_at:
+                return TaskOutcome(
+                    TaskOutcomeState.HALTED,
+                    ("ENTRY_WINDOW_EXPIRED",),
+                    (
+                        "entry window expired after "
+                        f"{evaluated} evaluated candidate(s) and "
+                        f"{admitted} admission(s)"
+                    ),
+                )
             candidate_now = now + timedelta(seconds=candidate_index - 1)
             command_id = (
                 f"{task.task_id}:portfolio-candidate:{candidate_index}"
@@ -270,6 +289,7 @@ class ProductionPaperSession:
                     now=candidate_now,
                     command_id=command_id,
                     shortlist=shortlist,
+                    regime_reader=session_regime,
                 )
                 return composition
 
@@ -287,6 +307,10 @@ class ProductionPaperSession:
                         )
                     ),
                     clock=lambda: candidate_now,
+                    entry_deadline=task.expires_at,
+                    entry_admission_clock=lambda: self._actual_now(
+                        candidate_now
+                    ),
                 ),
                 compose=compose,
                 clock=lambda: candidate_now,
@@ -342,6 +366,9 @@ class ProductionPaperSession:
                 f"last decision: {last_cycle.reason}"
             ),
         )
+
+    def _actual_now(self, logical_now: datetime) -> datetime:
+        return self._wall_clock() if self._wall_clock is not None else logical_now
 
     def eod(self, task: ScheduledTask, now: datetime) -> TaskOutcome:
         """Manage governed positions before lifecycle/shadow maintenance."""
@@ -417,6 +444,7 @@ class ProductionPaperSession:
     def _compose(
         self, *, journal, gateway, secrets, now, command_id,
         shortlist: _EntryShortlistState | None = None,
+        regime_reader=None,
     ):
         risk_config = RiskConfig.load(self._risk_path)
         limits = _risk_limits(risk_config)
@@ -571,7 +599,9 @@ class ProductionPaperSession:
                     if self._event_window is not None else {}
                 ),
             ),
-            crowd_reader=RegimeCrowdReader(reader=self._regime),
+            crowd_reader=RegimeCrowdReader(
+                reader=regime_reader or self._regime
+            ),
             analyst=GovernedAnalyst(),
             committee=committee,
             trader=PaperTrader(coordinator, kernel),

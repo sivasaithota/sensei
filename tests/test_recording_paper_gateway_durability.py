@@ -55,6 +55,34 @@ def test_durable_receipt_survives_restart_and_retry_is_idempotent(tmp_path):
     assert restarted_gateway.commands == (command,)
 
 
+def test_gateway_rejects_new_entry_after_window_but_allows_protection(tmp_path):
+    journal = OperationalJournal(tmp_path / "journal.sqlite3")
+    deadline = NOW + timedelta(minutes=1)
+    gateway = RecordingPaperGateway(
+        journal,
+        auto_fill_at_limit=True,
+        clock=lambda: NOW,
+        entry_deadline=deadline,
+        entry_admission_clock=lambda: deadline,
+    )
+    entry = _entry()
+
+    receipt = gateway.execute(entry)
+    protection = gateway.execute(ProtectionCommand(
+        intent_id=entry.intent_id,
+        instrument_id=entry.instrument_id,
+        quantity=entry.quantity,
+        stop_price_paise=145_000,
+        target_price_paise=160_000,
+    ))
+
+    assert receipt.accepted is False
+    assert receipt.cumulative_fill_quantity == 0
+    assert receipt.broker_reference == "paper:entry-window-expired"
+    assert protection.accepted is True
+    assert gateway.broker_snapshot(captured_at=NOW).positions == ()
+
+
 def test_limit_auto_fill_is_explicit_and_broker_state_rebuilds_after_restart(
     tmp_path,
 ):

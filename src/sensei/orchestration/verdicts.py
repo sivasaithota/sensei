@@ -117,9 +117,9 @@ class CommitteeVerdictAuthority:
             cutoff = _utc(no_later_than)
             if not self._journal.verify().ok:
                 return False
-            event = next(
-                item for item in self._journal.read_all() if item.event_id == event_id
-            )
+            event = self._journal.event_by_id(event_id)
+            if event is None:
+                return False
             if (
                 event.event_type != FACT_TYPE
                 or event.schema_version != 1

@@ -450,6 +450,7 @@ def main() -> None:
                 app = GovernedSchedulerApplication.open(
                     journal_path,
                     config_path=Path(args.config) if args.config else None,
+                    wall_clock=lambda: datetime.now(timezone.utc),
                 )
                 result = app.run_once(now)
         except (SchedulerAlreadyRunning, SchedulerConfigurationError, ValueError) as exc:

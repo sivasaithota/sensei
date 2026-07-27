@@ -27,6 +27,10 @@ def test_operational_journal_appends_idempotently(tmp_path):
     assert first == repeated
     assert first.stream_sequence == 1
     assert journal.read_stream("episode:EP-1") == (first,)
+    assert journal.event_by_id(first.event_id) == first
+    assert journal.event_by_id("event:" + "0" * 64) is None
+    assert journal.read_event_type("SignalObserved") == (first,)
+    assert journal.read_event_type("OtherEvent") == ()
 
     conflicting = EventAppend(
         stream_id="episode:EP-1",

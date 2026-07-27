@@ -272,6 +272,34 @@ class OperationalJournal:
             ).fetchall()
         return tuple(_event_from_row(row) for row in rows)
 
+    def event_by_id(self, event_id: str) -> JournalEvent | None:
+        """Resolve one immutable event without materializing the full journal."""
+
+        if not isinstance(event_id, str) or not event_id.startswith("event:"):
+            raise ValueError("event_id must be a journal event identity")
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM journal_events WHERE event_id = ?",
+                (event_id,),
+            ).fetchone()
+        return _event_from_row(row) if row is not None else None
+
+    def read_event_type(self, event_type: str) -> tuple[JournalEvent, ...]:
+        """Read one event category in global order without decoding others."""
+
+        if not isinstance(event_type, str) or not event_type.strip():
+            raise ValueError("event_type must not be blank")
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM journal_events
+                WHERE event_type = ?
+                ORDER BY global_sequence
+                """,
+                (event_type,),
+            ).fetchall()
+        return tuple(_event_from_row(row) for row in rows)
+
     def verify(self) -> JournalVerification:
         """Verify global and per-stream ordering and cryptographic hash chains."""
 

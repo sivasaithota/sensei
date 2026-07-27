@@ -306,11 +306,9 @@ class SafetyResetAuthority:
         return True
 
     def is_latest_reconciliation(self, event_id: str) -> bool:
-        events = [
-            event
-            for event in self._journal.read_all()
-            if event.event_type == "ReconciliationOutcomeAttested"
-        ]
+        events = self._journal.read_event_type(
+            "ReconciliationOutcomeAttested"
+        )
         return bool(events) and events[-1].event_id == event_id
 
     def verify_historical_reset(
@@ -566,9 +564,9 @@ class SafetyResetAuthority:
             cutoff = _utc(no_later_than)
             if not self._journal.verify().ok:
                 return False
-            event = next(
-                item for item in self._journal.read_all() if item.event_id == event_id
-            )
+            event = self._journal.event_by_id(event_id)
+            if event is None:
+                return False
             payload = event.payload
             if (
                 event.event_type != event_type
@@ -605,9 +603,9 @@ class SafetyResetAuthority:
         clean: bool,
         issues: tuple[str, ...],
     ):
-        event = next(
-            item for item in self._journal.read_all() if item.event_id == event_id
-        )
+        event = self._journal.event_by_id(event_id)
+        if event is None:
+            raise ValueError("kernel reconciliation event is missing")
         expected_type = "ReconciliationClean" if clean else "QuarantineRaised"
         if (
             event.stream_id != "kernel:paper"
