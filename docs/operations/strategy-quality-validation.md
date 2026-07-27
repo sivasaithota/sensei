@@ -22,7 +22,9 @@ lineages are economically uncorrelated strategy families.
   session.
 - Comparison: five identical, non-overlapping five-session windows before and
   after the lineage constraint.
-- Holdout: two continuous, non-overlapping 20-session windows.
+- Continuous evaluation: two mutually non-overlapping 20-session windows.
+  Their dates overlap the earlier five-window investigation, so they are not a
+  locked or untouched confirmation dataset.
 - Risk limits, plans, ranking weights and exit rules were unchanged.
 
 ## Five-window A/B result
@@ -35,7 +37,7 @@ lineages are economically uncorrelated strategy families.
 The constraint improved strategy representation and reduced redundant candidate
 evaluation, but did not establish a return improvement.
 
-## Continuous holdout results
+## Continuous evaluation results
 
 | Source window | Closed trades | Targets | Stops | Open | Net/marked P&L |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -49,9 +51,9 @@ even; observed hit rate was 20%.
 Strategy outcomes changed between windows:
 
 - Minervini breakout-volume hit a target in the recent window and a stop in the
-  older holdout.
+  older evaluation window.
 - Gujral trend alignment stopped in the recent window, then produced one target
-  and one stop in the older holdout.
+  and one stop in the older evaluation window.
 - Minervini trend-template recorded three stops across the two windows.
 - Schwager pullback recorded one stop and one still-open position.
 
@@ -78,7 +80,8 @@ Remain in paper mode. Before any live-capital decision:
 1. define provenance-backed strategy families or estimate plan-return
    correlations in a preregistered research campaign;
 2. run longer train/validation/locked-confirmation windows;
-3. report completed-trade expectancy, drawdown, capital utilization, stop/target
+3. provide a repository-owned, reproducible campaign command with pinned code,
+   configuration and data identities;
+4. report completed-trade expectancy, drawdown, capital utilization, stop/target
    distribution and strategy/regime attribution;
-4. require improvements to survive untouched validation data.
-
+5. require improvements to survive genuinely untouched validation data.
