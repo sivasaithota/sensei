@@ -5,13 +5,14 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 
 from sensei.operations import (
     EventAppend,
     HmacFactSigner,
     HmacFactVerifier,
+    JournalConflict,
     OperationalJournal,
 )
 
@@ -81,26 +82,35 @@ class AccountSnapshotAuthority:
             signature=signature,
         ):
             raise ValueError("account snapshot signer is not trusted")
-        event = self._journal.append(
-            EventAppend(
-                stream_id=(
-                    "account-snapshot:"
-                    + snapshot.snapshot_id.removeprefix("snapshot:")
-                ),
-                event_type="AccountSnapshotAuthenticated",
-                payload={
-                    "schema_version": "1.0",
-                    "authority": "ACCOUNT_SNAPSHOT_SOURCE",
-                    "issuer_id": signer.issuer_id,
-                    "fact": fact,
-                    "signature": signature,
-                },
-                idempotency_key="account-snapshot:" + _digest(command_id),
-                expected_version=0,
-                occurred_at=observed_at,
-                correlation_id=snapshot.snapshot_id,
-            )
+        stream_id = (
+            "account-snapshot:"
+            + snapshot.snapshot_id.removeprefix("snapshot:")
         )
+        append = EventAppend(
+            stream_id=stream_id,
+            event_type="AccountSnapshotAuthenticated",
+            payload={
+                "schema_version": "1.0",
+                "authority": "ACCOUNT_SNAPSHOT_SOURCE",
+                "issuer_id": signer.issuer_id,
+                "fact": fact,
+                "signature": signature,
+            },
+            idempotency_key="account-snapshot:" + _digest(command_id),
+            expected_version=0,
+            occurred_at=observed_at,
+            correlation_id=snapshot.snapshot_id,
+        )
+        for attempt in range(3):
+            stream_version = len(self._journal.read_stream(stream_id))
+            try:
+                event = self._journal.append(
+                    replace(append, expected_version=stream_version)
+                )
+                break
+            except JournalConflict:
+                if attempt == 2:
+                    raise
         return AccountSnapshotEvidence(
             event_id=event.event_id,
             snapshot_id=snapshot.snapshot_id,

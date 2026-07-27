@@ -155,6 +155,44 @@ def test_account_snapshot_evidence_replays_once_and_respects_cutoff(tmp_path):
     )
 
 
+def test_account_snapshot_authority_records_distinct_observations_of_unchanged_truth(
+    tmp_path,
+):
+    journal = OperationalJournal(tmp_path / "journal.sqlite3")
+    authority = AccountSnapshotAuthority(
+        journal,
+        HmacFactVerifier({"account-adapter": SECRET}),
+        expected_issuer_id="account-adapter",
+    )
+    snapshot = _snapshot()
+    signer = HmacFactSigner("account-adapter", SECRET)
+
+    before = authority.record(
+        snapshot,
+        signer=signer,
+        occurred_at=NOW,
+        command_id="truth-before-dispatch",
+    )
+    after = authority.record(
+        snapshot,
+        signer=signer,
+        occurred_at=NOW,
+        command_id="truth-after-unfilled-dispatch",
+    )
+
+    assert before.event_id != after.event_id
+    assert authority.verify(
+        before.event_id,
+        snapshot=snapshot,
+        no_later_than=NOW,
+    )
+    assert authority.verify(
+        after.event_id,
+        snapshot=snapshot,
+        no_later_than=NOW,
+    )
+
+
 def test_account_snapshot_verification_rejects_wrong_durable_authority(tmp_path):
     journal = OperationalJournal(tmp_path / "journal.sqlite3")
     signer = HmacFactSigner("account-adapter", SECRET)
