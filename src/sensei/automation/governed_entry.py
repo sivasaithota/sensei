@@ -76,6 +76,8 @@ class _CandidateScore:
 
 class PortfolioAdmissionExclusionReason(StrEnum):
     DUPLICATE_INSTRUMENT = "DUPLICATE_INSTRUMENT"
+    DUPLICATE_STRATEGY_LINEAGE = "DUPLICATE_STRATEGY_LINEAGE"
+    STRATEGY_LINEAGE_ALREADY_OPEN = "STRATEGY_LINEAGE_ALREADY_OPEN"
     EXECUTABLE_QUOTE_UNAVAILABLE = "EXECUTABLE_QUOTE_UNAVAILABLE"
     SHORTLIST_BOUND = "SHORTLIST_BOUND"
     CORRELATED_WITH_CURRENT_HOLDING = "CORRELATED_WITH_CURRENT_HOLDING"
@@ -256,6 +258,9 @@ class CanonicalSignalPlanner:
             position.instrument_id.split(":")[-1]
             for position in account_snapshot.positions
         }
+        open_lineages = _open_strategy_lineages(
+            self._journal, held_instruments
+        )
         for authorized in sorted(self._plans(), key=lambda item: item.plan.name):
             for instrument_id in instruments:
                 frame = frames.get(instrument_id)
@@ -315,6 +320,7 @@ class CanonicalSignalPlanner:
         )
         selected: list[_ShortlistedSignal] = []
         selected_symbols: set[str] = set()
+        selected_lineages: set[str] = set()
         exclusions: list[_ShortlistExclusion] = []
         quote_attempts = 0
         for rank, candidate in enumerate(ranked, start=1):
@@ -333,6 +339,27 @@ class CanonicalSignalPlanner:
                     reason=PortfolioAdmissionExclusionReason.DUPLICATE_INSTRUMENT,
                 ))
                 continue
+            lineage_id = candidate.authorized.lineage_id
+            if lineage_id in open_lineages:
+                exclusions.append(_ShortlistExclusion(
+                    rank=rank,
+                    instrument_id=candidate.instrument_id,
+                    reason=(
+                        PortfolioAdmissionExclusionReason
+                        .STRATEGY_LINEAGE_ALREADY_OPEN
+                    ),
+                ))
+                continue
+            if lineage_id in selected_lineages:
+                exclusions.append(_ShortlistExclusion(
+                    rank=rank,
+                    instrument_id=candidate.instrument_id,
+                    reason=(
+                        PortfolioAdmissionExclusionReason
+                        .DUPLICATE_STRATEGY_LINEAGE
+                    ),
+                ))
+                continue
             quote_attempts += 1
             executable = self._quote(candidate.instrument_id, now)
             if executable is None:
@@ -346,6 +373,7 @@ class CanonicalSignalPlanner:
                 continue
             selected.append(_ShortlistedSignal(rank, candidate, executable))
             selected_symbols.add(symbol)
+            selected_lineages.add(lineage_id)
         if self._journal is not None:
             self._record_ranking(
                 command_id=command_id,
@@ -607,6 +635,27 @@ def _return_correlation(
         return 0.0
     correlation = float(paired["left"].corr(paired["right"]))
     return correlation if math.isfinite(correlation) else 0.0
+
+
+def _open_strategy_lineages(
+    journal: OperationalJournal | None,
+    held_instruments: set[str],
+) -> frozenset[str]:
+    if journal is None or not held_instruments:
+        return frozenset()
+    lineages = set()
+    for started in journal.read_event_type("EpisodeStarted"):
+        symbol = str(started.payload.get("instrument_id", "")).split(":")[-1]
+        lineage_id = str(started.payload.get("strategy_lineage_id", ""))
+        if symbol not in held_instruments or not lineage_id:
+            continue
+        events = journal.read_stream(started.stream_id)
+        if (
+            any(event.event_type == "EntryFillRecorded" for event in events)
+            and not any(event.event_type == "EpisodeClosed" for event in events)
+        ):
+            lineages.add(lineage_id)
+    return frozenset(lineages)
 
 
 def _volume_confirmation(volumes: pd.Series) -> float:

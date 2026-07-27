@@ -13,7 +13,7 @@ from sensei.automation.governed_entry import (
 from sensei.operations.health import HealthState, OperationalHealth
 from sensei.orchestration import ExecutableQuote, StrategyEvidenceStats
 from sensei.portfolio_risk import AccountPosition, AccountSnapshot
-from sensei.operations import OperationalJournal
+from sensei.operations import EventAppend, OperationalJournal
 from sensei.strategy import DecisionAction
 from tests.test_strategy_plan import hammer_bars, hammer_follow_through_plan
 
@@ -493,7 +493,7 @@ def test_planner_audits_quote_fallback_without_mislabeling_signal_count(tmp_path
     assert ranking.payload["quote_attempts"] == 2
 
 
-def test_planner_builds_ranked_executable_shortlist_from_one_full_scan():
+def test_planner_ranks_one_full_scan_before_strategy_diversification():
     plan = hammer_follow_through_plan()
     frames = {
         "NSE:BEST": _oscillating_ranking_bars(
@@ -539,10 +539,146 @@ def test_planner_builds_ranked_executable_shortlist_from_one_full_scan():
     )
 
     assert set(evaluations) == set(frames)
-    assert [request.quote.instrument_id for request in requests] == [
-        "NSE:BEST",
-        "NSE:SECOND",
-        "NSE:THIRD",
+    assert [request.quote.instrument_id for request in requests] == ["NSE:BEST"]
+
+
+def test_planner_diversifies_shortlist_across_strategy_lineages():
+    first_plan = hammer_follow_through_plan()
+    second_plan = first_plan.model_copy(update={"name": "second plan"})
+    frames = {
+        "NSE:BEST": _oscillating_ranking_bars(
+            phase=0.0, final_close=140, final_volume=2_000,
+        ),
+        "NSE:SECOND": _oscillating_ranking_bars(
+            phase=1.7, final_close=132, final_volume=1_800,
+        ),
+        "NSE:THIRD": _oscillating_ranking_bars(
+            phase=3.4, final_close=126, final_volume=1_600,
+        ),
+    }
+
+    class EveryFrameSignals:
+        def evaluate(self, _request):
+            return SimpleNamespace(action=DecisionAction.ENTER_LONG)
+
+    planner = CanonicalSignalPlanner(
+        plans=lambda: (
+            AuthorizedPlan(
+                "dominant-lineage",
+                first_plan,
+                StrategyEvidenceStats(2.0, 0.6, 1_000),
+            ),
+            AuthorizedPlan(
+                "diversifying-lineage",
+                second_plan,
+                StrategyEvidenceStats(0.5, 0.4, 100),
+            ),
+        ),
+        instruments=lambda: tuple(frames),
+        bars=frames.__getitem__,
+        quote=lambda instrument, now: ExecutableQuote(
+            instrument, "snapshot:" + "f" * 64, 10_000, now,
+        ),
+        average_turnover=lambda _instrument: 100_000_000,
+        engine=EveryFrameSignals(),
+    )
+
+    requests = planner.build_shortlist(
+        account_snapshot=account(),
+        operational_health=health(),
+        now=NOW,
+        command_id="strategy-diversified-shortlist",
+        maximum_candidates=3,
+    )
+
+    assert [request.lineage_id for request in requests] == [
+        "dominant-lineage",
+        "diversifying-lineage",
+    ]
+
+
+def test_planner_excludes_strategy_lineage_already_open_in_account(tmp_path):
+    first_plan = hammer_follow_through_plan()
+    second_plan = first_plan.model_copy(update={"name": "second plan"})
+    journal = OperationalJournal(tmp_path / "operations.sqlite3")
+    episode_id = "EP-" + "a" * 64
+    journal.append(EventAppend(
+        stream_id=f"episode:{episode_id}",
+        event_type="EpisodeStarted",
+        payload={
+            "episode_id": episode_id,
+            "instrument_id": "NSE:HELD",
+            "strategy_lineage_id": "dominant-lineage",
+        },
+        idempotency_key="open-dominant-episode",
+        expected_version=0,
+        occurred_at=NOW,
+        correlation_id=episode_id,
+    ))
+    journal.append(EventAppend(
+        stream_id=f"episode:{episode_id}",
+        event_type="EntryFillRecorded",
+        payload={"quantity": 1, "price": "100.00"},
+        idempotency_key="open-dominant-fill",
+        expected_version=1,
+        occurred_at=NOW,
+        correlation_id=episode_id,
+    ))
+    held = replace(
+        account(),
+        positions=(AccountPosition(
+            instrument_id="NSE:HELD",
+            quantity=1,
+            notional_paise=10_000,
+            risk_to_stop_paise=500,
+        ),),
+    )
+    frames = {
+        "NSE:BEST": _oscillating_ranking_bars(
+            phase=0.0, final_close=140, final_volume=2_000,
+        ),
+        "NSE:NEXT": _oscillating_ranking_bars(
+            phase=1.7, final_close=132, final_volume=1_800,
+        ),
+    }
+
+    class EveryFrameSignals:
+        def evaluate(self, _request):
+            return SimpleNamespace(action=DecisionAction.ENTER_LONG)
+
+    planner = CanonicalSignalPlanner(
+        plans=lambda: (
+            AuthorizedPlan(
+                "dominant-lineage",
+                first_plan,
+                StrategyEvidenceStats(2.0, 0.6, 1_000),
+            ),
+            AuthorizedPlan(
+                "diversifying-lineage",
+                second_plan,
+                StrategyEvidenceStats(0.5, 0.4, 100),
+            ),
+        ),
+        instruments=lambda: tuple(frames),
+        bars=frames.__getitem__,
+        quote=lambda instrument, now: ExecutableQuote(
+            instrument, "snapshot:" + "f" * 64, 10_000, now,
+        ),
+        average_turnover=lambda _instrument: 100_000_000,
+        journal=journal,
+        engine=EveryFrameSignals(),
+    )
+
+    requests = planner.build_shortlist(
+        account_snapshot=held,
+        operational_health=health(),
+        now=NOW,
+        command_id="open-strategy-diversification",
+        maximum_candidates=3,
+    )
+
+    assert [request.lineage_id for request in requests] == [
+        "diversifying-lineage",
     ]
 
 

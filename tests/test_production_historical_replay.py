@@ -337,7 +337,7 @@ def test_halted_entry_task_can_never_be_certified_by_reason_spelling(tmp_path):
     assert any("ENTRY_SESSION:HALTED" in value for value in result.blockers)
 
 
-def test_production_replay_admits_three_diversified_candidates_with_fresh_truth(
+def test_production_replay_admits_one_candidate_per_strategy_lineage(
     tmp_path, monkeypatch,
 ):
     import math
@@ -438,18 +438,17 @@ allowed_products: [CNC]
     assert report.completed_sessions == 1
     assert report.sessions[0].completed is True
     assert report.sessions[0].coherent_agent_cycle is True
-    assert len(entries) == 3
-    assert len(set(entries)) == 3
+    assert len(entries) == 1
     assert set(entries) <= {symbol for symbol, _ in instruments}
-    assert len(initial_truth) == 3
+    assert len(initial_truth) == 2
     assert len({
         truth["account_snapshot_id"] for truth in initial_truth
-    }) == 3
+    }) == 2
     assert len({
         truth["broker_snapshot_id"] for truth in initial_truth
-    }) == 3
+    }) == 2
     assert sum(
         event.event_type == "RiskFillApplied" for event in events
-    ) == 3
+    ) == 1
     assert ranking["signal_candidate_count"] > 3
     assert regime_calls == 1

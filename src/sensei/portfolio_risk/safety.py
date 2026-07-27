@@ -201,8 +201,17 @@ class SafetyControl:
         return self.state()
 
     def state(self) -> SafetyState:
+        safety_events = self._journal.read_stream(_STREAM)
+        available_events = (
+            self._journal.read_all()
+            if any(
+                event.event_type == "SafetyReset"
+                for event in safety_events
+            )
+            else safety_events
+        )
         projection = project_safety_history(
-            self._journal.read_all(),
+            available_events,
             reset_authority=self._reset_authority,
             maximum_authorization_age=self._maximum_authorization_age,
             maximum_reconciliation_age=self._maximum_reconciliation_age,

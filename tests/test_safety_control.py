@@ -229,6 +229,20 @@ def _reconciliation_with_signature(
     )
 
 
+def test_ordinary_safety_state_does_not_materialize_the_full_journal(
+    tmp_path, monkeypatch
+):
+    journal = _journal(tmp_path / "journal.sqlite3")
+    safety = SafetyControl(journal)
+
+    def fail_if_called():
+        raise AssertionError("ordinary safety state must not read the full journal")
+
+    monkeypatch.setattr(journal, "read_all", fail_if_called)
+
+    assert safety.state().latched is False
+
+
 def test_latched_safety_blocks_entries_but_never_protection_or_cancel(tmp_path):
     safety = SafetyControl(_journal(tmp_path / "journal.sqlite3"))
     safety.latch(
