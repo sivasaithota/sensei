@@ -118,16 +118,18 @@ class StrategyPlanEngine:
         if not isinstance(source.index, pd.DatetimeIndex):
             raise PlanInputError("daily bars require a DatetimeIndex")
 
-        # Slice first.  Data arriving after the requested session is not an
-        # input and therefore cannot invalidate or alter the historical trace.
-        mask = [timestamp.date() <= evaluation_session for timestamp in source.index]
-        bars = source.loc[mask, list(self._REQUIRED_COLUMNS)].copy() if all(
-            column in source.columns for column in self._REQUIRED_COLUMNS
-        ) else source.loc[mask].copy()
-
-        missing = [column for column in self._REQUIRED_COLUMNS if column not in bars]
+        missing = [
+            column for column in self._REQUIRED_COLUMNS
+            if column not in source.columns
+        ]
         if missing:
             raise PlanInputError(f"daily bars are missing columns: {', '.join(missing)}")
+        # Slice first. Data arriving after the requested session is not an
+        # input and therefore cannot invalidate or alter the historical trace.
+        # DatetimeIndex.date returns a vectorized array; a Python timestamp
+        # loop here dominates full-universe historical campaigns.
+        mask = source.index.date <= evaluation_session
+        bars = source.loc[mask, list(self._REQUIRED_COLUMNS)]
         if bars.empty:
             raise PlanInputError("no observation exists at or before the evaluation session")
         if not bars.index.is_monotonic_increasing:
@@ -140,7 +142,7 @@ class StrategyPlanEngine:
         # A decision must be invalidated only by observations its executable
         # plan can reach. Adjusted vendor histories can contain ancient OHLC
         # anomalies that are irrelevant to every current indicator.
-        bars = bars.iloc[-self.required_observations(plan) :].copy()
+        bars = bars.iloc[-self.required_observations(plan) :]
 
         try:
             bars = bars.astype(float)

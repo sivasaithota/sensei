@@ -112,11 +112,9 @@ class DecisionTraceAuthority:
             cutoff = _utc(no_later_than)
             if not self._journal.verify().ok:
                 return False
-            event = next(
-                event
-                for event in self._journal.read_all()
-                if event.event_id == event_id
-            )
+            event = self._journal.event_by_id(event_id)
+            if event is None:
+                return False
             if (
                 event.event_type != _FACT_TYPE
                 or event.schema_version != 1

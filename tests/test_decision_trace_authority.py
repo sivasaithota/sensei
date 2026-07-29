@@ -64,3 +64,42 @@ def test_trace_authority_binds_engine_trace_to_exact_market_snapshot(tmp_path):
         market_snapshot_id="snapshot:" + "b" * 64,
         no_later_than=NOW + timedelta(seconds=1),
     )
+
+
+def test_trace_verification_resolves_known_event_without_scanning_journal(
+    tmp_path, monkeypatch
+):
+    journal = OperationalJournal(tmp_path / "journal.sqlite3")
+    authority = DecisionTraceAuthority(
+        journal,
+        HmacFactVerifier({"historian-1": SECRET}),
+    )
+    plan = hammer_follow_through_plan()
+    bars = hammer_bars()
+    trace = StrategyPlanEngine().evaluate(
+        PlanEvaluationRequest(
+            plan=plan,
+            instrument_id="NSE:TEST",
+            bars=bars,
+            evaluation_session=bars.index[-1].date(),
+        )
+    )
+    attestation = authority.record(
+        trace,
+        market_snapshot_id="snapshot:" + "a" * 64,
+        signer=HmacFactSigner("historian-1", SECRET),
+        occurred_at=NOW,
+        command_id="trace-produced-indexed-lookup",
+    )
+
+    def fail_if_called():
+        raise AssertionError("verification must not materialize the full journal")
+
+    monkeypatch.setattr(journal, "read_all", fail_if_called)
+
+    assert authority.verify(
+        attestation.event_id,
+        trace=trace,
+        market_snapshot_id="snapshot:" + "a" * 64,
+        no_later_than=NOW + timedelta(seconds=1),
+    )
