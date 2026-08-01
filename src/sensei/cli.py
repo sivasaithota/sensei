@@ -112,7 +112,131 @@ def main() -> None:
     replay_p.add_argument(
         "--report", default="data/reports/historical-desk-replay-latest.json"
     )
+    validate_p = sub.add_parser("validate-strategies")
+    validate_p.add_argument("--prices-dir", default="data/prices")
+    validate_p.add_argument("--playbook", default="data/playbook/current.json")
+    validate_p.add_argument("--folds", type=int, default=5)
+    validate_p.add_argument("--cost-pct", type=float, default=0.25)
+    validate_p.add_argument("--consume-locked", action="store_true")
+    validate_p.add_argument(
+        "--locked-ledger",
+        default="data/research/strategy-validation-locks.json",
+    )
+    validate_p.add_argument(
+        "--report", default="data/reports/strategy-validation-latest.json"
+    )
     args = parser.parse_args()
+
+    if args.cmd == "validate-strategies":
+        import hashlib
+        import subprocess
+        from pathlib import Path
+
+        import pandas as pd
+
+        from sensei.backtest.campaign import (
+            LockedConfirmationLedger,
+            run_validation_campaign,
+            validation_campaign_id,
+        )
+        from sensei.backtest.playbook import all_strategies
+
+        playbook_path = Path(args.playbook)
+        playbook = json.loads(playbook_path.read_text(encoding="utf-8"))
+        adopted_names = tuple(
+            str(item["name"])
+            for item in playbook.get("strategies", ())
+            if item.get("adopted") is True
+        )
+        available = all_strategies()
+        missing = sorted(set(adopted_names) - set(available))
+        if not adopted_names:
+            parser.error("playbook contains no adopted strategy evidence")
+        if missing:
+            parser.error(
+                "adopted strategies have no executable rules: "
+                + ", ".join(missing)
+            )
+        prices_path = Path(args.prices_dir)
+        frames = {
+            path.stem: pd.read_parquet(path)
+            for path in sorted(prices_path.glob("*.parquet"))
+        }
+        root = Path(__file__).resolve().parents[2]
+        git_status = subprocess.check_output(
+            ("git", "status", "--porcelain=v1"), cwd=root, text=True
+        )
+        git_diff = subprocess.check_output(
+            ("git", "diff", "--binary", "HEAD"), cwd=root
+        )
+        provenance = {
+            "playbook_sha256": hashlib.sha256(playbook_path.read_bytes()).hexdigest(),
+            "pyproject_sha256": hashlib.sha256(
+                (root / "pyproject.toml").read_bytes()
+            ).hexdigest(),
+            "uv_lock_sha256": hashlib.sha256(
+                (root / "uv.lock").read_bytes()
+            ).hexdigest(),
+            "git_head": subprocess.check_output(
+                ("git", "rev-parse", "HEAD"), cwd=root, text=True
+            ).strip(),
+            "git_worktree_state_sha256": hashlib.sha256(
+                git_status.encode() + git_diff
+            ).hexdigest(),
+        }
+        selected = {name: available[name] for name in adopted_names}
+        campaign_kwargs = dict(
+            frames=frames,
+            strategies=selected,
+            folds=args.folds,
+            cost_pct=args.cost_pct,
+            progress=lambda name: print(
+                f"validating {name}...", file=sys.stderr, flush=True
+            ),
+            provenance=provenance,
+            locked_confirmation_consumed=args.consume_locked,
+        )
+        ledger = None
+        registration_id = None
+        if args.consume_locked:
+            registration_id = validation_campaign_id(
+                frames=frames,
+                strategies=selected,
+                folds=args.folds,
+                cost_pct=args.cost_pct,
+                provenance=provenance,
+                locked_confirmation_consumed=True,
+            )
+            ledger = LockedConfirmationLedger(Path(args.locked_ledger))
+            ledger.preregister(
+                registration_id, registered_at=datetime.now(timezone.utc)
+            )
+        try:
+            report = run_validation_campaign(**campaign_kwargs)
+        except BaseException:
+            if ledger is not None and registration_id is not None:
+                ledger.consume(
+                    registration_id,
+                    consumed_at=datetime.now(timezone.utc),
+                    status="FAILED_CONSUMED",
+                )
+            raise
+        if ledger is not None and registration_id is not None:
+            if report.campaign_id != registration_id:
+                raise RuntimeError("locked registration identity changed during run")
+            ledger.consume(
+                registration_id,
+                consumed_at=datetime.now(timezone.utc),
+                status="COMPLETED",
+            )
+        destination = Path(args.report)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        payload = report.to_dict()
+        destination.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        raise SystemExit(0)
 
     if args.cmd == "replay-desk":
         import tempfile
