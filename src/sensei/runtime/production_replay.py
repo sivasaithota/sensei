@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 from dataclasses import dataclass
 import json
 import hashlib
+import math
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -70,7 +71,8 @@ class ReplayArtifactSandbox:
 
     @classmethod
     def materialize(
-        cls, *, source_config_path: Path, root: Path
+        cls, *, source_config_path: Path, root: Path,
+        capital: float | None = None,
     ) -> "ReplayArtifactSandbox":
         root = Path(root)
         root.mkdir(parents=True, exist_ok=True)
@@ -82,6 +84,24 @@ class ReplayArtifactSandbox:
         raw["surveillance_path"] = str(root / "surveillance.json")
         raw["legacy_positions_path"] = str(root / "no-legacy-positions.json")
         raw["provenance_path"] = str(root / "provenance")
+        if capital is not None:
+            if (
+                isinstance(capital, bool)
+                or not isinstance(capital, (int, float))
+                or not math.isfinite(capital)
+                or capital <= 0
+            ):
+                raise ValueError("replay capital must be finite and positive")
+            import yaml
+
+            source_risk = Path(raw.get("risk_path", "config/risk.yaml"))
+            risk = yaml.safe_load(source_risk.read_text(encoding="utf-8"))
+            risk["capital"] = capital
+            replay_risk = root / "risk.yaml"
+            replay_risk.write_text(
+                yaml.safe_dump(risk, sort_keys=False), encoding="utf-8"
+            )
+            raw["risk_path"] = str(replay_risk)
         config_path = root / "scheduler.json"
         config_path.write_text(
             json.dumps(raw, sort_keys=True), encoding="utf-8"
@@ -438,6 +458,7 @@ class ProductionHistoricalDeskReplay:
         source_sessions: Sequence[date],
         workspace: Path,
         production_fingerprints,
+        capital: float | None = None,
     ) -> None:
         ordered = tuple(source_sessions)
         if len(ordered) < 2:
@@ -447,6 +468,7 @@ class ProductionHistoricalDeskReplay:
         self._source_sessions = ordered
         self._workspace = Path(workspace)
         self._production_fingerprints = production_fingerprints
+        self._capital = capital
 
     def run(self) -> HistoricalDeskReplayReport:
         from zoneinfo import ZoneInfo
@@ -454,6 +476,7 @@ class ProductionHistoricalDeskReplay:
         sandbox = ReplayArtifactSandbox.materialize(
             source_config_path=self._source_config_path,
             root=self._workspace,
+            capital=self._capital,
         )
         config = SchedulerApplicationConfig.from_json(sandbox.config_path)
         journal = OperationalJournal(sandbox.journal_path)

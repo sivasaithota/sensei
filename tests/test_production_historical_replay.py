@@ -185,6 +185,35 @@ def test_replay_sandbox_redirects_every_mutable_runtime_artifact(tmp_path):
     assert all(path.read_bytes() == content for path, content in before.items())
 
 
+def test_replay_sandbox_can_override_capital_without_mutating_production(tmp_path):
+    risk = tmp_path / "risk.yaml"
+    risk.write_text("capital: 50000\nmax_open_positions: 5\n")
+    config = tmp_path / "scheduler.json"
+    config.write_text(json.dumps({"risk_path": str(risk)}))
+
+    sandbox = ReplayArtifactSandbox.materialize(
+        source_config_path=config, root=tmp_path / "sandbox", capital=300_000,
+    )
+
+    replay = SchedulerApplicationConfig.from_json(sandbox.config_path)
+    assert replay.risk_path.read_text().startswith("capital: 300000")
+    assert risk.read_text().startswith("capital: 50000")
+
+
+def test_replay_sandbox_rejects_invalid_capital(tmp_path):
+    import pytest
+
+    config = tmp_path / "scheduler.json"
+    config.write_text("{}")
+    for capital in (0, -1, float("nan"), float("inf"), True):
+        with pytest.raises(ValueError, match="finite and positive"):
+            ReplayArtifactSandbox.materialize(
+                source_config_path=config,
+                root=tmp_path / f"sandbox-{capital!s}",
+                capital=capital,
+            )
+
+
 def test_replay_surveillance_is_signed_date_bound_and_final_preflight(tmp_path):
     secrets_path = tmp_path / "runtime-secrets.json"
     secrets = RuntimeSecretStore.bootstrap(secrets_path)

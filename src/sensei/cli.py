@@ -109,6 +109,7 @@ def main() -> None:
     replay_p.add_argument("--config", default="config/scheduler.json")
     replay_p.add_argument("--rules", default="data/studied_rules.json")
     replay_p.add_argument("--sessions", type=int, default=60)
+    replay_p.add_argument("--capital", type=float, default=None)
     replay_p.add_argument(
         "--report", default="data/reports/historical-desk-replay-latest.json"
     )
@@ -413,8 +414,18 @@ def main() -> None:
                 source_sessions=source_sessions,
                 workspace=Path(workspace),
                 production_fingerprints=fingerprints,
+                capital=args.capital,
             ).run()
         payload = report.to_dict()
+        if args.capital is None:
+            import yaml
+            effective_capital = float(
+                yaml.safe_load(config.risk_path.read_text(encoding="utf-8"))["capital"]
+            )
+        else:
+            effective_capital = args.capital
+        payload["requested_capital"] = args.capital
+        payload["effective_capital"] = effective_capital
         payload["replay_kind"] = (
             "CURRENT_PLAN_COUNTERFACTUAL_WITH_SIMULATION_ASSUMPTIONS"
         )
@@ -428,6 +439,9 @@ def main() -> None:
             "historical price paths only; current plans preregistered before replay",
         ]
         destination = Path(args.report)
+        report_root = (Path(__file__).resolve().parents[2] / "data/reports").resolve()
+        if report_root not in destination.resolve().parents:
+            parser.error("replay report must stay under data/reports")
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(
             json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
