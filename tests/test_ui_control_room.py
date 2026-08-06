@@ -60,6 +60,79 @@ def test_dashboard_model_explains_position_exit_plan_and_distance(tmp_path, monk
     assert position["exit_plan"] == "Stop ₹95.00 · Target ₹112.00 · Time exit in 14 sessions"
 
 
+def test_dashboard_includes_governed_positions_missing_from_legacy_file(
+    tmp_path, monkeypatch,
+):
+    import sensei.ui.server as ui
+
+    monkeypatch.setattr(ui, "DATA_DIR", tmp_path)
+    paper, prices = tmp_path / "paper", tmp_path / "prices"
+    paper.mkdir()
+    prices.mkdir()
+    (paper / "positions.json").write_text(json.dumps({
+        "cash": 40_000,
+        "positions": [{
+            "symbol": "LEGACY", "direction": "BUY", "entry_price": 100,
+            "quantity": 2, "stop_loss": 90, "targets": [120],
+            "opened": "2026-07-10", "max_hold_days": 20,
+        }],
+    }))
+    for symbol, close in (("LEGACY", 105), ("GOVERNED", 210)):
+        pd.DataFrame(
+            {"close": [close]}, index=pd.DatetimeIndex(["2026-07-17"])
+        ).to_parquet(prices / f"{symbol}.parquet")
+    journal = OperationalJournal(tmp_path / "operations.sqlite3")
+    trace_id = "trace:" + "a" * 64
+    episode_id = "EP-governed"
+    _append(journal, "account-snapshot:test", "AccountSnapshotAuthenticated", {
+        "schema_version": "1.0",
+        "authority": "ACCOUNT_SNAPSHOT_SOURCE",
+        "issuer_id": "paper-account",
+        "signature": "test",
+        "fact": {"snapshot": {
+            "available_cash_paise": 30_000_00,
+            "positions": [
+                {"instrument_id": "LEGACY", "quantity": 2,
+                 "notional_paise": 21_000, "risk_to_stop_paise": 3_000},
+                {"instrument_id": "GOVERNED", "quantity": 3,
+                 "notional_paise": 63_000, "risk_to_stop_paise": 6_000},
+            ],
+        }},
+    })
+    _append(journal, f"episode:{episode_id}", "EpisodeStarted", {
+        "episode_id": episode_id, "instrument_id": "GOVERNED",
+        "decision_trace_id": trace_id, "signal_time": NOW.isoformat(),
+        "strategy_lineage_id": "test:trend", "planned_entry_price_paise": 20000,
+        "planned_exit_price_paise": 24000,
+    })
+    _append(journal, f"episode:{episode_id}", "EntryFillRecorded", {
+        "price": "200.00", "quantity": 3,
+    }, version=1)
+    _append(journal, f"episode:{episode_id}", "ProtectionVerified", {
+        "protected_quantity": 3, "stop_price": "180.00",
+        "target_price": "240.00",
+    }, version=2)
+    _append(journal, "trace-attestation:test", "PlanDecisionTraceProduced", {
+        "fact": {"trace": {
+            "trace_id": trace_id,
+            "exit_intent": {"max_hold_sessions": 30},
+        }},
+    })
+
+    model = ui.dashboard_model(now=NOW)
+
+    assert model["summary"]["open_positions"] == 2
+    assert model["summary"]["cash"] == 30_000
+    assert [position["symbol"] for position in model["positions"]] == [
+        "GOVERNED", "LEGACY",
+    ]
+    governed = model["positions"][0]
+    assert governed["entry_price"] == 200.0
+    assert governed["stop_loss"] == 180.0
+    assert governed["targets"] == [240.0]
+    assert governed["strategy_lineage_id"] == "test:trend"
+
+
 def test_control_room_surfaces_scheduler_ingestion_and_strategy_progress(tmp_path, monkeypatch):
     import sensei.ui.server as ui
 

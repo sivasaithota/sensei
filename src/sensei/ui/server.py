@@ -44,7 +44,154 @@ def _jsonl(path: Path, limit: int | None = None) -> list[dict]:
 
 def _positions() -> tuple[float, list[dict]]:
     state = _json(DATA_DIR / "paper" / "positions.json", {})
-    return float(state.get("cash", 50_000)), list(state.get("positions", ()))
+    legacy_cash = float(state.get("cash", 50_000))
+    legacy_positions = list(state.get("positions", ()))
+    journal_path = DATA_DIR / "operations.sqlite3"
+    if not journal_path.is_file():
+        return legacy_cash, legacy_positions
+    try:
+        from sensei.operations import OperationalJournal
+
+        journal = OperationalJournal.open_read_only(journal_path)
+        if not journal.verify().ok:
+            return legacy_cash, legacy_positions
+        events = journal.read_all()
+        account_events = [
+            event for event in events
+            if event.event_type == "AccountSnapshotAuthenticated"
+            and event.payload.get("authority") == "ACCOUNT_SNAPSHOT_SOURCE"
+            and isinstance(event.payload.get("fact"), Mapping)
+        ]
+        if not account_events:
+            return legacy_cash, legacy_positions
+        snapshot = account_events[-1].payload["fact"].get("snapshot")
+        if not isinstance(snapshot, Mapping):
+            return legacy_cash, legacy_positions
+        governed = _governed_position_details(
+            events, snapshot.get("positions", ()), legacy_positions
+        )
+        return float(snapshot["available_cash_paise"]) / 100, governed
+    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
+        return legacy_cash, legacy_positions
+
+
+def _governed_position_details(
+    events, account_positions, legacy_positions: list[dict],
+) -> list[dict]:
+    legacy_by_symbol = {
+        str(position.get("symbol")): dict(position)
+        for position in legacy_positions
+    }
+    trace_by_id = {}
+    for event in events:
+        if event.event_type != "PlanDecisionTraceProduced":
+            continue
+        fact = event.payload.get("fact")
+        trace = fact.get("trace") if isinstance(fact, Mapping) else None
+        if isinstance(trace, Mapping) and trace.get("trace_id"):
+            trace_by_id[str(trace["trace_id"])] = trace
+    open_episode_by_symbol = {}
+    event_streams = {}
+    for event in events:
+        if event.stream_id.startswith("episode:"):
+            event_streams.setdefault(event.stream_id, []).append(event)
+    for stream_events in event_streams.values():
+        if any(event.event_type == "EpisodeClosed" for event in stream_events):
+            continue
+        started = next(
+            (event for event in stream_events
+             if event.event_type == "EpisodeStarted"),
+            None,
+        )
+        if started is not None and started.payload.get("instrument_id"):
+            open_episode_by_symbol[str(started.payload["instrument_id"])] = (
+                started, stream_events
+            )
+    result = []
+    for account_position in account_positions:
+        if not isinstance(account_position, Mapping):
+            continue
+        symbol = str(account_position.get("instrument_id", "")).split(":")[-1]
+        if not symbol:
+            continue
+        quantity = int(account_position.get("quantity", 0))
+        if symbol in legacy_by_symbol:
+            position = legacy_by_symbol[symbol]
+            position["quantity"] = quantity
+            position["position_source"] = "governed-adopted"
+            result.append(position)
+            continue
+        episode = open_episode_by_symbol.get(symbol)
+        if episode is None:
+            notional = int(account_position.get("notional_paise", 0)) / 100
+            entry = notional / quantity if quantity else 0.0
+            risk = int(account_position.get("risk_to_stop_paise", 0)) / 100
+            stop = entry - risk / quantity if quantity else entry
+            result.append({
+                "symbol": symbol, "direction": "BUY", "quantity": quantity,
+                "entry_price": entry, "stop_loss": stop, "targets": [],
+                "position_source": "governed-account",
+                "narrative": "Governed account position; episode detail unavailable.",
+            })
+            continue
+        started, stream_events = episode
+        fill = next(
+            (event for event in stream_events
+             if event.event_type == "EntryFillRecorded"),
+            None,
+        )
+        protection = next(
+            (event for event in stream_events
+             if event.event_type == "ProtectionVerified"),
+            None,
+        )
+        trace = trace_by_id.get(str(started.payload.get("decision_trace_id")), {})
+        exit_intent = trace.get("exit_intent", {}) if isinstance(trace, Mapping) else {}
+        entry = float(
+            fill.payload["price"] if fill is not None
+            else int(started.payload.get("planned_entry_price_paise", 0)) / 100
+        )
+        stop = float(
+            protection.payload["stop_price"] if protection is not None
+            else entry - int(account_position.get("risk_to_stop_paise", 0))
+            / 100 / quantity
+        )
+        target_value = (
+            protection.payload.get("target_price") if protection is not None
+            else int(started.payload.get("planned_exit_price_paise", 0)) / 100
+        )
+        target = float(target_value) if target_value not in (None, 0) else None
+        opened = str(started.payload.get("signal_time", ""))[:10]
+        max_hold = int(exit_intent.get("max_hold_sessions", 0))
+        result.append({
+            "symbol": symbol, "direction": "BUY", "quantity": quantity,
+            "entry_price": entry, "stop_loss": stop,
+            "targets": [target] if target is not None else [],
+            "opened": opened, "max_hold_days": max_hold,
+            "sessions_held": _sessions_held(symbol, opened),
+            "episode_id": started.payload.get("episode_id"),
+            "strategy_lineage_id": started.payload.get("strategy_lineage_id"),
+            "position_source": "governed-entry",
+            "narrative": (
+                "Governed entry remains open while price stays above its "
+                "protected stop and before its target or time exit."
+            ),
+        })
+    return sorted(result, key=lambda position: str(position["symbol"]))
+
+
+def _sessions_held(symbol: str, opened: str) -> int:
+    if not opened:
+        return 1
+    path = DATA_DIR / "prices" / f"{symbol}.parquet"
+    try:
+        import pandas as pd
+
+        frame = pd.read_parquet(path, columns=["close"])
+        sessions = pd.to_datetime(frame.index).date
+        return max(1, sum(session >= date.fromisoformat(opened) for session in sessions))
+    except (OSError, ValueError, TypeError):
+        return 1
 
 
 def _closed() -> list[dict]:
