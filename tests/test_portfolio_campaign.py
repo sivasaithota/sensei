@@ -79,3 +79,35 @@ def test_campaign_applies_protection_on_the_entry_session():
     assert report.trades[0].entry_date == report.trades[0].exit_date
     assert report.trades[0].exit_reason == "stop"
     assert report.final_equity == 975
+
+
+def test_campaign_uses_pre_window_history_only_for_indicator_warmup():
+    index = pd.bdate_range("2026-01-01", periods=8)
+    bars = pd.DataFrame({
+        "open": [100] * 8,
+        "high": [101, 101, 101, 101, 101, 101, 111, 101],
+        "low": [99] * 8,
+        "close": [100, 101, 102, 103, 104, 105, 106, 107],
+        "volume": [1_000_000] * 8,
+    }, index=index)
+
+    def warmed_signal(frame):
+        return (frame["close"].rolling(5).mean() > 100).where(
+            frame.index == index[4], False
+        )
+
+    report = run_portfolio_campaign(
+        frames={"TEST": bars},
+        strategies={"trend": {
+            "fn": warmed_signal, "stop_pct": 5, "target_pct": 10,
+            "max_hold_days": 10,
+        }},
+        config=PortfolioCampaignConfig(
+            capital=1_000, max_position_pct=50, max_risk_per_trade_pct=5,
+            max_open_positions=2, cost_pct=0,
+        ),
+        evaluation_start=index[4],
+    )
+
+    assert report.equity_curve[0].session == str(index[4].date())
+    assert report.trades[0].entry_date == str(index[5].date())

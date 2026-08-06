@@ -143,7 +143,64 @@ def main() -> None:
     portfolio_p.add_argument(
         "--report", default="data/reports/portfolio-campaign-latest.json"
     )
+    matrix_p = sub.add_parser("diagnose-strategies")
+    matrix_p.add_argument("--capital", type=float, default=300000)
+    matrix_p.add_argument(
+        "--windows", type=int, nargs="+", default=(252, 756, 1260)
+    )
+    matrix_p.add_argument(
+        "--costs", type=float, nargs="+", default=(0.25, 0.50, 1.00)
+    )
+    matrix_p.add_argument(
+        "--report", default="data/reports/strategy-diagnostic-matrix-latest.json"
+    )
     args = parser.parse_args()
+
+    if args.cmd == "diagnose-strategies":
+        from pathlib import Path
+        import pandas as pd
+
+        from sensei.backtest.playbook import all_strategies
+        from sensei.backtest.portfolio_campaign import PortfolioCampaignConfig
+        from sensei.backtest.strategy_diagnostic_matrix import (
+            adopted_strategy_scenarios,
+            run_strategy_diagnostic_matrix,
+        )
+
+        root = Path(__file__).resolve().parents[2]
+        scenarios = adopted_strategy_scenarios()
+        names = {name for scenario in scenarios for name in scenario.strategies}
+        available = all_strategies()
+        strategies = {name: available[name] for name in names}
+        frames = {
+            path.stem: pd.read_parquet(path).sort_index()
+            for path in sorted((root / "data/prices").glob("*.parquet"))
+        }
+        report = run_strategy_diagnostic_matrix(
+            frames=frames,
+            strategies=strategies,
+            scenarios=scenarios,
+            windows=tuple(args.windows),
+            costs=tuple(args.costs),
+            base_config=PortfolioCampaignConfig(
+                capital=args.capital,
+                max_position_pct=20,
+                max_risk_per_trade_pct=2,
+                max_open_positions=5,
+                cost_pct=args.costs[0],
+            ),
+        )
+        destination = Path(args.report)
+        report_root = (root / "data/reports").resolve()
+        if report_root not in destination.resolve().parents:
+            parser.error("strategy diagnostic report must stay under data/reports")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        payload = report.to_dict()
+        destination.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        raise SystemExit(0)
 
     if args.cmd == "portfolio-campaign":
         from pathlib import Path
@@ -168,7 +225,11 @@ def main() -> None:
         frames = {}
         for path in sorted((root / "data/prices").glob("*.parquet")):
             frame = pd.read_parquet(path).sort_index()
-            frames[path.stem] = frame.iloc[-args.sessions:]
+            frames[path.stem] = frame
+        sessions = sorted({date for frame in frames.values() for date in frame.index})
+        if not sessions:
+            parser.error("portfolio campaign requires price sessions")
+        evaluation_start = sessions[-min(args.sessions, len(sessions))]
         report = run_portfolio_campaign(
             frames=frames,
             strategies=strategies,
@@ -179,6 +240,7 @@ def main() -> None:
                 max_open_positions=5,
                 cost_pct=args.cost_pct,
             ),
+            evaluation_start=evaluation_start,
         )
         destination = Path(args.report)
         report_root = (root / "data/reports").resolve()

@@ -84,13 +84,19 @@ class _Position:
     stop: float
     target: float
     max_hold_days: int
-    entry_cost: float
+    round_trip_cost: float
     held: int = 1
 
 
 def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                            strategies: Mapping[str, Mapping[str, object]],
-                           config: PortfolioCampaignConfig) -> PortfolioCampaignReport:
+                           config: PortfolioCampaignConfig,
+                           evaluation_start: pd.Timestamp | None = None,
+                           evaluation_end: pd.Timestamp | None = None,
+                           prepared_signals: Mapping[
+                               tuple[str, str], pd.Series
+                           ] | None = None,
+                           ) -> PortfolioCampaignReport:
     values = (config.capital, config.max_position_pct,
               config.max_risk_per_trade_pct, config.cost_pct)
     if any(isinstance(v, bool) or not math.isfinite(v) for v in values):
@@ -110,10 +116,29 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
             raise ValueError("strategy exits must be positive")
     normalized = {symbol: frame.sort_index() for symbol, frame in frames.items()}
     sessions = sorted({date for frame in normalized.values() for date in frame.index})
-    signals = {
-        (name, symbol): spec["fn"](frame).fillna(False)
-        for name, spec in strategies.items() for symbol, frame in normalized.items()
+    required_signal_keys = {
+        (name, symbol) for name in strategies for symbol in normalized
     }
+    if prepared_signals is None:
+        signals = {
+            (name, symbol): spec["fn"](frame).fillna(False)
+            for name, spec in strategies.items()
+            for symbol, frame in normalized.items()
+        }
+    else:
+        missing = required_signal_keys - set(prepared_signals)
+        if missing:
+            raise ValueError(f"prepared signals missing {len(missing)} series")
+        signals = {
+            key: prepared_signals[key].fillna(False)
+            for key in required_signal_keys
+        }
+    if evaluation_start is not None:
+        start = pd.Timestamp(evaluation_start)
+        sessions = [session for session in sessions if session >= start]
+    if evaluation_end is not None:
+        end = pd.Timestamp(evaluation_end)
+        sessions = [session for session in sessions if session <= end]
     cash = config.capital
     positions: list[_Position] = []
     trades: list[PortfolioTrade] = []
@@ -165,12 +190,15 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                 quantity = math.floor(min(by_risk, by_size, cash / (entry * (1 + fee_rate))))
                 if quantity <= 0:
                     continue
-                entry_cost = entry * quantity * fee_rate
-                cash -= entry * quantity + entry_cost
+                # `cost_pct` is one total round-trip stress proxy, not a
+                # per-side rate. Reserve it at entry so unavailable cash can
+                # never be reused while the position remains open.
+                round_trip_cost = entry * quantity * fee_rate
+                cash -= entry * quantity + round_trip_cost
                 turnover += entry * quantity
                 positions.append(_Position(name, symbol, session, entry, quantity, stop,
                     entry * (1 + float(spec["target_pct"]) / 100),
-                    int(spec["max_hold_days"]), entry_cost))
+                    int(spec["max_hold_days"]), round_trip_cost))
         # Intraday/close phase, including positions opened today; stop first.
         survivors = []
         for position in positions:
@@ -203,7 +231,7 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
     attribution = {name: round(
         sum(t.net_pnl for t in trades if t.strategy == name)
         + sum((_mark(normalized[p.symbol], sessions[-1]) - p.entry_price) * p.quantity
-              - p.entry_cost for p in positions if p.strategy == name), 2)
+              - p.round_trip_cost for p in positions if p.strategy == name), 2)
         for name in strategies}
     utilization = sum(point.invested / point.equity for point in curve if point.equity) / max(1, len(curve)) * 100
     return PortfolioCampaignReport(config, tuple(trades), tuple(curve), round(final, 2),
@@ -213,13 +241,13 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
 
 def _close(position, session, price, reason, cash, turnover, trades):
     gross = (price - position.entry_price) * position.quantity
-    net = gross - position.entry_cost
+    net = gross - position.round_trip_cost
     cash += price * position.quantity
     turnover += price * position.quantity
     trades.append(PortfolioTrade(position.strategy, position.symbol,
         str(position.entry_date.date()), str(session.date()), position.quantity,
         position.entry_price, round(price, 2), reason, round(gross, 2),
-        round(position.entry_cost, 2), round(net, 2)))
+        round(position.round_trip_cost, 2), round(net, 2)))
     return cash, turnover
 
 
