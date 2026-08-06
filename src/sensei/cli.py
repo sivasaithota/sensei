@@ -136,7 +136,61 @@ def main() -> None:
     cycle_p.add_argument(
         "--report", default="data/reports/research-cycle-latest.json"
     )
+    portfolio_p = sub.add_parser("portfolio-campaign")
+    portfolio_p.add_argument("--capital", type=float, default=300000)
+    portfolio_p.add_argument("--sessions", type=int, default=756)
+    portfolio_p.add_argument("--cost-pct", type=float, default=0.25)
+    portfolio_p.add_argument(
+        "--report", default="data/reports/portfolio-campaign-latest.json"
+    )
     args = parser.parse_args()
+
+    if args.cmd == "portfolio-campaign":
+        from pathlib import Path
+        import pandas as pd
+
+        from sensei.backtest.playbook import all_strategies
+        from sensei.backtest.portfolio_campaign import (
+            PortfolioCampaignConfig,
+            run_portfolio_campaign,
+        )
+
+        if args.sessions <= 0:
+            parser.error("portfolio campaign sessions must be positive")
+        root = Path(__file__).resolve().parents[2]
+        names = (
+            "minervini_breakout_volume",
+            "minervini_trend_template",
+            "schwager_trend_with_pullback_strength",
+        )
+        available = all_strategies()
+        strategies = {name: available[name] for name in names}
+        frames = {}
+        for path in sorted((root / "data/prices").glob("*.parquet")):
+            frame = pd.read_parquet(path).sort_index()
+            frames[path.stem] = frame.iloc[-args.sessions:]
+        report = run_portfolio_campaign(
+            frames=frames,
+            strategies=strategies,
+            config=PortfolioCampaignConfig(
+                capital=args.capital,
+                max_position_pct=20,
+                max_risk_per_trade_pct=2,
+                max_open_positions=5,
+                cost_pct=args.cost_pct,
+            ),
+        )
+        destination = Path(args.report)
+        report_root = (root / "data/reports").resolve()
+        if report_root not in destination.resolve().parents:
+            parser.error("portfolio campaign report must stay under data/reports")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        payload = report.to_dict()
+        destination.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        raise SystemExit(0)
 
     if args.cmd == "research-cycle":
         import hashlib
