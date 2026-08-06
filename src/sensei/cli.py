@@ -125,7 +125,148 @@ def main() -> None:
     validate_p.add_argument(
         "--report", default="data/reports/strategy-validation-latest.json"
     )
+    cycle_p = sub.add_parser("research-cycle")
+    cycle_p.add_argument("--folds", type=int, default=5)
+    cycle_p.add_argument(
+        "--costs", type=float, nargs="+", default=(0.25, 0.50, 1.00)
+    )
+    cycle_p.add_argument("--maximum-variants", type=int, default=30)
+    cycle_p.add_argument("--cycle-id", default=None)
+    cycle_p.add_argument(
+        "--report", default="data/reports/research-cycle-latest.json"
+    )
     args = parser.parse_args()
+
+    if args.cmd == "research-cycle":
+        import hashlib
+        import subprocess
+        from dataclasses import asdict
+        from pathlib import Path
+
+        import pandas as pd
+
+        from sensei.backtest.campaign import (
+            ValidationThresholds,
+            run_validation_campaign,
+            validation_campaign_id,
+        )
+        from sensei.backtest.playbook import all_strategies
+        from sensei.backtest.research_cycle import (
+            ResearchCycleLedger,
+            assess_research_cycle,
+            strategy_variant_ids,
+        )
+
+        if len(set(args.costs)) < 2:
+            parser.error("research-cycle requires at least two unique costs")
+        if any(cost < 0 for cost in args.costs):
+            parser.error("research-cycle costs must be non-negative")
+        strategies = all_strategies()
+        if len(strategies) > args.maximum_variants:
+            parser.error(
+                f"{len(strategies)} hypotheses exceed the "
+                f"{args.maximum_variants}-variant research budget"
+            )
+        root = Path(__file__).resolve().parents[2]
+        prices_path = root / "data/prices"
+        frames = {
+            path.stem: pd.read_parquet(path)
+            for path in sorted(prices_path.glob("*.parquet"))
+        }
+        if not frames:
+            parser.error("research-cycle price directory contains no parquet data")
+        git_status = subprocess.check_output(
+            ("git", "status", "--porcelain=v1"), cwd=root, text=True
+        )
+        git_diff = subprocess.check_output(
+            ("git", "diff", "--binary", "HEAD"), cwd=root
+        )
+        provenance = {
+            "pyproject_sha256": hashlib.sha256(
+                (root / "pyproject.toml").read_bytes()
+            ).hexdigest(),
+            "uv_lock_sha256": hashlib.sha256(
+                (root / "uv.lock").read_bytes()
+            ).hexdigest(),
+            "git_head": subprocess.check_output(
+                ("git", "rev-parse", "HEAD"), cwd=root, text=True
+            ).strip(),
+            "git_worktree_state_sha256": hashlib.sha256(
+                git_status.encode() + git_diff
+            ).hexdigest(),
+        }
+        costs = tuple(sorted(args.costs))
+        thresholds = ValidationThresholds()
+        cycle_id = args.cycle_id or (
+            "research-cycle-" + datetime.now(timezone.utc).date().isoformat()
+        )
+        preregistered_campaign_ids = tuple(
+            validation_campaign_id(
+                frames=frames,
+                strategies=strategies,
+                folds=args.folds,
+                cost_pct=cost,
+                thresholds=thresholds,
+                provenance=provenance,
+            )
+            for cost in costs
+        )
+        declaration_fingerprint = hashlib.sha256(
+            json.dumps(preregistered_campaign_ids).encode()
+        ).hexdigest()
+        family_id = "current-strategy-library"
+        ledger = ResearchCycleLedger(root / "data/research/research-cycle-ledger.json")
+        ledger.preregister(
+            family_id=family_id,
+            cycle_id=cycle_id,
+            variant_ids=strategy_variant_ids(
+                strategies,
+                universe_id="sha256:" + hashlib.sha256(
+                    json.dumps(sorted(frames)).encode()
+                ).hexdigest(),
+            ),
+            maximum_variants=args.maximum_variants,
+            costs_pct=costs,
+            folds=args.folds,
+            input_fingerprint="sha256:" + declaration_fingerprint,
+            execution_fingerprint="sha256:" + provenance["git_worktree_state_sha256"],
+            campaign_ids=preregistered_campaign_ids,
+            success_criteria=asdict(thresholds),
+        )
+        campaigns = tuple(
+            run_validation_campaign(
+                frames=frames,
+                strategies=strategies,
+                folds=args.folds,
+                cost_pct=cost,
+                thresholds=thresholds,
+                progress=lambda name, cost=cost: print(
+                    f"[{cost:.2f}%] validating {name}...",
+                    file=sys.stderr,
+                    flush=True,
+                ),
+                provenance=provenance,
+            )
+            for cost in costs
+        )
+        report = assess_research_cycle(
+            cycle_id=cycle_id,
+            campaigns=campaigns,
+            maximum_variants=args.maximum_variants,
+        )
+        payload = report.to_dict()
+        payload["campaigns"] = [campaign.to_dict() for campaign in campaigns]
+        destination = Path(args.report)
+        report_root = (root / "data/reports").resolve()
+        if report_root not in destination.resolve().parents:
+            parser.error("research-cycle report must stay under data/reports")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        ledger.complete(family_id, cycle_id)
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        raise SystemExit(0)
 
     if args.cmd == "validate-strategies":
         import hashlib
