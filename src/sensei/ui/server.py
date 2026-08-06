@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import html
 import json
+import threading
+import time as time_module
 from collections.abc import Mapping
 from datetime import date, datetime, time, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -13,6 +15,10 @@ from zoneinfo import ZoneInfo
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 CONFIG_DIR = Path(__file__).resolve().parents[3] / "config"
 IST = ZoneInfo("Asia/Kolkata")
+_MODEL_CACHE_LOCK = threading.Lock()
+_MODEL_CACHE_KEY: tuple | None = None
+_MODEL_CACHE_VALUE: dict | None = None
+_MODEL_CACHE_BUCKET_SECONDS = 300
 
 
 def _json(path: Path, default):
@@ -460,7 +466,52 @@ def _next_scheduled_action(now: datetime) -> dict:
 
 
 def dashboard_model(*, now: datetime | None = None) -> dict:
-    now = now or datetime.now().astimezone()
+    """Return one immutable control-room projection, cached until inputs change."""
+
+    if now is not None:
+        return _build_dashboard_model(now=now)
+    key = _dashboard_cache_key()
+    global _MODEL_CACHE_KEY, _MODEL_CACHE_VALUE
+    with _MODEL_CACHE_LOCK:
+        if key == _MODEL_CACHE_KEY and _MODEL_CACHE_VALUE is not None:
+            return _MODEL_CACHE_VALUE
+        model = _build_dashboard_model(now=datetime.now().astimezone())
+        _MODEL_CACHE_KEY = key
+        _MODEL_CACHE_VALUE = model
+        return model
+
+
+def _dashboard_cache_key() -> tuple:
+    watched = [
+        DATA_DIR / "operations.sqlite3",
+        DATA_DIR / "operations.sqlite3-wal",
+        DATA_DIR / "scheduler-heartbeat.json",
+        DATA_DIR / "scheduler.lock",
+        DATA_DIR / "paper" / "positions.json",
+        DATA_DIR / "paper" / "closed_trades.jsonl",
+        DATA_DIR / "audit.jsonl",
+        DATA_DIR / "mistake_ledger.jsonl",
+        DATA_DIR / "playbook" / "current.json",
+        DATA_DIR / "reports" / "entry-rehearsal-latest.json",
+        DATA_DIR / "KILL",
+        CONFIG_DIR / "scheduler.json",
+    ]
+    watched.extend((DATA_DIR / "prices").glob("*.parquet"))
+    states = []
+    for path in watched:
+        try:
+            stat = path.stat()
+            states.append((str(path), stat.st_mtime_ns, stat.st_size))
+        except OSError:
+            states.append((str(path), None, None))
+    return (
+        str(DATA_DIR), str(CONFIG_DIR),
+        int(time_module.time() // _MODEL_CACHE_BUCKET_SECONDS),
+        tuple(states),
+    )
+
+
+def _build_dashboard_model(*, now: datetime) -> dict:
     cash, raw_positions = _positions()
     governance = _governance_status()
     ingestion = governance.get("ingestion")
@@ -919,6 +970,8 @@ def create_server(port: int = 8642) -> ThreadingHTTPServer:
 
 
 def serve(port: int = 8642) -> None:
+    # Build the expensive journal-backed projection before the browser arrives.
+    dashboard_model()
     print(f"Sensei control room → http://localhost:{port}  (Ctrl-C to stop)")
     create_server(port).serve_forever()
 

@@ -299,6 +299,33 @@ def test_stalled_browser_connection_cannot_block_dashboard_requests(tmp_path, mo
     assert elapsed < 0.75
 
 
+def test_dashboard_reuses_projection_until_an_input_changes(tmp_path, monkeypatch):
+    import sensei.ui.server as ui
+
+    monkeypatch.setattr(ui, "DATA_DIR", tmp_path / "data")
+    monkeypatch.setattr(ui, "CONFIG_DIR", tmp_path / "config")
+    monkeypatch.setattr(ui, "_MODEL_CACHE_KEY", None)
+    monkeypatch.setattr(ui, "_MODEL_CACHE_VALUE", None)
+    ui.DATA_DIR.mkdir()
+    calls = []
+
+    def build(*, now):
+        calls.append(now)
+        return {"generation": len(calls)}
+
+    monkeypatch.setattr(ui, "_build_dashboard_model", build)
+
+    first = ui.dashboard_model()
+    second = ui.dashboard_model()
+    (ui.DATA_DIR / "scheduler-heartbeat.json").write_text("changed")
+    third = ui.dashboard_model()
+
+    assert first is second
+    assert first == {"generation": 1}
+    assert third == {"generation": 2}
+    assert len(calls) == 2
+
+
 def test_operations_page_shows_latest_entry_rehearsal(tmp_path, monkeypatch):
     import sensei.ui.server as ui
 
