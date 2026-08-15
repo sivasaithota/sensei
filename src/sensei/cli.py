@@ -73,6 +73,12 @@ def main() -> None:
     scheduler_migrate_p.add_argument("--prices-dir", default="data/prices")
     ui_p = sub.add_parser("ui")
     ui_p.add_argument("--port", type=int, default=8642)
+    audit_p = sub.add_parser("backtest-audit")
+    audit_p.add_argument("--strategy", default=None, help="adopted strategy name; omit = all")
+    audit_p.add_argument("--capital", type=float, default=300000.0)
+    audit_p.add_argument("--max-positions", type=int, default=5)
+    audit_p.add_argument("--folds", type=int, default=5)
+    audit_p.add_argument("--report", default="data/reports/backtest-audit-latest.json")
     monitor_p = sub.add_parser("shadow-monitor")
     monitor_p.add_argument("--journal", default="data/operations.sqlite3")
     monitor_p.add_argument("--config", default="config/scheduler.json")
@@ -696,6 +702,39 @@ def main() -> None:
             config_path=Path(args.config),
         )
         print(json.dumps(report.to_dict(), indent=2))
+        return
+
+    if args.cmd == "backtest-audit":
+        from pathlib import Path
+        from sensei.backtest.playbook import load_current_playbook, all_strategies
+        from sensei.data.store import available_symbols, load_prices
+        from sensei.research.preliminary_audit import PortfolioConfig, audit_strategy
+
+        pb = load_current_playbook()
+        adopted = [a for a in pb["strategies"] if a["adopted"]]
+        if args.strategy:
+            adopted = [a for a in adopted if a["name"] == args.strategy]
+        reg = all_strategies()
+        frames = {}
+        for s in available_symbols():
+            try:
+                df = load_prices(s)
+                if len(df) >= 500:
+                    frames[s] = df
+            except Exception:
+                pass
+        cfg = PortfolioConfig(capital=args.capital, max_positions=args.max_positions)
+        reports = []
+        for a in adopted:
+            spec = reg.get(a["name"])
+            if spec is None:
+                continue
+            reports.append(audit_strategy(frames, spec["fn"], a["params"],
+                                          name=a["name"], cfg=cfg, n_folds=args.folds))
+        out = Path(args.report)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(reports, indent=2, default=str))
+        print(json.dumps(reports, indent=2, default=str))
         return
 
     if args.cmd == "shadow-monitor":
