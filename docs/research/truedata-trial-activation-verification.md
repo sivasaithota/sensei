@@ -1,7 +1,7 @@
 # TrueData trial activation verification
 
 Date: 2026-08-18
-Status: pre-activation, no credentialed API calls made
+Status: activated private trial capture in progress; no governed promotion
 
 ## Verdict
 
@@ -88,7 +88,11 @@ However, the planned request contract has material mismatches with the latest of
    - `getBalSheetById2`, not `getBalSheetById`; and
    - announcement details are exposed as `getannouncementbyid` and `announcementfile2`, rather than only `announcementfile`.
 
-5. **No WebSocket support exists in this harness.** That is acceptable for the bulk historical capture objective, but it means the only capability unambiguously granted by the activation email—real-time corporate announcements—cannot currently be consumed.
+5. **The original harness had no WebSocket support.** The activated-trial work
+   added a separate checkpointed recorder for the confirmed port 9092 feed. It
+   validates JSON messages, retains changed revisions, deduplicates identical
+   replays, reconnects with bounded backoff, and never persists the
+   credential-bearing connection URL.
 
 Sources:
 
@@ -107,7 +111,8 @@ Do not run the current full `sensei-truedata run` plan unchanged. First:
 3. add a credential-safe entitlement probe that authenticates once and probes only tiny, bounded requests;
 4. default to the corporate-only plan because that is the confirmed subscription;
 5. enable the market-history plan only if the entitlement probe confirms it;
-6. optionally add a separate corporate WebSocket recorder for port 9092; and
+6. run the separate corporate WebSocket recorder for port 9092 throughout the
+   short trial; and
 7. keep every downloaded vendor file outside Git and quarantined from governed strategy evidence.
 
 ## Security note
@@ -116,6 +121,32 @@ The official Postman bundle includes literal example credentials and at least on
 
 ## Evidence handling
 
-The current verification used only downloaded official documentation and Postman files. It did not authenticate, open a WebSocket, activate the account, or issue any data request. The official bundles were stored outside the repository under:
+The pre-activation verification used only downloaded official documentation and
+Postman files. The later live-contract observations below used the owner-approved
+trial credentials without persisting them. The official bundles remain outside
+the repository under:
 
 `/Users/sivasaithota/Documents/sensei-private/truedata/latest-2026-08-18/`
+
+## Live contract observation
+
+The first authorized corporate-only capture on 2026-08-18 verified all 93
+financial-result list requests and all 93 shareholding-list requests. The legacy
+`annoucements` range endpoint returned HTTP 404 for all 93 dates. Because that
+range endpoint is absent from the latest official Postman collection, it was
+removed from the default REST plan rather than retried blindly. No downloaded
+payload was promoted into the governed market-data catalog.
+
+Those successful lists contained 13,617 distinct financial-result IDs and 5,503
+distinct shareholding IDs. Expanding every convenience projection would require
+about 98,000 rate-limited calls. The trial capture therefore uses the documented
+comprehensive `getAllResultItemsById` and `getAllShpById` endpoints—about 19,000
+detail calls—while preserving the raw lists for later reconciliation.
+
+The legacy range failure leaves a historical-announcement coverage gap. The
+new recorder captures real-time announcements from its start time forward and
+stores them in the same private, content-verified quarantine. It deliberately
+does not claim to backfill announcements emitted before the connection began.
+Its live handshake received the vendor's subscription and heartbeat control
+frames without reconnecting; those frames are counted and ignored rather than
+misclassified as announcement failures.

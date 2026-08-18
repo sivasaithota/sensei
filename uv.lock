@@ -955,6 +955,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pytest" },
     { name = "pyyaml" },
+    { name = "websockets" },
     { name = "yfinance" },
 ]
 
@@ -970,6 +971,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "websockets", specifier = ">=16.0" },
     { name = "yfinance", specifier = ">=1.5.1" },
 ]
 

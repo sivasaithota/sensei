@@ -18,6 +18,7 @@ import csv
 import hashlib
 import io
 import json
+import math
 import os
 import re
 import time
@@ -26,8 +27,11 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol
+from urllib.parse import urlencode
 
 import httpx
+from websockets.exceptions import WebSocketException
+from websockets.sync.client import connect as websocket_connect
 
 STAMP = (
     "PRELIMINARY_VENDOR_TRIAL — private TrueData research artifacts; "
@@ -41,6 +45,7 @@ _SECRET_KEYS = frozenset(
 _ENDPOINT = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,127}\Z")
 _MAX_MANIFEST_BYTES = 1_000_000
 _DEFAULT_MAX_RESPONSE_BYTES = 256_000_000
+_MAX_ANNOUNCEMENT_BYTES = 1_000_000
 _MAX_EOD_ROWS_PER_ARTIFACT = 1_000_000
 _MAX_EOD_COLUMNS = 256
 
@@ -337,6 +342,18 @@ class AuditResult:
     eod_range_gaps: int
 
 
+@dataclass(frozen=True)
+class AnnouncementStreamResult:
+    received: int
+    stored: int
+    duplicates: int
+    ignored: int
+    rejected: int
+    reconnects: int
+    connected: bool
+    authorization_failed: bool
+
+
 class PrivateArtifactStore:
     """Atomic, content-verified owner-only storage for trial responses."""
 
@@ -503,6 +520,156 @@ class PrivateArtifactStore:
             eod_invalid,
             eod_range_gaps,
         )
+
+
+def store_corporate_announcement(
+    store: PrivateArtifactStore,
+    message: str | bytes,
+    *,
+    retrieved_at: datetime | None = None,
+) -> tuple[StoredArtifact, bool]:
+    """Validate and checkpoint one corporate WebSocket announcement.
+
+    The credential-bearing connection URL is intentionally replaced by the
+    public endpoint origin before persistence. Replayed identical messages are
+    skipped, while a changed payload for the same vendor ID is retained as a
+    new artifact revision.
+    """
+
+    content = message.encode("utf-8") if isinstance(message, str) else message
+    if len(content) > _MAX_ANNOUNCEMENT_BYTES:
+        raise TrueDataError("TrueData announcement exceeds the safety limit")
+    try:
+        decoded = json.loads(content)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise TrueDataError("TrueData announcement is malformed JSON") from None
+    if not isinstance(decoded, dict):
+        raise TrueDataError("TrueData announcement must be a JSON object")
+    raw_id = next(
+        (value for key, value in decoded.items() if key.lower() == "id"), None
+    )
+    if isinstance(raw_id, bool) or not isinstance(raw_id, (str, int)):
+        raise TrueDataError("TrueData announcement has no valid announcement id")
+    announcement_id = str(raw_id).strip()
+    if not announcement_id or len(announcement_id) > 128:
+        raise TrueDataError("TrueData announcement has no valid announcement id")
+
+    request = TrueDataRequest(
+        Service.CORPORATE,
+        "websocket-announcement",
+        {"announcement_id": announcement_id},
+    )
+    existing = store.verified(request)
+    digest = hashlib.sha256(content).hexdigest()
+    if existing is not None:
+        manifest = json.loads(existing.manifest_path.read_text(encoding="utf-8"))
+        if manifest.get("sha256") == digest:
+            return existing, False
+
+    artifact = store.save(
+        request,
+        FetchedPayload(
+            content=content,
+            content_type="application/json",
+            retrieved_at=retrieved_at or datetime.now(timezone.utc),
+            source_uri="wss://corp.truedata.in:9092",
+            status_code=101,
+        ),
+        replace_checkpoint=True,
+    )
+    return artifact, True
+
+
+def record_corporate_announcements(
+    config: TrueDataConfig,
+    *,
+    duration_seconds: float,
+    connector: Callable[..., Any] = websocket_connect,
+    sleeper: Callable[[float], None] = time.sleep,
+    clock: _Clock = time.monotonic,
+) -> AnnouncementStreamResult:
+    """Record the credentialed corporate feed with bounded reconnects.
+
+    Connection errors are deliberately reduced to counters because vendor
+    exceptions may reproduce the credential-bearing WebSocket URI.
+    """
+
+    if not math.isfinite(duration_seconds) or duration_seconds <= 0:
+        raise ValueError("announcement recording duration must be positive")
+    store = PrivateArtifactStore(config.store)
+    deadline = clock() + duration_seconds
+    received = stored = duplicates = ignored = rejected = reconnects = 0
+    connected = authorization_failed = False
+    reconnect_delay = 1.0
+    query = urlencode({"user": config.username, "password": config.password})
+    connection_uri = f"wss://corp.truedata.in:9092?{query}"
+
+    while not authorization_failed and (remaining := deadline - clock()) > 0:
+        try:
+            with connector(
+                connection_uri,
+                open_timeout=min(30.0, remaining),
+                ping_interval=20.0,
+                ping_timeout=20.0,
+                max_size=_MAX_ANNOUNCEMENT_BYTES,
+            ) as connection:
+                reconnect_delay = 1.0
+                while not authorization_failed and (remaining := deadline - clock()) > 0:
+                    try:
+                        message = connection.recv(timeout=min(30.0, remaining))
+                    except TimeoutError:
+                        continue
+                    received += 1
+                    control_status = _corporate_control_status(message)
+                    if control_status is not None:
+                        ignored += 1
+                        if control_status:
+                            connected = True
+                        else:
+                            authorization_failed = True
+                        continue
+                    try:
+                        _, was_stored = store_corporate_announcement(store, message)
+                    except TrueDataError:
+                        rejected += 1
+                        continue
+                    connected = True
+                    if was_stored:
+                        stored += 1
+                    else:
+                        duplicates += 1
+        except (OSError, TimeoutError, WebSocketException):
+            reconnects += 1
+            remaining = deadline - clock()
+            if remaining <= 0:
+                break
+            sleeper(min(reconnect_delay, remaining))
+            reconnect_delay = min(reconnect_delay * 2, 30.0)
+
+    return AnnouncementStreamResult(
+        received=received,
+        stored=stored,
+        duplicates=duplicates,
+        ignored=ignored,
+        rejected=rejected,
+        reconnects=reconnects,
+        connected=connected,
+        authorization_failed=authorization_failed,
+    )
+
+
+def _corporate_control_status(message: str | bytes) -> bool | None:
+    try:
+        decoded = json.loads(message)
+    except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
+        return None
+    if (
+        not isinstance(decoded, dict)
+        or "id" in {str(key).lower() for key in decoded}
+    ):
+        return None
+    success = decoded.get("success")
+    return success if isinstance(success, bool) else None
 
 
 def _eod_csv_profile(
@@ -866,15 +1033,6 @@ class TrialPlan:
                     (
                         TrueDataRequest(
                             Service.CORPORATE,
-                            "annoucements",
-                            {
-                                "from": f"{cursor:%y%m%d}",
-                                "to": f"{cursor:%y%m%d}",
-                                "response": "csv",
-                            },
-                        ),
-                        TrueDataRequest(
-                            Service.CORPORATE,
                             "getResultList",
                             {"date": cursor.isoformat(), "response": "json"},
                         ),
@@ -995,19 +1153,11 @@ def expand_plan_from_masters(
 
 
 _DETAIL_ENDPOINTS = {
-    "getResultList": (
-        "getAllResultItemsById",
-        "getResultALById",
-        "getPnLById",
-        "getBalSheetById2",
-        "getCashFlowSummaryById",
-        "getCashFlowDetailById",
-    ),
-    "getSHPListByDate": (
-        "getAllShpById",
-        "getShpSummaryById",
-        "getShpDetailById",
-    ),
+    # The "All" endpoints contain the complete item sets. Fetching every
+    # convenience projection would multiply a short trial by 5x without adding
+    # source records; derived P&L/balance-sheet views can be materialized later.
+    "getResultList": ("getAllResultItemsById",),
+    "getSHPListByDate": ("getAllShpById",),
     "annoucements": ("getannouncementbyid", "announcementfile2"),
 }
 

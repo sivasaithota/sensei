@@ -12,6 +12,12 @@ content-hashed manifest per response, preserves every retrieval revision, resume
 verified usable work, retries error responses, and audits missing, no-data,
 error, and data responses separately.
 
+The separate `record-announcements` command connects to the confirmed corporate
+WebSocket, validates each JSON object, deduplicates replays by announcement ID
+and content hash, preserves changed revisions, and reconnects with bounded
+backoff. Its credential-bearing connection URL exists only in process memory;
+stored manifests contain only `wss://corp.truedata.in:9092`.
+
 The activation dated 2026-08-18 explicitly confirms only Corporate/Fundamental
 data. Therefore `plan` and `run` default to `--capabilities corporate`. Market
 history and symbol-master traffic remains disabled unless its bounded entitlement
@@ -21,10 +27,15 @@ For a fully entitled run, the command executes three phases:
 
 1. download the enabled NSE equity and index symbol masters and symbol-change history;
 2. discover their symbols, write the expanded immutable plan, and download or
-   resume EOD bars, daily Bhavcopies, corporate actions, announcements,
+   resume EOD bars, daily Bhavcopies, corporate actions,
    financial-result lists, and shareholding-pattern lists;
 3. discover list-record IDs and retrieve available financial-statement details,
    shareholding details, and announcement attachments.
+
+For financial results and shareholding, the capture uses the vendor's
+comprehensive `All...ById` endpoints. It does not repeat the same record through
+every convenience projection (P&L, balance-sheet, summary and detail), which
+would multiply the trial by roughly five without adding source items.
 
 The plan follows the vendor's trial limits: two years of EOD requests and one
 quarter of corporate requests by default. API responses remain quarantined even
@@ -104,6 +115,20 @@ no-data responses are skipped; missing, corrupt, quota, entitlement, proxy, and
 other error responses are attempted again. Do not use parallel processes: the
 harness intentionally stays within conservative vendor limits.
 
+Run the real-time announcement recorder in a second terminal for the trial
+window. It does not consume the REST request quota:
+
+```bash
+caffeinate -dimsu uv run sensei-truedata record-announcements \
+  --store "$SENSEI_TRUEDATA_DIR" \
+  --duration-seconds 259200
+```
+
+The recorder is safe to restart. Identical replayed messages are skipped and a
+changed payload for an existing announcement ID is retained as a new revision.
+Connection failures are counted rather than printed because vendor exceptions
+may reproduce the credential-bearing WebSocket URL.
+
 Audit locally without credentials or network access:
 
 ```bash
@@ -152,3 +177,9 @@ caffeinate -dimsu uv run sensei-truedata run \
 Do not infer market access from WebSocket port `9092`: that port is the corporate
 announcement feed. Market-price WebSocket access uses a separately entitled
 `push.truedata.in` port and is outside this bulk REST capture workflow.
+
+The legacy historical announcement-range endpoint returned HTTP 404 for every
+trial date and is absent from the latest official Postman collection, so it is
+not part of the default REST plan. The `record-announcements` command captures
+new announcements from the confirmed corporate WebSocket feed; it does not
+manufacture historical coverage for announcements emitted before it started.

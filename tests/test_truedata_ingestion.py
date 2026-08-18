@@ -19,6 +19,8 @@ from sensei.data.truedata import (
     extract_record_ids,
     extract_symbols,
     probe_entitlements,
+    record_corporate_announcements,
+    store_corporate_announcement,
 )
 from sensei.data.truedata_cli import main as truedata_main
 
@@ -132,6 +134,184 @@ def test_artifact_store_preserves_retrieval_revisions(tmp_path):
     assert second.payload_path.exists()
     assert first.payload_path != second.payload_path
     assert len(revisions) == 2
+
+
+def test_corporate_announcement_is_stored_privately_without_credentials(tmp_path):
+    store = PrivateArtifactStore(tmp_path)
+    content = json.dumps(
+        {
+            "id": 89016,
+            "Symbol_Nse": "TCS",
+            "HeadLine": "Board meeting outcome",
+            "Tradedate": "18/08/2026 10:00:00",
+        }
+    )
+
+    artifact, stored = store_corporate_announcement(
+        store,
+        content,
+        retrieved_at=datetime(2026, 8, 18, 10, tzinfo=timezone.utc),
+    )
+
+    manifest = json.loads(artifact.manifest_path.read_text())
+    assert stored is True
+    assert manifest["request"]["endpoint"] == "websocket-announcement"
+    assert manifest["request"]["params"] == {"announcement_id": "89016"}
+    assert manifest["source_uri"] == "wss://corp.truedata.in:9092"
+    assert "trial-password" not in artifact.manifest_path.read_text()
+
+
+def test_corporate_announcement_deduplicates_replayed_message(tmp_path):
+    store = PrivateArtifactStore(tmp_path)
+    content = json.dumps({"id": 89016, "HeadLine": "Result"})
+
+    first, first_stored = store_corporate_announcement(store, content)
+    second, second_stored = store_corporate_announcement(store, content)
+
+    assert first_stored is True
+    assert second_stored is False
+    assert first.payload_path == second.payload_path
+    assert len(list((first.manifest_path.parent / "revisions").glob("*.json"))) == 1
+
+
+def test_corporate_announcement_rejects_unidentified_or_oversized_messages(tmp_path):
+    store = PrivateArtifactStore(tmp_path)
+
+    with pytest.raises(TrueDataError, match="announcement id"):
+        store_corporate_announcement(store, json.dumps({"HeadLine": "Missing id"}))
+
+    with pytest.raises(TrueDataError, match="safety limit"):
+        store_corporate_announcement(store, "x" * 1_000_001)
+
+
+def test_corporate_recorder_reconnects_and_checkpoints_without_secret_metadata(tmp_path):
+    class Clock:
+        value = -0.25
+
+        def __call__(self):
+            self.value += 0.25
+            return self.value
+
+    class Connection:
+        messages = iter(
+            (
+                json.dumps({"success": True, "message": "connected"}),
+                json.dumps({"id": 42, "HeadLine": "Quarterly results"}),
+            )
+        )
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def recv(self, *, timeout):
+            assert timeout > 0
+            try:
+                return next(self.messages)
+            except StopIteration:
+                raise TimeoutError from None
+
+    attempts = []
+
+    def connector(uri, **kwargs):
+        attempts.append((uri, kwargs))
+        if len(attempts) == 1:
+            raise OSError("temporary connection failure")
+        return Connection()
+
+    result = record_corporate_announcements(
+        _config(tmp_path),
+        duration_seconds=2,
+        connector=connector,
+        sleeper=lambda _delay: None,
+        clock=Clock(),
+    )
+
+    assert result.received == 2
+    assert result.stored == 1
+    assert result.ignored == 1
+    assert result.rejected == 0
+    assert result.reconnects == 1
+    assert result.connected is True
+    assert result.authorization_failed is False
+    manifests = list(tmp_path.rglob("manifest.json"))
+    assert len(manifests) == 1
+    assert "trial-password" not in manifests[0].read_text()
+
+
+@pytest.mark.parametrize("duration", [float("nan"), float("inf"), float("-inf"), 0])
+def test_corporate_recorder_requires_a_finite_positive_duration(tmp_path, duration):
+    with pytest.raises(ValueError, match="duration"):
+        record_corporate_announcements(_config(tmp_path), duration_seconds=duration)
+
+
+def test_corporate_recorder_fails_closed_when_every_connection_attempt_fails(tmp_path):
+    class Clock:
+        value = -0.5
+
+        def __call__(self):
+            self.value += 0.5
+            return self.value
+
+    result = record_corporate_announcements(
+        _config(tmp_path),
+        duration_seconds=2,
+        connector=lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError()),
+        sleeper=lambda _delay: None,
+        clock=Clock(),
+    )
+
+    assert result.connected is False
+    assert result.authorization_failed is False
+    assert result.reconnects > 0
+
+
+def test_corporate_recorder_stops_on_negative_authorization_control_frame(tmp_path):
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def recv(self, *, timeout):
+            return json.dumps({"success": False, "message": "denied"})
+
+    result = record_corporate_announcements(
+        _config(tmp_path),
+        duration_seconds=60,
+        connector=lambda *_args, **_kwargs: Connection(),
+    )
+
+    assert result.connected is False
+    assert result.authorization_failed is True
+    assert result.received == 1
+
+
+def test_corporate_recorder_fails_on_message_less_denial_after_connection(tmp_path):
+    class Connection:
+        messages = iter(({"success": True}, {"success": False, "error": "denied"}))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def recv(self, *, timeout):
+            return json.dumps(next(self.messages))
+
+    result = record_corporate_announcements(
+        _config(tmp_path),
+        duration_seconds=60,
+        connector=lambda *_args, **_kwargs: Connection(),
+    )
+
+    assert result.connected is True
+    assert result.authorization_failed is True
+    assert result.received == 2
 
 
 def test_artifact_verification_rejects_declared_size_above_bound(tmp_path):
@@ -248,7 +428,6 @@ def test_trial_plan_covers_vendor_enabled_bulk_endpoints():
         "getAllSymbols",
         "getbars",
         "getbhavcopy",
-        "annoucements",
         "getResultList",
         "getSHPListByDate",
         "getcorpactionrange",
@@ -275,7 +454,6 @@ def test_confirmed_corporate_plan_does_not_assume_market_history_entitlement():
 
     assert {request.service for request in plan.requests} == {Service.CORPORATE}
     assert {request.endpoint for request in plan.requests} == {
-        "annoucements",
         "getResultList",
         "getSHPListByDate",
     }
@@ -551,7 +729,7 @@ def test_cli_plans_and_audits_without_credentials(tmp_path, capsys):
     planned = json.loads(capsys.readouterr().out)
     assert planned["status"] == "PLANNED"
     assert planned["admissible"] is False
-    assert planned["requests_by_service"] == {"corporate": 3}
+    assert planned["requests_by_service"] == {"corporate": 2}
 
     assert truedata_main(
         ["audit", "--plan", str(plan_path), "--store", str(store_path)]
@@ -559,6 +737,85 @@ def test_cli_plans_and_audits_without_credentials(tmp_path, capsys):
     audited = json.loads(capsys.readouterr().out)
     assert audited["verified"] == 0
     assert audited["missing"] == audited["total"]
+
+
+def test_cli_records_corporate_announcements_to_selected_private_store(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setenv("TRUEDATA_USERNAME", "trial-user")
+    monkeypatch.setenv("TRUEDATA_PASSWORD", "trial-password")
+
+    def record(config, *, duration_seconds):
+        assert config.store == tmp_path
+        assert duration_seconds == 60
+        return type(
+            "Result",
+            (),
+            {
+                "received": 3,
+                "stored": 2,
+                "duplicates": 1,
+                "ignored": 2,
+                "rejected": 0,
+                "reconnects": 1,
+                "connected": True,
+                "authorization_failed": False,
+            },
+        )()
+
+    monkeypatch.setattr(
+        "sensei.data.truedata_cli.record_corporate_announcements", record
+    )
+
+    assert truedata_main(
+        [
+            "record-announcements",
+            "--store",
+            str(tmp_path),
+            "--duration-seconds",
+            "60",
+        ]
+    ) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["status"] == "RECORDING_COMPLETE"
+    assert output["stored"] == 2
+    assert output["admissible"] is False
+
+
+def test_cli_reports_failed_recording_when_no_connection_was_established(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setenv("TRUEDATA_USERNAME", "trial-user")
+    monkeypatch.setenv("TRUEDATA_PASSWORD", "trial-password")
+    result = type(
+        "Result",
+        (),
+        {
+            "received": 0,
+            "stored": 0,
+            "duplicates": 0,
+            "ignored": 0,
+            "rejected": 0,
+            "reconnects": 3,
+            "connected": False,
+            "authorization_failed": False,
+        },
+    )()
+    monkeypatch.setattr(
+        "sensei.data.truedata_cli.record_corporate_announcements",
+        lambda *_args, **_kwargs: result,
+    )
+
+    assert truedata_main(
+        [
+            "record-announcements",
+            "--store",
+            str(tmp_path),
+            "--duration-seconds",
+            "1",
+        ]
+    ) == 2
+    assert json.loads(capsys.readouterr().out)["status"] == "RECORDING_FAILED"
 
 
 @pytest.mark.parametrize(
@@ -689,18 +946,14 @@ def test_downloaded_lists_expand_to_fundamental_shareholding_and_attachment_deta
     expanded = expand_detail_plan(plan, store=store)
     endpoints = {request.endpoint for request in expanded.requests}
 
-    assert {
+    assert endpoints - {request.endpoint for request in plan.requests} == {
         "getAllResultItemsById",
-        "getPnLById",
-        "getShpDetailById",
+        "getAllShpById",
         "getannouncementbyid",
         "announcementfile2",
-        "getBalSheetById2",
-    } <= endpoints
+    }
     by_endpoint = {request.endpoint: request for request in expanded.requests}
     assert by_endpoint["announcementfile2"].params == {"id": "78176"}
-    assert by_endpoint["getPnLById"].params["cumulative"] is True
-    assert by_endpoint["getCashFlowDetailById"].params["cumulative"] is True
 
 
 def test_record_id_extraction_handles_csv_and_json_lists():

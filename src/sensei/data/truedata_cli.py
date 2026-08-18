@@ -21,6 +21,7 @@ from sensei.data.truedata import (
     expand_detail_plan,
     expand_plan_from_masters,
     probe_entitlements,
+    record_corporate_announcements,
 )
 
 
@@ -122,6 +123,14 @@ def _parser() -> argparse.ArgumentParser:
         nargs="+",
         choices=tuple(capability.value for capability in Capability),
         default=(Capability.CORPORATE.value,),
+    )
+    announcements = sub.add_parser(
+        "record-announcements",
+        help="checkpoint the private corporate WebSocket feed with reconnects",
+    )
+    announcements.add_argument("--store", type=Path, default=None)
+    announcements.add_argument(
+        "--duration-seconds", type=float, default=86_400.0
     )
     return parser
 
@@ -244,6 +253,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         config = TrueDataConfig.from_environment()
         if getattr(args, "store", None) is not None:
             config = TrueDataConfig(config.username, config.password, args.store)
+        if args.command == "record-announcements":
+            result = record_corporate_announcements(
+                config,
+                duration_seconds=args.duration_seconds,
+            )
+            _print(
+                {
+                    "status": (
+                        "RECORDING_COMPLETE"
+                        if result.connected and not result.authorization_failed
+                        else "RECORDING_FAILED"
+                    ),
+                    "stamp": STAMP,
+                    "admissible": False,
+                    "store": str(config.store),
+                    "received": result.received,
+                    "stored": result.stored,
+                    "duplicates": result.duplicates,
+                    "ignored": result.ignored,
+                    "rejected": result.rejected,
+                    "reconnects": result.reconnects,
+                    "connected": result.connected,
+                    "authorization_failed": result.authorization_failed,
+                }
+            )
+            return 0 if result.connected and not result.authorization_failed else 2
         client = TrueDataClient(config)
         if args.command == "probe":
             client.authenticate()
