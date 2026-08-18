@@ -55,6 +55,12 @@ class Service(str, enum.Enum):
     MASTER = "master"
 
 
+class Capability(str, enum.Enum):
+    CORPORATE = "corporate"
+    HISTORY = "history"
+    MASTER = "master"
+
+
 _SERVICE_BASES = {
     Service.HISTORY: "https://history.truedata.in",
     Service.CORPORATE: "https://corporate.truedata.in",
@@ -134,6 +140,13 @@ class FetchedPayload:
     retrieved_at: datetime
     source_uri: str
     status_code: int
+
+
+@dataclass(frozen=True)
+class EntitlementProbeResult:
+    capability: Capability
+    accessible: bool
+    response_class: str
 
 
 class _Clock(Protocol):
@@ -765,7 +778,7 @@ class TrialPlan:
         corporate_start: date,
         segments: tuple[str, ...] = ("eq", "in"),
         symbols: tuple[str, ...] = (),
-        corporate_symbols: tuple[str, ...] | None = None,
+        capabilities: tuple[Capability | str, ...] = tuple(Capability),
     ) -> "TrialPlan":
         if eod_start > as_of or corporate_start > as_of:
             raise ValueError("trial plan start dates must not exceed as-of")
@@ -775,39 +788,64 @@ class TrialPlan:
             raise ValueError("trial corporate window must not exceed 92 days")
         if not segments or any(segment not in {"eq", "in"} for segment in segments):
             raise ValueError("trial segments must be eq and/or in")
+        try:
+            enabled = {Capability(capability) for capability in capabilities}
+        except ValueError as exc:
+            raise ValueError("unknown TrueData trial capability") from exc
+        if not enabled:
+            raise ValueError("at least one TrueData trial capability is required")
         requests: list[TrueDataRequest] = []
-        for segment in segments:
+        if Capability.MASTER in enabled:
+            for segment in segments:
+                requests.append(
+                    TrueDataRequest(
+                        Service.MASTER,
+                        "getAllSymbols",
+                        {
+                            "segment": segment,
+                            "csv": True,
+                            "csvHeader": True,
+                            "allexpiry": True,
+                        },
+                    )
+                )
+        if Capability.HISTORY in enabled:
             requests.append(
                 TrueDataRequest(
-                    Service.MASTER,
-                    "getAllSymbols",
-                    {"segment": segment, "csv": True, "allexpiry": True},
+                    Service.HISTORY,
+                    "getsymbolchangehistory",
+                    {"response": "csv", "SYMBOL": ""},
                 )
             )
-        requests.append(
-            TrueDataRequest(Service.MASTER, "getSymbolNameChange", {"response": "json"})
-        )
-        day = eod_start
-        while day <= as_of:
-            if day.weekday() < 5:
-                for segment in segments:
-                    requests.append(
-                        TrueDataRequest(
-                            Service.HISTORY,
-                            "getbhavcopy",
-                            {
-                                "segment": segment,
-                                "date": day.isoformat(),
-                                "response": "csv",
-                            },
+            requests.append(
+                TrueDataRequest(
+                    Service.HISTORY,
+                    "getcorpactionrange",
+                    {
+                        "exdatefrom": corporate_start.isoformat(),
+                        "exdateto": as_of.isoformat(),
+                        "response": "csv",
+                    },
+                )
+            )
+            day = eod_start
+            while day <= as_of:
+                if day.weekday() < 5:
+                    for segment in segments:
+                        requests.append(
+                            TrueDataRequest(
+                                Service.HISTORY,
+                                "getbhavcopy",
+                                {
+                                    "segment": segment.upper(),
+                                    "date": day.isoformat(),
+                                    "response": "csv",
+                                },
+                            )
                         )
-                    )
-            day += timedelta(days=1)
+                day += timedelta(days=1)
         normalized_symbols = sorted(set(symbols))
-        normalized_corporate = set(
-            symbols if corporate_symbols is None else corporate_symbols
-        )
-        for symbol in normalized_symbols:
+        for symbol in normalized_symbols if Capability.HISTORY in enabled else ():
             requests.append(
                 TrueDataRequest(
                     Service.HISTORY,
@@ -821,45 +859,33 @@ class TrialPlan:
                     },
                 )
             )
-            if symbol in normalized_corporate:
-                requests.append(
-                    TrueDataRequest(
-                        Service.CORPORATE,
-                        "getCorpActionRange",
-                        {
-                            "symbol": symbol,
-                            "from": corporate_start.isoformat(),
-                            "to": as_of.isoformat(),
-                            "response": "json",
-                        },
+        if Capability.CORPORATE in enabled:
+            cursor = corporate_start
+            while cursor <= as_of:
+                requests.extend(
+                    (
+                        TrueDataRequest(
+                            Service.CORPORATE,
+                            "annoucements",
+                            {
+                                "from": f"{cursor:%y%m%d}",
+                                "to": f"{cursor:%y%m%d}",
+                                "response": "csv",
+                            },
+                        ),
+                        TrueDataRequest(
+                            Service.CORPORATE,
+                            "getResultList",
+                            {"date": cursor.isoformat(), "response": "json"},
+                        ),
+                        TrueDataRequest(
+                            Service.CORPORATE,
+                            "getSHPListByDate",
+                            {"date": cursor.isoformat(), "response": "json"},
+                        ),
                     )
                 )
-        cursor = corporate_start
-        while cursor <= as_of:
-            requests.extend(
-                (
-                    TrueDataRequest(
-                        Service.CORPORATE,
-                        "annoucements",
-                        {
-                            "from": f"{cursor:%y%m%d}",
-                            "to": f"{cursor:%y%m%d}",
-                            "response": "csv",
-                        },
-                    ),
-                    TrueDataRequest(
-                        Service.CORPORATE,
-                        "getResultList",
-                        {"date": cursor.isoformat(), "response": "json"},
-                    ),
-                    TrueDataRequest(
-                        Service.CORPORATE,
-                        "getSHPList",
-                        {"date": cursor.isoformat(), "response": "json"},
-                    ),
-                )
-            )
-            cursor += timedelta(days=1)
+                cursor += timedelta(days=1)
         unique = {request.request_id: request for request in requests}
         ordered = tuple(unique[key] for key in sorted(unique))
         identity = hashlib.sha256(
@@ -919,13 +945,14 @@ def expand_plan_from_masters(
     eod_start: date,
     corporate_start: date,
     segments: tuple[str, ...],
+    capabilities: tuple[Capability | str, ...] = tuple(Capability),
 ) -> TrialPlan:
     """Build the full symbol plan only from verified downloaded master artifacts."""
 
     symbols_by_segment: dict[str, set[str]] = {}
     found_segments: set[str] = set()
     for request in bootstrap.requests:
-        if request.service is not Service.MASTER:
+        if request.service not in {Service.MASTER, Service.HISTORY}:
             continue
         artifact = store.verified(request)
         if artifact is None:
@@ -933,7 +960,7 @@ def expand_plan_from_masters(
         manifest = json.loads(artifact.manifest_path.read_text(encoding="utf-8"))
         if manifest.get("response_class") != "data":
             continue
-        if request.endpoint == "getSymbolNameChange":
+        if request.endpoint == "getsymbolchangehistory":
             symbols_by_segment.setdefault("eq", set()).update(
                 extract_symbols(
                     artifact.payload_path.read_bytes(),
@@ -963,7 +990,7 @@ def expand_plan_from_masters(
         corporate_start=corporate_start,
         segments=segments,
         symbols=tuple(sorted(set().union(*symbols_by_segment.values()))),
-        corporate_symbols=tuple(sorted(symbols_by_segment.get("eq", set()))),
+        capabilities=capabilities,
     )
 
 
@@ -972,13 +999,89 @@ _DETAIL_ENDPOINTS = {
         "getAllResultItemsById",
         "getResultALById",
         "getPnLById",
-        "getBalSheetById",
+        "getBalSheetById2",
         "getCashFlowSummaryById",
         "getCashFlowDetailById",
     ),
-    "getSHPList": ("getSHPAllItems", "getSHPSummary", "getSHPDetailById"),
-    "annoucements": ("announcementfile",),
+    "getSHPListByDate": (
+        "getAllShpById",
+        "getShpSummaryById",
+        "getShpDetailById",
+    ),
+    "annoucements": ("getannouncementbyid", "announcementfile2"),
 }
+
+
+def probe_entitlements(
+    client: TrueDataClient,
+    *,
+    as_of: date,
+    capabilities: tuple[Capability | str, ...] = tuple(Capability),
+) -> tuple[EntitlementProbeResult, ...]:
+    """Issue one bounded, non-persistent probe for each independently gated service."""
+
+    probes = {
+        Capability.CORPORATE: TrueDataRequest(
+            Service.CORPORATE,
+            "getResultList",
+            {"date": as_of.isoformat(), "response": "json"},
+        ),
+        Capability.HISTORY: TrueDataRequest(
+            Service.HISTORY,
+            "getbhavcopystatus",
+            {"segment": "EQ", "date": as_of.isoformat(), "response": "csv"},
+        ),
+        Capability.MASTER: TrueDataRequest(
+            Service.MASTER,
+            "getAllSymbols",
+            {
+                "segment": "eq",
+                "csv": True,
+                "csvHeader": True,
+                "search": "RELIANCE",
+            },
+        ),
+    }
+    enabled = {Capability(capability) for capability in capabilities}
+    results: list[EntitlementProbeResult] = []
+    for capability, request in probes.items():
+        if capability not in enabled:
+            continue
+        try:
+            payload = client.fetch(request)
+            classification = _response_class(payload.content, payload.content_type)
+            accessible = classification == "no_data" or (
+                classification == "data"
+                and _probe_payload_matches(capability, payload)
+            )
+            results.append(
+                EntitlementProbeResult(
+                    capability,
+                    accessible,
+                    classification if accessible else "error",
+                )
+            )
+        except TrueDataError:
+            results.append(EntitlementProbeResult(capability, False, "error"))
+    return tuple(results)
+
+
+def _probe_payload_matches(capability: Capability, payload: FetchedPayload) -> bool:
+    try:
+        if capability is Capability.CORPORATE:
+            decoded = json.loads(payload.content)
+            return isinstance(decoded, dict) and (
+                str(decoded.get("status", "")).lower() == "success"
+                or isinstance(decoded.get("Records"), list)
+            )
+        if capability is Capability.MASTER:
+            return bool(extract_symbols(payload.content, content_type=payload.content_type))
+        text = payload.content.decode("utf-8-sig")
+        reader = csv.reader(io.StringIO(text))
+        header = {value.strip().lower() for value in next(reader)}
+        return bool(header & {"date", "status", "segment"})
+    except (TrueDataError, UnicodeError, json.JSONDecodeError, csv.Error, StopIteration):
+        return False
 
 
 def expand_detail_plan(plan: TrialPlan, *, store: PrivateArtifactStore) -> TrialPlan:
@@ -1008,7 +1111,7 @@ def expand_detail_plan(plan: TrialPlan, *, store: PrivateArtifactStore) -> Trial
                     TrueDataRequest(
                         Service.CORPORATE,
                         endpoint,
-                        {"id": identifier, "response": "json"},
+                        _detail_params(endpoint, identifier),
                     )
                 )
     unique = {request.request_id: request for request in requests}
@@ -1017,6 +1120,15 @@ def expand_detail_plan(plan: TrialPlan, *, store: PrivateArtifactStore) -> Trial
         b"\n".join(request.canonical_bytes() for request in ordered)
     ).hexdigest()[:20]
     return TrialPlan(f"truedata-detail-{identity}", ordered)
+
+
+def _detail_params(endpoint: str, identifier: str) -> dict[str, str | bool]:
+    params: dict[str, str | bool] = {"id": identifier}
+    if endpoint != "announcementfile2":
+        params["response"] = "json"
+    if endpoint in {"getPnLById", "getCashFlowDetailById"}:
+        params["cumulative"] = True
+    return params
 
 
 def download_plan(

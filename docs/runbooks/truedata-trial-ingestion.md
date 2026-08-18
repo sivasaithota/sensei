@@ -6,15 +6,20 @@ the scheduler or trading kernel.
 
 ## What the harness does
 
-`sensei-truedata` creates a credential-free plan, authenticates only when a
+`sensei-truedata` creates a credential-free capability-specific plan, authenticates only when a
 network command runs, downloads into an owner-only directory, records one
 content-hashed manifest per response, preserves every retrieval revision, resumes
 verified usable work, retries error responses, and audits missing, no-data,
 error, and data responses separately.
 
-The `run` command executes three phases:
+The activation dated 2026-08-18 explicitly confirms only Corporate/Fundamental
+data. Therefore `plan` and `run` default to `--capabilities corporate`. Market
+history and symbol-master traffic remains disabled unless its bounded entitlement
+probe succeeds and those capabilities are selected explicitly.
 
-1. download the enabled NSE equity and index symbol masters;
+For a fully entitled run, the command executes three phases:
+
+1. download the enabled NSE equity and index symbol masters and symbol-change history;
 2. discover their symbols, write the expanded immutable plan, and download or
    resume EOD bars, daily Bhavcopies, corporate actions, announcements,
    financial-result lists, and shareholding-pattern lists;
@@ -35,10 +40,11 @@ mkdir -p "$HOME/.local/share/sensei/truedata"
 chmod 700 "$HOME/.local/share/sensei/truedata"
 ```
 
-Create and inspect the plan without credentials or network access:
+Create and inspect the confirmed corporate-only plan without credentials or network access:
 
 ```bash
 uv run sensei-truedata plan \
+  --capabilities corporate \
   --segments eq in \
   --as-of 2026-08-18 \
   --eod-start 2024-08-18 \
@@ -65,12 +71,23 @@ pass. Then test authentication without downloading market data:
 uv run sensei-truedata probe
 ```
 
+Then run bounded, non-persistent entitlement probes. `no_data` still proves that
+the endpoint is accessible; quota, subscription, authentication and malformed
+responses do not:
+
+```bash
+uv run sensei-truedata entitlements \
+  --as-of 2026-08-18 \
+  --required corporate
+```
+
 ## Run and resume
 
 Keep the Mac awake and run the complete two-phase workflow:
 
 ```bash
 caffeinate -dimsu uv run sensei-truedata run \
+  --capabilities corporate \
   --segments eq in \
   --as-of 2026-08-18 \
   --eod-start 2024-08-18 \
@@ -79,7 +96,9 @@ caffeinate -dimsu uv run sensei-truedata run \
   --plan-output "$SENSEI_TRUEDATA_DIR/trial-plan-expanded.json"
 ```
 
-The same command is the recovery procedure after a network interruption,
+The `run` command repeats the entitlement probe before downloading and refuses
+to start if any selected capability is unavailable. The same command is the
+recovery procedure after a network interruption,
 process crash, token expiry, or machine restart. Verified data and explicit
 no-data responses are skipped; missing, corrupt, quota, entitlement, proxy, and
 other error responses are attempted again. Do not use parallel processes: the
@@ -113,4 +132,23 @@ corporate-action correctness. Those remain promotion blockers, not assumptions.
 - Preserve the vendor's written permission for local download and retention.
 - A separate materializer must add stable identity, effective-dated universe
   membership, corporate-action lineage, licensed provenance, and catalog trust
-  pins before any artifact can participate in governed research.
+pins before any artifact can participate in governed research.
+
+## Optional market-history run
+
+Only if `entitlements` reports both `history` and `master` accessible, use:
+
+```bash
+caffeinate -dimsu uv run sensei-truedata run \
+  --capabilities corporate history master \
+  --segments eq in \
+  --as-of 2026-08-18 \
+  --eod-start 2024-08-18 \
+  --corporate-start 2026-05-18 \
+  --store "$SENSEI_TRUEDATA_DIR" \
+  --plan-output "$SENSEI_TRUEDATA_DIR/trial-plan-full.json"
+```
+
+Do not infer market access from WebSocket port `9092`: that port is the corporate
+announcement feed. Market-price WebSocket access uses a separately entitled
+`push.truedata.in` port and is outside this bulk REST capture workflow.

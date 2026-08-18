@@ -5,6 +5,7 @@ import httpx
 import pytest
 
 from sensei.data.truedata import (
+    Capability,
     PrivateArtifactStore,
     Service,
     TrialPlan,
@@ -17,6 +18,7 @@ from sensei.data.truedata import (
     expand_plan_from_masters,
     extract_record_ids,
     extract_symbols,
+    probe_entitlements,
 )
 from sensei.data.truedata_cli import main as truedata_main
 
@@ -248,11 +250,93 @@ def test_trial_plan_covers_vendor_enabled_bulk_endpoints():
         "getbhavcopy",
         "annoucements",
         "getResultList",
-        "getSHPList",
-        "getCorpActionRange",
-        "getSymbolNameChange",
+        "getSHPListByDate",
+        "getcorpactionrange",
+        "getsymbolchangehistory",
     } <= endpoints
     assert all("password" not in request.params for request in plan.requests)
+
+    corp_actions = next(
+        request for request in plan.requests if request.endpoint == "getcorpactionrange"
+    )
+    assert corp_actions.service is Service.HISTORY
+    assert set(corp_actions.params) == {"exdatefrom", "exdateto", "response"}
+    masters = [request for request in plan.requests if request.endpoint == "getAllSymbols"]
+    assert masters and all(request.params["csvHeader"] is True for request in masters)
+
+
+def test_confirmed_corporate_plan_does_not_assume_market_history_entitlement():
+    plan = TrialPlan.for_trial(
+        as_of=date(2026, 8, 18),
+        eod_start=date(2026, 8, 18),
+        corporate_start=date(2026, 8, 18),
+        capabilities=(Capability.CORPORATE,),
+    )
+
+    assert {request.service for request in plan.requests} == {Service.CORPORATE}
+    assert {request.endpoint for request in plan.requests} == {
+        "annoucements",
+        "getResultList",
+        "getSHPListByDate",
+    }
+
+
+def test_bounded_entitlement_probe_reports_each_service_without_storing_payloads():
+    seen = []
+
+    class Client:
+        def fetch(self, request):
+            seen.append(request)
+            content = (
+                b"No Data exists for Symbol/Date Range"
+                if request.service is Service.CORPORATE
+                else b"symbol,status\nRELIANCE,ready\n"
+                if request.service is Service.MASTER
+                else b"date,status\n2026-08-18,ready\n"
+            )
+            return type("Payload", (), {
+                "content": content,
+                "content_type": "text/plain" if request.service is Service.CORPORATE else "text/csv",
+                "retrieved_at": datetime.now(timezone.utc),
+                "source_uri": request.safe_source_uri,
+                "status_code": 200,
+            })()
+
+    results = probe_entitlements(Client(), as_of=date(2026, 8, 18))
+
+    assert {result.capability for result in results} == set(Capability)
+    assert all(result.accessible for result in results)
+    assert {request.endpoint for request in seen} == {
+        "getResultList",
+        "getbhavcopystatus",
+        "getAllSymbols",
+    }
+
+
+def test_entitlement_probe_only_calls_selected_capabilities_and_fails_unknown_json():
+    seen = []
+
+    class Client:
+        def fetch(self, request):
+            seen.append(request)
+            return type("Payload", (), {
+                "content": b'{"message":"subscription inactive"}',
+                "content_type": "application/json",
+                "retrieved_at": datetime.now(timezone.utc),
+                "source_uri": request.safe_source_uri,
+                "status_code": 200,
+            })()
+
+    results = probe_entitlements(
+        Client(),
+        as_of=date(2026, 8, 18),
+        capabilities=(Capability.CORPORATE,),
+    )
+
+    assert len(seen) == 1
+    assert results == (
+        type(results[0])(Capability.CORPORATE, False, "error"),
+    )
 
 
 def test_trial_plan_rejects_windows_beyond_vendor_trial_limits():
@@ -467,6 +551,7 @@ def test_cli_plans_and_audits_without_credentials(tmp_path, capsys):
     planned = json.loads(capsys.readouterr().out)
     assert planned["status"] == "PLANNED"
     assert planned["admissible"] is False
+    assert planned["requests_by_service"] == {"corporate": 3}
 
     assert truedata_main(
         ["audit", "--plan", str(plan_path), "--store", str(store_path)]
@@ -541,7 +626,7 @@ def test_symbol_change_history_adds_old_and_new_aliases_to_equity_plan(tmp_path)
     store = PrivateArtifactStore(tmp_path)
     samples = {
         "getAllSymbols": b"symbol,id\nOTHER,1\n",
-        "getSymbolNameChange": b"old_symbol,new_symbol\nOLDNAME,CURRENT\n",
+        "getsymbolchangehistory": b"old_symbol,new_symbol\nOLDNAME,CURRENT\n",
     }
     for request in bootstrap.requests:
         if request.endpoint not in samples:
@@ -579,7 +664,7 @@ def test_downloaded_lists_expand_to_fundamental_shareholding_and_attachment_deta
 ):
     requests = (
         TrueDataRequest(Service.CORPORATE, "getResultList", {"date": "2026-08-18"}),
-        TrueDataRequest(Service.CORPORATE, "getSHPList", {"date": "2026-08-18"}),
+        TrueDataRequest(Service.CORPORATE, "getSHPListByDate", {"date": "2026-08-18"}),
         TrueDataRequest(Service.CORPORATE, "annoucements", {"from": "260818"}),
     )
     plan = TrialPlan("lists", requests)
@@ -604,7 +689,18 @@ def test_downloaded_lists_expand_to_fundamental_shareholding_and_attachment_deta
     expanded = expand_detail_plan(plan, store=store)
     endpoints = {request.endpoint for request in expanded.requests}
 
-    assert {"getAllResultItemsById", "getPnLById", "getSHPDetailById", "announcementfile"} <= endpoints
+    assert {
+        "getAllResultItemsById",
+        "getPnLById",
+        "getShpDetailById",
+        "getannouncementbyid",
+        "announcementfile2",
+        "getBalSheetById2",
+    } <= endpoints
+    by_endpoint = {request.endpoint: request for request in expanded.requests}
+    assert by_endpoint["announcementfile2"].params == {"id": "78176"}
+    assert by_endpoint["getPnLById"].params["cumulative"] is True
+    assert by_endpoint["getCashFlowDetailById"].params["cumulative"] is True
 
 
 def test_record_id_extraction_handles_csv_and_json_lists():

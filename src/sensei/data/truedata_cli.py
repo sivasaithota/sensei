@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Sequence
 
 from sensei.data.truedata import (
+    Capability,
     STAMP,
     PrivateArtifactStore,
     TrialPlan,
@@ -19,6 +20,7 @@ from sensei.data.truedata import (
     download_plan,
     expand_detail_plan,
     expand_plan_from_masters,
+    probe_entitlements,
 )
 
 
@@ -72,6 +74,13 @@ def _parser() -> argparse.ArgumentParser:
         command.add_argument(
             "--segments", nargs="+", choices=("eq", "in"), default=("eq", "in")
         )
+        command.add_argument(
+            "--capabilities",
+            nargs="+",
+            choices=tuple(capability.value for capability in Capability),
+            default=(Capability.CORPORATE.value,),
+            help="default is the confirmed corporate/fundamental trial scope",
+        )
 
     plan = sub.add_parser("plan", help="create a credential-free trial plan")
     dates(plan)
@@ -104,6 +113,16 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--stop-on-error", action="store_true")
 
     sub.add_parser("probe", help="test authentication only; does not download data")
+    entitlements = sub.add_parser(
+        "entitlements", help="probe bounded corporate/history/master access without storage"
+    )
+    entitlements.add_argument("--as-of", type=_date, default=today)
+    entitlements.add_argument(
+        "--required",
+        nargs="+",
+        choices=tuple(capability.value for capability in Capability),
+        default=(Capability.CORPORATE.value,),
+    )
     return parser
 
 
@@ -123,6 +142,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 corporate_start=args.corporate_start,
                 segments=tuple(args.segments),
                 symbols=_symbols(args.symbols),
+                capabilities=tuple(args.capabilities),
             )
             plan.write(args.output)
             services: dict[str, int] = {}
@@ -199,6 +219,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 eod_start=args.eod_start,
                 corporate_start=args.corporate_start,
                 segments=tuple(args.segments),
+                capabilities=tuple(args.capabilities),
             )
             plan.write(args.output)
             _print(
@@ -236,44 +257,101 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 0
 
+        if args.command == "entitlements":
+            required = {Capability(value) for value in args.required}
+            results = probe_entitlements(
+                client,
+                as_of=args.as_of,
+                capabilities=tuple(required),
+            )
+            _print(
+                {
+                    "status": "PROBED",
+                    "stamp": STAMP,
+                    "admissible": False,
+                    "entitlements": {
+                        result.capability.value: {
+                            "accessible": result.accessible,
+                            "response_class": result.response_class,
+                        }
+                        for result in results
+                    },
+                }
+            )
+            return (
+                0
+                if all(
+                    result.accessible
+                    for result in results
+                    if result.capability in required
+                )
+                else 1
+            )
+
         if args.command == "run":
             _validate_trial_dates(args.as_of, args.eod_start, args.corporate_start)
+            capabilities = tuple(Capability(value) for value in args.capabilities)
+            if Capability.HISTORY in capabilities and Capability.MASTER not in capabilities:
+                raise TrueDataError("history runs require the master capability for symbol discovery")
+            probe_results = probe_entitlements(
+                client, as_of=args.as_of, capabilities=capabilities
+            )
+            inaccessible = sorted(
+                result.capability.value
+                for result in probe_results
+                if result.capability in capabilities and not result.accessible
+            )
+            if inaccessible:
+                _print(
+                    {
+                        "status": "ENTITLEMENT_DENIED",
+                        "stamp": STAMP,
+                        "admissible": False,
+                        "capabilities": inaccessible,
+                    }
+                )
+                return 2
             bootstrap = TrialPlan.for_trial(
                 as_of=args.as_of,
                 eod_start=args.eod_start,
                 corporate_start=args.corporate_start,
                 segments=tuple(args.segments),
+                capabilities=capabilities,
             )
-            masters = tuple(
-                request
-                for request in bootstrap.requests
-                if request.service.value == "master"
-            )
-            master_result = download_plan(
-                TrialPlan(f"{bootstrap.plan_id}-masters", masters),
-                client=client,
-                store=PrivateArtifactStore(config.store),
-                stop_on_error=True,
-            )
-            if master_result.failed:
-                _print(
-                    {
-                        "status": "MASTER_FAILED",
-                        "stamp": STAMP,
-                        "admissible": False,
-                        "failed": master_result.failed,
-                        "failures": dict(master_result.failures),
-                    }
+            if Capability.MASTER in capabilities:
+                discovery = tuple(
+                    request
+                    for request in bootstrap.requests
+                    if request.endpoint in {"getAllSymbols", "getsymbolchangehistory"}
                 )
-                return 2
-            plan = expand_plan_from_masters(
-                bootstrap,
-                store=PrivateArtifactStore(config.store),
-                as_of=args.as_of,
-                eod_start=args.eod_start,
-                corporate_start=args.corporate_start,
-                segments=tuple(args.segments),
-            )
+                master_result = download_plan(
+                    TrialPlan(f"{bootstrap.plan_id}-discovery", discovery),
+                    client=client,
+                    store=PrivateArtifactStore(config.store),
+                    stop_on_error=True,
+                )
+                if master_result.failed:
+                    _print(
+                        {
+                            "status": "DISCOVERY_FAILED",
+                            "stamp": STAMP,
+                            "admissible": False,
+                            "failed": master_result.failed,
+                            "failures": dict(master_result.failures),
+                        }
+                    )
+                    return 2
+                plan = expand_plan_from_masters(
+                    bootstrap,
+                    store=PrivateArtifactStore(config.store),
+                    as_of=args.as_of,
+                    eod_start=args.eod_start,
+                    corporate_start=args.corporate_start,
+                    segments=tuple(args.segments),
+                    capabilities=capabilities,
+                )
+            else:
+                plan = bootstrap
         else:
             plan = TrialPlan.read(args.plan)
         result = download_plan(
