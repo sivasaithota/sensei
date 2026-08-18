@@ -1,4 +1,7 @@
 data/prices/
+data/truedata/
+.env.truedata
+TD_Docs.rar
 data/audit.jsonl
 data/paper/
 data/reports/

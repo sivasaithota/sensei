@@ -1,0 +1,317 @@
+"""Private command-line control surface for the TrueData trial harness."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from datetime import date, timedelta
+from pathlib import Path
+from typing import Sequence
+
+from sensei.data.truedata import (
+    STAMP,
+    PrivateArtifactStore,
+    TrialPlan,
+    TrueDataClient,
+    TrueDataConfig,
+    TrueDataError,
+    download_plan,
+    expand_detail_plan,
+    expand_plan_from_masters,
+)
+
+
+def _date(value: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected YYYY-MM-DD") from exc
+
+
+def _symbols(path: str | None) -> tuple[str, ...]:
+    if path is None:
+        return ()
+    source = Path(path)
+    if source.stat().st_size > 5_000_000:
+        raise TrueDataError("symbols file exceeds the safety limit")
+    values = {
+        line.strip().upper()
+        for line in source.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    if len(values) > 20_000:
+        raise TrueDataError("symbols file exceeds the instrument safety limit")
+    return tuple(sorted(values))
+
+
+def _validate_trial_dates(as_of: date, eod_start: date, corporate_start: date) -> None:
+    if eod_start > as_of or corporate_start > as_of:
+        raise TrueDataError("trial start dates must not be after --as-of")
+    if (as_of - eod_start).days > 730:
+        raise TrueDataError("trial EOD window must not exceed 730 days")
+    if (as_of - corporate_start).days > 92:
+        raise TrueDataError("trial corporate window must not exceed 92 days")
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="sensei-truedata",
+        description="Quarantined private TrueData trial ingestion",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+    today = date.today()
+    def dates(command: argparse.ArgumentParser) -> None:
+        command.add_argument("--as-of", type=_date, default=today)
+        command.add_argument(
+            "--eod-start", type=_date, default=today - timedelta(days=730)
+        )
+        command.add_argument(
+            "--corporate-start", type=_date, default=today - timedelta(days=92)
+        )
+        command.add_argument(
+            "--segments", nargs="+", choices=("eq", "in"), default=("eq", "in")
+        )
+
+    plan = sub.add_parser("plan", help="create a credential-free trial plan")
+    dates(plan)
+    plan.add_argument("--symbols", help="optional newline-delimited NSE symbols")
+    plan.add_argument("--output", type=Path, required=True)
+
+    download = sub.add_parser("download", help="run or resume a saved plan")
+    download.add_argument("--plan", type=Path, required=True)
+    download.add_argument("--store", type=Path, default=None)
+    download.add_argument("--stop-on-error", action="store_true")
+
+    audit = sub.add_parser("audit", help="verify local artifacts without network")
+    audit.add_argument("--plan", type=Path, required=True)
+    audit.add_argument("--store", type=Path, required=True)
+
+    expand = sub.add_parser(
+        "expand", help="expand a bootstrap plan from verified downloaded masters"
+    )
+    dates(expand)
+    expand.add_argument("--bootstrap-plan", type=Path, required=True)
+    expand.add_argument("--store", type=Path, required=True)
+    expand.add_argument("--output", type=Path, required=True)
+
+    run = sub.add_parser(
+        "run", help="download masters, discover symbols, then run/resume the full trial"
+    )
+    dates(run)
+    run.add_argument("--store", type=Path, default=None)
+    run.add_argument("--plan-output", type=Path, required=True)
+    run.add_argument("--stop-on-error", action="store_true")
+
+    sub.add_parser("probe", help="test authentication only; does not download data")
+    return parser
+
+
+def _print(value: dict) -> None:
+    print(json.dumps(value, indent=2, sort_keys=True))
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = _parser()
+    args = parser.parse_args(argv)
+    try:
+        if args.command == "plan":
+            _validate_trial_dates(args.as_of, args.eod_start, args.corporate_start)
+            plan = TrialPlan.for_trial(
+                as_of=args.as_of,
+                eod_start=args.eod_start,
+                corporate_start=args.corporate_start,
+                segments=tuple(args.segments),
+                symbols=_symbols(args.symbols),
+            )
+            plan.write(args.output)
+            services: dict[str, int] = {}
+            for request in plan.requests:
+                services[request.service.value] = services.get(request.service.value, 0) + 1
+            _print(
+                {
+                    "status": "PLANNED",
+                    "stamp": STAMP,
+                    "admissible": False,
+                    "plan_id": plan.plan_id,
+                    "path": str(args.output),
+                    "requests": len(plan.requests),
+                    "requests_by_service": services,
+                }
+            )
+            return 0
+
+        if args.command == "audit":
+            plan = TrialPlan.read(args.plan)
+            result = PrivateArtifactStore(args.store).audit(plan)
+            _print(
+                {
+                    "status": (
+                        "INCOMPLETE"
+                        if result.missing
+                        else "ERROR_RESPONSES"
+                        if result.error
+                        else "QUALITY_ERRORS"
+                        if result.eod_invalid or result.eod_duplicate_dates
+                        else "COVERAGE_GAPS"
+                        if result.no_data or result.eod_range_gaps
+                        else "VERIFIED_DATA"
+                    ),
+                    "stamp": STAMP,
+                    "admissible": False,
+                    "plan_id": plan.plan_id,
+                    "total": result.total,
+                    "verified": result.verified,
+                    "missing": result.missing,
+                    "data": result.data,
+                    "no_data": result.no_data,
+                    "error": result.error,
+                    "eod_requests": result.eod_requests,
+                    "eod_with_data": result.eod_with_data,
+                    "eod_rows": result.eod_rows,
+                    "eod_earliest": result.eod_earliest,
+                    "eod_latest": result.eod_latest,
+                    "eod_duplicate_dates": result.eod_duplicate_dates,
+                    "eod_invalid": result.eod_invalid,
+                    "eod_range_gaps": result.eod_range_gaps,
+                }
+            )
+            return (
+                0
+                if not (
+                    result.missing
+                    or result.error
+                    or result.no_data
+                    or result.eod_invalid
+                    or result.eod_duplicate_dates
+                    or result.eod_range_gaps
+                )
+                else 1
+            )
+
+        if args.command == "expand":
+            _validate_trial_dates(args.as_of, args.eod_start, args.corporate_start)
+            bootstrap = TrialPlan.read(args.bootstrap_plan)
+            plan = expand_plan_from_masters(
+                bootstrap,
+                store=PrivateArtifactStore(args.store),
+                as_of=args.as_of,
+                eod_start=args.eod_start,
+                corporate_start=args.corporate_start,
+                segments=tuple(args.segments),
+            )
+            plan.write(args.output)
+            _print(
+                {
+                    "status": "EXPANDED",
+                    "stamp": STAMP,
+                    "admissible": False,
+                    "plan_id": plan.plan_id,
+                    "path": str(args.output),
+                    "requests": len(plan.requests),
+                    "symbols": len(
+                        {
+                            request.params["symbol"]
+                            for request in plan.requests
+                            if request.endpoint == "getbars"
+                        }
+                    ),
+                }
+            )
+            return 0
+
+        config = TrueDataConfig.from_environment()
+        if getattr(args, "store", None) is not None:
+            config = TrueDataConfig(config.username, config.password, args.store)
+        client = TrueDataClient(config)
+        if args.command == "probe":
+            client.authenticate()
+            _print(
+                {
+                    "status": "AUTHENTICATED",
+                    "stamp": STAMP,
+                    "admissible": False,
+                    "store": str(config.store),
+                }
+            )
+            return 0
+
+        if args.command == "run":
+            _validate_trial_dates(args.as_of, args.eod_start, args.corporate_start)
+            bootstrap = TrialPlan.for_trial(
+                as_of=args.as_of,
+                eod_start=args.eod_start,
+                corporate_start=args.corporate_start,
+                segments=tuple(args.segments),
+            )
+            masters = tuple(
+                request
+                for request in bootstrap.requests
+                if request.service.value == "master"
+            )
+            master_result = download_plan(
+                TrialPlan(f"{bootstrap.plan_id}-masters", masters),
+                client=client,
+                store=PrivateArtifactStore(config.store),
+                stop_on_error=True,
+            )
+            if master_result.failed:
+                _print(
+                    {
+                        "status": "MASTER_FAILED",
+                        "stamp": STAMP,
+                        "admissible": False,
+                        "failed": master_result.failed,
+                        "failures": dict(master_result.failures),
+                    }
+                )
+                return 2
+            plan = expand_plan_from_masters(
+                bootstrap,
+                store=PrivateArtifactStore(config.store),
+                as_of=args.as_of,
+                eod_start=args.eod_start,
+                corporate_start=args.corporate_start,
+                segments=tuple(args.segments),
+            )
+        else:
+            plan = TrialPlan.read(args.plan)
+        result = download_plan(
+            plan,
+            client=client,
+            store=PrivateArtifactStore(config.store),
+            stop_on_error=args.stop_on_error,
+        )
+        if args.command == "run" and result.failed == 0:
+            plan = expand_detail_plan(
+                plan, store=PrivateArtifactStore(config.store)
+            )
+            plan.write(args.plan_output)
+            result = download_plan(
+                plan,
+                client=client,
+                store=PrivateArtifactStore(config.store),
+                stop_on_error=args.stop_on_error,
+            )
+        _print(
+            {
+                "status": "DOWNLOAD_COMPLETE" if result.failed == 0 else "PARTIAL",
+                "stamp": STAMP,
+                "admissible": False,
+                "plan_id": plan.plan_id,
+                "store": str(config.store),
+                "total": result.total,
+                "stored": result.stored,
+                "skipped": result.skipped,
+                "failed": result.failed,
+                "failures": dict(result.failures),
+            }
+        )
+        return 0 if result.failed == 0 else 2
+    except (OSError, UnicodeError, TrueDataError, ValueError) as exc:
+        parser.error(str(exc))
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
