@@ -961,3 +961,116 @@ def test_record_id_extraction_handles_csv_and_json_lists():
     assert extract_record_ids(
         b'{"Records":[{"Id":44},{"Id":45}]}', content_type="application/json"
     ) == ("44", "45")
+
+
+# --- response classification against real TrueData payload shapes -----------
+# TrueData serves CSV with ``Content-Type: text/html`` and returns some errors
+# as bare JSON strings, which previously inverted the classification.
+
+@pytest.mark.parametrize(
+    "body, content_type, expected",
+    [
+        (b"timestamp,category,buy,sell,net\r\n22-05-2025,DII,1,2,3\r\n", "text/html", "data"),
+        (b"timestamp,category,buy,sell,net\r\n", "text/html", "no_data"),
+        (b"symbol,marketcap\r\nSAIL,3427248585\r\n", "text/html", "data"),
+        (b'"IP Address mismatch. Need to request data from same IP where token was generated"',
+         "application/json", "error"),
+        (b"<html><body>denied</body></html>", "text/html", "error"),
+        (b'{"status":"Success","Records":[{"a":1}]}', "application/json", "data"),
+        (b'{"status":"error"}', "application/json", "error"),
+        (b"%PDF-1.7 payload", "application/pdf", "data"),
+    ],
+)
+def test_response_class_handles_vendor_content_types(body, content_type, expected):
+    from sensei.data.truedata import _response_class
+
+    assert _response_class(body, content_type) == expected
+
+
+# --- stored-artifact revalidation -----------------------------------------
+# A classification written once was never revisited, so a wrong call became
+# permanent: later runs skipped the artifact while the audit reported no errors.
+
+def _payload(body, content_type):
+    from datetime import datetime, timezone
+    from sensei.data.truedata import FetchedPayload
+
+    return FetchedPayload(body, content_type,
+                          datetime.now(timezone.utc), "https://example.invalid/x", 200)
+
+
+def _poison(store, request, body, content_type, recorded_class):
+    """Write an artifact whose manifest disagrees with its bytes."""
+    import json as _json
+
+    artifact = store.save(request, _payload(body, content_type))
+    manifest = _json.loads(artifact.manifest_path.read_text())
+    manifest["response_class"] = recorded_class
+    artifact.manifest_path.write_text(_json.dumps(manifest, indent=2, sort_keys=True))
+    return artifact
+
+
+def _store_and_request(tmp_path):
+    from sensei.data.truedata import PrivateArtifactStore, Service, TrueDataRequest
+
+    store = PrivateArtifactStore(tmp_path)
+    request = TrueDataRequest(Service.CORPORATE, "getMarketCap",
+                              {"symbols": "ACC", "response": "csv"})
+    return store, request
+
+
+IP_ERROR = b'"IP Address mismatch. Need to request data from same IP where token was generated"'
+
+
+def test_audit_ignores_a_manifest_that_lies_about_its_bytes(tmp_path):
+    from sensei.data.truedata import TrialPlan
+
+    store, request = _store_and_request(tmp_path)
+    _poison(store, request, IP_ERROR, "application/json", "data")
+    result = store.audit(TrialPlan("p", (request,)))
+    # the manifest claims data; the bytes are an error -> audit must not be green
+    assert result.data == 0
+    assert result.error == 1
+
+
+def test_revalidate_detects_classification_drift(tmp_path):
+    store, request = _store_and_request(tmp_path)
+    _poison(store, request, IP_ERROR, "application/json", "data")
+    result = store.revalidate()
+    assert result.checked == 1
+    assert result.drifted == 1
+    assert result.clean is False
+    assert "data->error" in next(iter(result.drift.values()))
+
+
+def test_revalidate_repair_rewrites_manifest_so_downloads_retry(tmp_path):
+    import json as _json
+
+    store, request = _store_and_request(tmp_path)
+    artifact = _poison(store, request, IP_ERROR, "application/json", "data")
+    repaired = store.revalidate(repair=True)
+    assert repaired.repaired == 1
+    manifest = _json.loads(artifact.manifest_path.read_text())
+    assert manifest["response_class"] == "error"
+    assert "revalidated_at" in manifest
+    # a second pass is clean and idempotent
+    again = store.revalidate()
+    assert again.clean and again.drifted == 0
+
+
+def test_revalidate_is_clean_for_honest_artifacts(tmp_path):
+    store, request = _store_and_request(tmp_path)
+    store.save(request, _payload(b"symbol,marketcap\r\nACC,123\r\n", "text/html"))
+    result = store.revalidate()
+    assert result.checked == 1 and result.agreed == 1 and result.clean
+
+
+def test_revalidate_flags_artifacts_from_an_older_classifier(tmp_path):
+    import json as _json
+
+    store, request = _store_and_request(tmp_path)
+    artifact = store.save(request, _payload(b"symbol,marketcap\r\nACC,1\r\n", "text/html"))
+    manifest = _json.loads(artifact.manifest_path.read_text())
+    manifest["classifier_version"] = 1
+    artifact.manifest_path.write_text(_json.dumps(manifest, indent=2, sort_keys=True))
+    assert store.revalidate().stale_classifier == 1

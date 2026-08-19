@@ -183,3 +183,51 @@ trial date and is absent from the latest official Postman collection, so it is
 not part of the default REST plan. The `record-announcements` command captures
 new announcements from the confirmed corporate WebSocket feed; it does not
 manufacture historical coverage for announcements emitted before it started.
+
+## Vendor and harness hazards observed in the 2026-08-19 capture
+
+### `getMarketCap` fails a whole batch for one unknown symbol
+
+`getMarketCap` rejects the **entire** request when any single symbol is unknown to
+TrueData, and reports it as:
+
+```
+"IP Address mismatch. Need to request data from same IP where token was generated"
+```
+
+The message is misleading. It is **not** an IP/auth problem and **not** a
+batch-size limit — larger batches simply had a higher chance of containing one
+bad symbol, which makes it look size-dependent. Bisecting a failing batch to
+single symbols identifies the culprits.
+
+Consequence: 39 symbols are permanently unresolvable in this vendor scope, and
+they block 30 otherwise-valid batch requests. Those requests are unfillable, not
+transient, and must not be retried. The set is recorded privately in
+`marketcap-unresolvable.json` in the artifact store. Exclude those symbols and
+batches succeed.
+
+### Vendor content types are unreliable
+
+TrueData serves CSV payloads with `Content-Type: text/html`, and returns some
+errors as a bare JSON **string**. `_response_class` therefore cannot trust the
+declared type: it sniffs content, treats a bare JSON scalar as an error, and
+classifies a header-only CSV as `no_data` rather than `error`.
+
+### Misclassification is sticky, and the audit will look green
+
+The store never revisits an artifact once written, so a wrong `response_class`
+persists: an error body stored as `data` is skipped by every later run while the
+audit reports `error: 0`. Fixing the classifier does **not** heal already-stored
+artifacts — they must be purged by content scan and re-fetched. Before this store
+feeds anything downstream, stored classifications should be re-validated rather
+than trusted on first write.
+
+### Only `corporate` is entitled
+
+Bounded probes on 2026-08-19 confirmed `corporate` accessible; `history` (price
+REST) and `master` (symbol master) both inaccessible. `getCorpAction`,
+`getCorpActionRange`, `getSymbolNameChange`, `getCorporateInfo`,
+`getQuarterlyReports` and `getAnnoucementsForCompanies` return HTTP 404 under
+this trial. Announcement PDFs are available from TrueData via
+`getAnnouncementFile?id=`; the `ATTACHMENTURL` field points at bseindia.com and
+should not be scraped.

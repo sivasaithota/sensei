@@ -97,6 +97,16 @@ def _parser() -> argparse.ArgumentParser:
     audit.add_argument("--plan", type=Path, required=True)
     audit.add_argument("--store", type=Path, required=True)
 
+    reval = sub.add_parser(
+        "revalidate",
+        help="recompute stored classifications from stored bytes (no network)",
+    )
+    reval.add_argument("--store", type=Path, required=True)
+    reval.add_argument("--plan", type=Path, default=None,
+                       help="limit to one plan; default walks the whole store")
+    reval.add_argument("--repair", action="store_true",
+                       help="rewrite drifted manifests so errors are retried")
+
     expand = sub.add_parser(
         "expand", help="expand a bootstrap plan from verified downloaded masters"
     )
@@ -169,6 +179,32 @@ def main(argv: Sequence[str] | None = None) -> int:
                 }
             )
             return 0
+
+        if args.command == "revalidate":
+            plan = TrialPlan.read(args.plan) if args.plan else None
+            store = PrivateArtifactStore(args.store)
+            result = store.revalidate(plan, repair=args.repair)
+            _print(
+                {
+                    "status": (
+                        "REVALIDATION_CLEAN"
+                        if result.clean
+                        else "REPAIRED"
+                        if args.repair
+                        else "CLASSIFICATION_DRIFT"
+                    ),
+                    "stamp": STAMP,
+                    "admissible": False,
+                    "checked": result.checked,
+                    "agreed": result.agreed,
+                    "drifted": result.drifted,
+                    "unreadable": result.unreadable,
+                    "stale_classifier": result.stale_classifier,
+                    "repaired": result.repaired,
+                    "drift": dict(sorted(result.drift.items())[:50]),
+                }
+            )
+            return 0 if (result.clean or args.repair) else 1
 
         if args.command == "audit":
             plan = TrialPlan.read(args.plan)

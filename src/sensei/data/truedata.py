@@ -29,6 +29,9 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol
 from urllib.parse import urlencode
 
+from sensei.research.errors import SnapshotIntegrityError
+from sensei.research.local_artifacts import read_regular_file
+
 import httpx
 from websockets.exceptions import WebSocketException
 from websockets.sync.client import connect as websocket_connect
@@ -38,6 +41,9 @@ STAMP = (
     "NOT admissible for governed examination"
 )
 SCHEMA_VERSION = 1
+# Bump whenever _response_class semantics change. Manifests written by an older
+# classifier are revalidated from stored bytes rather than trusted.
+CLASSIFIER_VERSION = 2
 _DEFAULT_STORE = Path.home() / ".local" / "share" / "sensei" / "truedata"
 _SECRET_KEYS = frozenset(
     {"password", "pass", "passw", "token", "access_token", "authorization", "user", "username"}
@@ -354,6 +360,23 @@ class AnnouncementStreamResult:
     authorization_failed: bool
 
 
+@dataclass(frozen=True)
+class RevalidationResult:
+    """Outcome of recomputing stored classifications from stored bytes."""
+
+    checked: int
+    agreed: int
+    drifted: int
+    unreadable: int
+    stale_classifier: int
+    repaired: int
+    drift: Mapping[str, str] = field(default_factory=dict)
+
+    @property
+    def clean(self) -> bool:
+        return self.drifted == 0 and self.unreadable == 0
+
+
 class PrivateArtifactStore:
     """Atomic, content-verified owner-only storage for trial responses."""
 
@@ -450,6 +473,7 @@ class PrivateArtifactStore:
             "bytes": len(payload.content),
             "sha256": digest,
             "response_class": _response_class(payload.content, payload.content_type),
+            "classifier_version": CLASSIFIER_VERSION,
         }
         encoded_manifest = json.dumps(manifest, indent=2, sort_keys=True).encode("utf-8")
         if not payload_path.exists():
@@ -463,6 +487,96 @@ class PrivateArtifactStore:
             _atomic_bytes(revision_path, encoded_manifest)
         _atomic_bytes(manifest_path, encoded_manifest)
         return StoredArtifact(request.request_id, payload_path, manifest_path)
+
+    def _recomputed_class(
+        self, artifact: "StoredArtifact", manifest: Mapping[str, Any]
+    ) -> str:
+        """Classification derived from the bytes on disk right now."""
+
+        try:
+            content = read_regular_file(
+                artifact.payload_path, max_bytes=self.max_artifact_bytes
+            )
+        except (OSError, ValueError, SnapshotIntegrityError):
+            return "error"
+        return _response_class(content, str(manifest.get("content_type", "")))
+
+    def revalidate(
+        self, plan: "TrialPlan | None" = None, *, repair: bool = False
+    ) -> RevalidationResult:
+        """Recompute every stored classification from stored bytes.
+
+        A classification written once is never revisited by ``verified``/
+        ``audit``-style flows, so a wrong call becomes permanent: the artifact is
+        skipped by later runs while the audit reports no errors. This walks the
+        artifacts, compares the recorded class against the class its bytes imply,
+        and (with ``repair``) rewrites the manifest so the downloader retries
+        anything that is really an error.
+        """
+
+        checked = agreed = drifted = unreadable = stale = repaired = 0
+        drift: dict[str, str] = {}
+        for manifest_path in self._manifest_paths(plan):
+            checked += 1
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                name = manifest["payload_file"]
+                if Path(name).name != name:
+                    raise ValueError("unsafe payload name")
+                payload_path = manifest_path.parent / name
+                content = read_regular_file(
+                    payload_path, max_bytes=self.max_artifact_bytes
+                )
+            except (
+                OSError,
+                KeyError,
+                TypeError,
+                ValueError,
+                UnicodeError,
+                json.JSONDecodeError,
+                SnapshotIntegrityError,
+            ):
+                unreadable += 1
+                continue
+            if manifest.get("classifier_version") != CLASSIFIER_VERSION:
+                stale += 1
+            recorded = str(manifest.get("response_class", ""))
+            actual = _response_class(content, str(manifest.get("content_type", "")))
+            if recorded == actual:
+                agreed += 1
+            else:
+                drifted += 1
+                drift[str(manifest.get("request_id", manifest_path.parent.name))] = (
+                    f"{recorded or '<none>'}->{actual}"
+                )
+            if repair and (recorded != actual or
+                           manifest.get("classifier_version") != CLASSIFIER_VERSION):
+                manifest["response_class"] = actual
+                manifest["classifier_version"] = CLASSIFIER_VERSION
+                manifest["revalidated_at"] = datetime.now(timezone.utc).isoformat()
+                _atomic_bytes(
+                    manifest_path,
+                    json.dumps(manifest, indent=2, sort_keys=True).encode(),
+                )
+                repaired += 1
+        return RevalidationResult(
+            checked, agreed, drifted, unreadable, stale, repaired, drift
+        )
+
+    def _manifest_paths(self, plan: "TrialPlan | None") -> "list[Path]":
+        if plan is not None:
+            paths = []
+            for request in plan.requests:
+                candidate = self._directory(request) / "manifest.json"
+                if candidate.is_file():
+                    paths.append(candidate)
+            return paths
+        root = self.root / "raw"
+        if not root.is_dir():
+            return []
+        return sorted(
+            p for p in root.glob("*/*/*/manifest.json") if p.is_file()
+        )
 
     def audit(self, plan: "TrialPlan") -> AuditResult:
         verified = data = no_data = error = 0
@@ -478,7 +592,9 @@ class PrivateArtifactStore:
                 continue
             verified += 1
             manifest = json.loads(artifact.manifest_path.read_text(encoding="utf-8"))
-            classification = manifest.get("response_class", "error")
+            # Never trust the recorded class: a misclassification written once is
+            # otherwise skipped forever and reports a falsely green audit.
+            classification = self._recomputed_class(artifact, manifest)
             if classification == "data":
                 data += 1
                 if request.endpoint == "getbars":
@@ -780,29 +896,39 @@ def _response_class(content: bytes, content_type: str = "") -> str:
         return "error"
     stripped = content.lstrip()
     lowered_type = content_type.lower()
-    if "html" in lowered_type or stripped.startswith((b"<html", b"<!doctype html")):
+    # Content is authoritative over the declared type: TrueData serves CSV
+    # payloads with ``Content-Type: text/html``, so trusting the header alone
+    # misclassified every CSV response as an error.
+    if stripped[:1024].lower().startswith((b"<html", b"<!doctype html")):
         return "error"
     if "json" in lowered_type or stripped.startswith((b"{", b"[")):
         try:
             decoded = json.loads(content)
         except (UnicodeDecodeError, json.JSONDecodeError):
             return "error"
+        if not isinstance(decoded, (dict, list)):
+            # A bare JSON scalar is a vendor error string, not a record set
+            # (e.g. "IP Address mismatch. Need to request data from same IP").
+            return "error"
         if isinstance(decoded, dict):
             status = str(decoded.get("status", "")).lower()
             if status in {"error", "failed", "failure"} or decoded.get("success") is False:
                 return "error"
         return "data"
-    if "csv" in lowered_type:
-        try:
-            text = content.decode("utf-8-sig")
-            rows = csv.reader(io.StringIO(text))
-            header = next(rows)
-        except (UnicodeDecodeError, csv.Error, StopIteration):
-            return "error"
-        return "data" if len(header) >= 2 else "error"
     if "pdf" in lowered_type or content.startswith(b"%PDF"):
         return "data"
-    return "error"
+    # Delimited fallback, reached for both ``text/csv`` and the mislabelled
+    # ``text/html`` CSV above. A header with no data rows is an empty session
+    # (no_data), not a transport failure.
+    try:
+        text = content.decode("utf-8-sig")
+        rows = csv.reader(io.StringIO(text))
+        header = next(rows)
+    except (UnicodeDecodeError, csv.Error, StopIteration):
+        return "error"
+    if len(header) < 2:
+        return "error"
+    return "data" if any(any(f.strip() for f in r) for r in rows) else "no_data"
 
 
 _SYMBOL_KEYS = frozenset(
