@@ -21,3 +21,16 @@ data/scheduler.lock
 data/governance-artifacts/
 data/provenance/
 data/research/
+.DS_Store
+.playwright-mcp/
+output/
+tmp/
+crash_log.txt
+fatal.txt
+lastwords.txt
+prev.txt
+victim.txt
+window.txt
+data/corporate-metrics.json
+data/news-risk-secret
+data/news-risk.json

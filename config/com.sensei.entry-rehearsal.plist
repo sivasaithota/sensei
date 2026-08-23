@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.sensei.entry-rehearsal</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/uv</string>
+        <string>run</string>
+        <string>sensei</string>
+        <string>rehearse-entry</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/sivasaithota/Documents/trade</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <!-- Tue + Wed at 09:00 IST: after the 08:30/08:40/08:50 surveillance
+         preflight windows, before the 09:20 entry. Sandboxed dry-run of the
+         exact governed entry path under real morning conditions. Read-only:
+         writes only data/reports/entry-rehearsal-latest.json. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>/Users/sivasaithota/Documents/trade/data/logs/entry-rehearsal.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/sivasaithota/Documents/trade/data/logs/entry-rehearsal.err</string>
+</dict>
+</plist>
