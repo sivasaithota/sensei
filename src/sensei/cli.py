@@ -104,6 +104,18 @@ def main() -> None:
     certify_p.add_argument(
         "--target", choices=("paper", "real"), default="paper"
     )
+    certify_p.add_argument(
+        "--trusted-market-data-manifest-id",
+        action="append",
+        default=[],
+        help="independently approved canonical market-data manifest SHA-256 ID",
+    )
+    certify_p.add_argument(
+        "--trusted-market-data-issuer",
+        action="append",
+        default=[],
+        help="independently approved market-data manifest issuer",
+    )
     qualify_p = sub.add_parser("qualify-desk")
     qualify_p.add_argument(
         "--report", default="data/reports/desk-qualification-latest.json"
@@ -737,6 +749,12 @@ def main() -> None:
             journal_path=Path(args.journal),
             rehearsal_path=Path(args.rehearsal),
             config_path=Path(args.config),
+            trusted_market_data_manifest_ids=frozenset(
+                args.trusted_market_data_manifest_id
+            ),
+            trusted_market_data_issuers=frozenset(
+                args.trusted_market_data_issuer
+            ),
             rehearsal_run=lambda: PaperEntryRehearsal(
                 journal_path=Path(args.journal),
                 config_path=Path(args.config),

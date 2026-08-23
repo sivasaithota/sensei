@@ -408,6 +408,20 @@ Passing a soak does not itself enable canary. Issue immutable, plan-pinned
 their supporting journal events. Canary promotion then requires those verified
 dossiers and explicit owner approval.
 
+`prelive-certify --target real` also requires each exact PAPER plan's immutable
+examination artifact to carry a hash-verified `capital_readiness` declaration.
+All six controls must be proven independently: portfolio-level simulation,
+point-in-time universe construction, corporate-action-adjusted prices, purged
+walk-forward evaluation, multiple-testing control, and a passed locked holdout.
+Legacy pooled-trade expectancy and preliminary/non-admissible research can remain
+useful during PAPER, but cannot satisfy this capital-bearing gate. Missing,
+oversized, malformed, hash-mismatched, or incorrectly bound artifacts fail closed.
+The canonical market-data manifest must also be approved independently at run time
+with both `--trusted-market-data-manifest-id sha256:...` and
+`--trusted-market-data-issuer ...`. Evidence cannot make its own data admissible;
+the pinned manifest binds its membership, price, corporate-action, and source
+lineage. Omitting either trust input leaves canary/live certification closed.
+
 ## Conditions still required before canary or live
 
 The following are absent or not yet production-wired, so this runbook must not be
