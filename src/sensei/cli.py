@@ -149,6 +149,18 @@ def main() -> None:
     portfolio_p.add_argument(
         "--report", default="data/reports/portfolio-campaign-latest.json"
     )
+    snapshot_p = sub.add_parser("bhavcopy-capture")
+    snapshot_p.add_argument("--date", help="single session YYYY-MM-DD (default: today)")
+    snapshot_p.add_argument("--start", help="range start YYYY-MM-DD (with --end)")
+    snapshot_p.add_argument("--end", help="range end YYYY-MM-DD (with --start)")
+    snapshot_p.add_argument("--catch-up", action="store_true",
+                            help="manually retry unresolved dates in the recent "
+                                 "lookback window (internal gaps included)")
+    snapshot_p.add_argument("--max-lookback-days", type=int, default=30,
+                            help="cap how far --catch-up reaches back (default 30)")
+    snapshot_p.add_argument("--overwrite", action="store_true",
+                            help="re-download sessions already on disk")
+
     matrix_p = sub.add_parser("diagnose-strategies")
     matrix_p.add_argument("--capital", type=float, default=300000)
     matrix_p.add_argument(
@@ -161,6 +173,73 @@ def main() -> None:
         "--report", default="data/reports/strategy-diagnostic-matrix-latest.json"
     )
     args = parser.parse_args()
+
+    if args.cmd == "bhavcopy-capture":
+        from sensei.data import bhavcopy
+
+        def _summarize(days: dict[str, str]) -> dict:
+            counts: dict[str, int] = {}
+            for status in days.values():
+                counts[status] = counts.get(status, 0) + 1
+            return counts
+
+        # exactly one mode
+        modes = [bool(args.date), bool(args.start or args.end), bool(args.catch_up)]
+        if sum(modes) > 1:
+            parser.error("choose exactly one of --date, --start/--end, or --catch-up")
+        if args.max_lookback_days < 0:
+            parser.error("--max-lookback-days must be non-negative")
+
+        if args.catch_up:
+            result = bhavcopy.catch_up(max_lookback_days=args.max_lookback_days,
+                                       overwrite=args.overwrite)
+            print(json.dumps({
+                "base_dir": str(bhavcopy.base_dir()),
+                "stamp": bhavcopy.STAMP,
+                "mode": "catch-up",
+                "sessions_attempted": len(result),
+                "status_counts": _summarize(result),
+                "days": result,
+            }, indent=2, sort_keys=True))
+            raise SystemExit(0)
+
+        if args.start or args.end:
+            if not (args.start and args.end):
+                parser.error("--start and --end must be given together")
+            try:
+                start = date.fromisoformat(args.start)
+                end = date.fromisoformat(args.end)
+            except ValueError:
+                parser.error("--start/--end must be valid YYYY-MM-DD dates")
+            if end < start:
+                parser.error("--end must not precede --start")
+            result = bhavcopy.snapshot_range(start, end, overwrite=args.overwrite)
+            print(json.dumps({
+                "base_dir": str(bhavcopy.base_dir()),
+                "stamp": bhavcopy.STAMP,
+                "range": [args.start, args.end],
+                "sessions_attempted": len(result),
+                "status_counts": _summarize(result),
+                "days": result,
+            }, indent=2, sort_keys=True))
+            raise SystemExit(0)
+
+        try:
+            day = date.fromisoformat(args.date) if args.date else date.today()
+        except ValueError:
+            parser.error("--date must be a valid YYYY-MM-DD date")
+        status = bhavcopy.snapshot_day(day, overwrite=args.overwrite)
+        out = {
+            "date": day.isoformat(),
+            "status": status.value,
+            "stamp": bhavcopy.STAMP,
+            "base_dir": str(bhavcopy.base_dir()),
+        }
+        if status is bhavcopy.FetchStatus.OK:
+            out["path"] = str(bhavcopy.snapshot_path(day))
+            out["manifest"] = json.loads(bhavcopy.manifest_path(day).read_text())
+        print(json.dumps(out, indent=2, sort_keys=True))
+        raise SystemExit(0)
 
     if args.cmd == "diagnose-strategies":
         from pathlib import Path

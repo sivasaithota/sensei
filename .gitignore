@@ -1,4 +1,6 @@
 data/prices/
+data/nse_bhavcopy/
+data/nse_bhavcopy_raw/
 data/truedata/
 .env.truedata
 TD_Docs.rar

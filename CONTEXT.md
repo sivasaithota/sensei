@@ -24,6 +24,12 @@ This glossary is the shared language for the trading system. Terms describe doma
 
 **Market Data Snapshot** — An immutable, point-in-time view of a universe and its market data, including lineage and a data-quality report.
 
+**Observed Tradability** — A quarantined, session-level fact that one positive-activity symbol/series/ISIN row appeared in an internally hash-consistent raw exchange capture. It proves only observed trading in that session; it is not authoritative provenance, and absence does not prove suspension, delisting, ineligibility, or non-membership.
+
+**Observed Identity Episode** — The first and last observations of one symbol/series alias for an observed ISIN or unresolved symbol key. It is not an authoritative listing interval, issuer lineage, or symbol-change declaration.
+
+**Price Discontinuity Candidate** — A quarantined review item created when a raw opening price differs materially from the prior observed close. It cannot identify a corporate action or authorize an adjustment factor without authoritative evidence.
+
 **Stable Instrument** — A listed security identified independently of its current ticker. Symbol changes do not create a new Stable Instrument; a genuinely different security does.
 
 **Membership Interval** — An inclusive-start, exclusive-end period during which a Stable Instrument belongs to a named research universe. Historical membership is evaluated for each session, not inferred from current constituents.
