@@ -1,0 +1,151 @@
+//@version=6
+// SENSEI_RULESET_SHA256: e4e4de617120aecab9bf4648908d82e63a393c96d8d781f93a8b938c3f1613de
+// Research-only TradingView translation of the five RuleSpecs in
+// data/studied_rules.json. This script does not authorize a strategy or trade.
+strategy(
+     "Sensei strategy POC",
+     overlay = true,
+     initial_capital = 300000,
+     currency = currency.INR,
+     pyramiding = 0,
+     default_qty_type = strategy.percent_of_equity,
+     default_qty_value = 100,
+     commission_type = strategy.commission.percent,
+     commission_value = 0.125,
+     slippage = 1,
+     calc_on_order_fills = false,
+     use_bar_magnifier = false)
+
+string selectedStrategy = input.string(
+     "minervini_breakout_volume",
+     "RuleSpec",
+     options = [
+         "minervini_breakout_volume",
+         "minervini_trend_template",
+         "gujral_trend_alignment_dual_ma",
+         "sadekar_hammer_confirmation",
+         "schwager_trend_with_pullback_strength"])
+// Epoch literals are Asia/Kolkata midnight values. input.time defaults require
+// compile-time constants; timestamp(year, month, ...) produces a simple int.
+int startDate = input.time(1546281000000, "Start date")
+int lastEntrySignalDate = input.time(1703701800000, "Last entry signal date")
+int lastExitSessionDate = input.time(1703788200000, "Last exit session date")
+bool showSignal = input.bool(true, "Show entry signals")
+int oneDayMs = 24 * 60 * 60 * 1000
+
+// Match Sensei's daily RuleSpec indicators. Prior highs/lows are shifted by
+// one session to prevent the current close from defining its own breakout.
+float sma20 = ta.sma(close, 20)
+float sma50 = ta.sma(close, 50)
+float sma150 = ta.sma(close, 150)
+float sma200 = ta.sma(close, 200)
+float volSma50 = ta.sma(volume, 50)
+float priorHigh50 = ta.highest(close, 50)[1]
+float priorLow252 = ta.lowest(close, 252)[1]
+float priorHigh250 = ta.highest(close, 250)[1]
+float ret5 = (close / close[5] - 1.0) * 100.0
+float ret10 = (close / close[10] - 1.0) * 100.0
+float ret20 = (close / close[20] - 1.0) * 100.0
+
+// Sensei uses an SMA of gains/losses rather than Pine's Wilder-smoothed RSI.
+float delta = ta.change(close)
+float avgGain14 = ta.sma(math.max(delta, 0.0), 14)
+float avgLoss14 = ta.sma(math.max(-delta, 0.0), 14)
+float safeLoss14 = avgLoss14 == 0.0 ? 1e-9 : avgLoss14
+float rsi14Sensei = 100.0 - 100.0 / (1.0 + avgGain14 / safeLoss14)
+
+float dayRange = math.max(high - low, 1e-9)
+float body = math.abs(close - open)
+float lowerShadow = math.min(open, close) - low
+bool bodyNearTop = high - math.max(open, close) <= dayRange * 0.25
+bool hammerSensei = lowerShadow >= body * 2.0 and bodyNearTop and close[1] < close[4]
+bool strongCloseSensei = (close - low) / dayRange >= 0.75
+
+bool minerviniTrend = close > sma150 and close > sma200 and
+     sma150 > sma200 and sma50 > sma150 and close > sma50 and
+     close > priorLow252 * 1.30 and close >= priorHigh250 * 0.75
+
+bool minerviniBreakout = close > sma150 and close > sma200 and
+     sma50 > sma150 and close > priorHigh50 and volume > volSma50 * 1.40
+
+bool gujralAlignment = sma20 > sma50 and sma50 > sma200 and
+     close > sma20 and ret20 > 0.0
+
+// This intentionally matches the executable Sensei rule. Despite the source
+// prose saying "above the hammer's high", the current RuleSpec requires a
+// same-session hammer whose close is above the prior close.
+bool sadekarHammer = ret10 < 0.0 and hammerSensei and
+     close > close[1] and close > sma50 * 0.97
+
+bool schwagerPullback = close > sma200 and sma50 > sma200 and
+     ret5 < 0.0 and ret20 > 5.0 and rsi14Sensei > 50.0 and strongCloseSensei
+
+bool entrySignal = switch selectedStrategy
+    "minervini_breakout_volume" => minerviniBreakout
+    "minervini_trend_template" => minerviniTrend
+    "gujral_trend_alignment_dual_ma" => gujralAlignment
+    "sadekar_hammer_confirmation" => sadekarHammer
+    "schwager_trend_with_pullback_strength" => schwagerPullback
+    => false
+
+float stopPct = switch selectedStrategy
+    "minervini_breakout_volume" => 7.5
+    "minervini_trend_template" => 7.5
+    "gujral_trend_alignment_dual_ma" => 5.0
+    "sadekar_hammer_confirmation" => 5.0
+    "schwager_trend_with_pullback_strength" => 6.0
+    => 15.0
+
+float targetPct = switch selectedStrategy
+    "minervini_breakout_volume" => 20.0
+    "minervini_trend_template" => 20.0
+    "gujral_trend_alignment_dual_ma" => 15.0
+    "sadekar_hammer_confirmation" => 10.0
+    "schwager_trend_with_pullback_strength" => 20.0
+    => 2.0
+
+int maxHold = switch selectedStrategy
+    "minervini_breakout_volume" => 60
+    "minervini_trend_template" => 60
+    "gujral_trend_alignment_dual_ma" => 30
+    "sadekar_hammer_confirmation" => 15
+    "schwager_trend_with_pullback_strength" => 45
+    => 3
+
+// input.time values selected by date resolve to midnight. Treat the entry
+// cutoff as an inclusive calendar date so that its daily bar is not lost.
+bool mayEnter = time >= startDate and time < lastEntrySignalDate + oneDayMs
+var float plannedStop = na
+var float plannedTarget = na
+var int entryBar = na
+bool closedPosition = strategy.position_size == 0 and nz(strategy.position_size[1]) != 0
+if closedPosition
+    entryBar := na
+    plannedStop := na
+    plannedTarget := na
+
+if mayEnter and entrySignal and strategy.position_size == 0
+    // Historical TradingView strategies fill this market order at the next
+    // session's open, matching Sensei's signal-close -> next-open timing. The
+    // protective levels use only the signal close, which is known when the
+    // orders are submitted and avoids historical after-fill look-ahead.
+    plannedStop := close * (1.0 - stopPct / 100.0)
+    plannedTarget := close * (1.0 + targetPct / 100.0)
+    strategy.entry("Long", strategy.long)
+    strategy.exit("Bracket", "Long", stop = plannedStop, limit = plannedTarget)
+
+bool openedPosition = strategy.position_size > 0 and nz(strategy.position_size[1]) == 0
+if openedPosition
+    entryBar := bar_index
+
+if strategy.position_size > 0
+    strategy.exit("Bracket", "Long", stop = plannedStop, limit = plannedTarget)
+    int heldSessions = bar_index - entryBar + 1
+    if heldSessions >= maxHold or time >= lastExitSessionDate
+        strategy.close("Long", comment = "time", immediately = true)
+
+plot(sma50, "SMA 50", color = color.new(color.blue, 35))
+plot(sma200, "SMA 200", color = color.new(color.orange, 35))
+plotshape(showSignal and mayEnter and entrySignal and strategy.position_size == 0,
+     title = "Entry signal", style = shape.triangleup, location = location.belowbar,
+     color = color.new(color.green, 0), size = size.tiny, text = "S")
