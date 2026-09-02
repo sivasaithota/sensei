@@ -316,22 +316,47 @@ def _checks(
         late = sum(
             trade.net_pnl for trade in trades if trade.exited_at.year >= 2022
         )
-        return {
-            "minimum_100_trades": closed_trades >= 100,
-            "positive_median_return": median_return > 0,
-            "profit_factor_at_least_1_25": profit_factor >= 1.25,
-            "drawdown_at_most_15_pct": worst_drawdown <= 15,
-            "positive_on_60_pct_symbols": positive_symbol_fraction >= 0.60,
-            "positive_2019_through_2021": early > 0,
-            "positive_2022_through_2023": late > 0,
-            "symbol_contribution_at_most_25_pct": concentration <= 0.25,
-        }
+        return development_gate_checks(
+            closed_trades=closed_trades,
+            median_return=median_return,
+            profit_factor=profit_factor,
+            worst_drawdown=worst_drawdown,
+            positive_symbol_fraction=positive_symbol_fraction,
+            early_pnl=early,
+            late_pnl=late,
+            concentration=concentration,
+        )
     return {
         "positive_net_profit": total_pnl > 0,
         "profit_factor_at_least_1_15": profit_factor >= 1.15,
         "drawdown_at_most_15_pct": worst_drawdown <= 15,
         "positive_on_50_pct_symbols": positive_symbol_fraction >= 0.50,
         "symbol_contribution_at_most_30_pct": concentration <= 0.30,
+    }
+
+
+def development_gate_checks(
+    *,
+    closed_trades: int,
+    median_return: float,
+    profit_factor: float,
+    worst_drawdown: float,
+    positive_symbol_fraction: float,
+    early_pnl: float,
+    late_pnl: float,
+    concentration: float,
+) -> dict[str, bool]:
+    """Evaluate the single frozen development gate shared by both analyzers."""
+
+    return {
+        "minimum_100_trades": closed_trades >= 100,
+        "positive_median_return": median_return > 0,
+        "profit_factor_at_least_1_25": profit_factor >= 1.25,
+        "drawdown_at_most_15_pct": worst_drawdown <= 15,
+        "positive_on_60_pct_symbols": positive_symbol_fraction >= 0.60,
+        "positive_2019_through_2021": early_pnl > 0,
+        "positive_2022_through_2023": late_pnl > 0,
+        "symbol_contribution_at_most_25_pct": concentration <= 0.25,
     }
 
 

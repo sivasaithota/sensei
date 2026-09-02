@@ -65,6 +65,32 @@ is not survivorship-honest evidence and cannot certify real capital.
 7. Only a strategy that passes development may be run once on the holdout.
 8. Save the holdout exports separately. Never tune from holdout results.
 
+### Fast local rejection screen
+
+When TradingView export or browser automation is unavailable, reproduce the
+frozen development screen locally:
+
+```bash
+uv run python -m sensei.research.tradingview_local_screen \
+  --strategies minervini_breakout_volume minervini_trend_template \
+  gujral_trend_alignment_dual_ma sadekar_hammer_confirmation \
+  schwager_trend_with_pullback_strength \
+  --output data/reports/tradingview-local-development.json
+```
+
+This uses the current-survivor Yahoo parquet store and the same dates, entry
+timing, costs, stop-first daily-bar policy, and per-chart capital model. It is a
+one-way filter: `REJECTED` is actionable, while a clean result is only
+`REQUIRES_TRADINGVIEW_VALIDATION`. It can never unlock the holdout or authorize
+capital because the universe is survivorship-biased and its drawdown measure
+uses realized equity at trade exits rather than TradingView's intratrade
+equity path.
+
+The registered executable RuleSpec digest is
+`e4e4de617120aecab9bf4648908d82e63a393c96d8d781f93a8b938c3f1613de`.
+The runner fails closed if the studied rules change or if any symbol lacks the
+common 2018 warm-up/development session calendar.
+
 ## Development gate
 
 A strategy must satisfy every condition after modeled costs:
