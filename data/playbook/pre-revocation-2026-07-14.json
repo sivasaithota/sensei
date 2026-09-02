@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-02",
+  "version": "2026-07-14",
   "universe_size": 500,
   "thresholds": {
     "min_trades_oos": 30,
@@ -191,11 +191,9 @@
         "pct_exit_stop": 0.53,
         "pct_exit_time": 0.127
       },
-      "adopted": false,
+      "adopted": true,
       "source": "Mark Minervini, Trade Like a Stock Market Wizard, 2013",
-      "principle": "Stock must be in a confirmed Stage 2 uptrend: price above key moving averages in proper order, near 52-week high, and at least 30% above 52-week low.",
-      "revoked_at": "2026-09-01T18:48:54.283690+00:00",
-      "revocation_reason": "Revoked 2026-09-02 by owner. Adopted 2026-07-14 on trade-level pooled expectancy over survivorship-biased Yahoo data \u2014 a method since retracted (trade-level expectancy is not portfolio performance). Portfolio-level audit on a point-in-time bhavcopy universe places both at the 0th percentile of a 25-run random-entry null: worse than every random draw. Adoption evidence also reports a worst trade beyond the strategy stop (-97.28% / -92.47% against 7.5% / 5.0% stops), which is only possible with unadjusted corporate actions in the source series."
+      "principle": "Stock must be in a confirmed Stage 2 uptrend: price above key moving averages in proper order, near 52-week high, and at least 30% above 52-week low."
     },
     {
       "name": "minervini_breakout_volume",
@@ -325,11 +323,9 @@
         "pct_exit_stop": 0.579,
         "pct_exit_time": 0.153
       },
-      "adopted": false,
+      "adopted": true,
       "source": "Ashwani Gujral \u2014 How to Make Money in Intraday Trading (Vision Books, 2018)",
-      "principle": "Trade only with the trend of the higher timeframe. Shorter MA above longer MA confirms trend alignment; a daily-timeframe long is stronger when the weekly trend agrees.",
-      "revoked_at": "2026-09-01T18:48:54.284152+00:00",
-      "revocation_reason": "Revoked 2026-09-02 by owner. Adopted 2026-07-14 on trade-level pooled expectancy over survivorship-biased Yahoo data \u2014 a method since retracted (trade-level expectancy is not portfolio performance). Portfolio-level audit on a point-in-time bhavcopy universe places both at the 0th percentile of a 25-run random-entry null: worse than every random draw. Adoption evidence also reports a worst trade beyond the strategy stop (-97.28% / -92.47% against 7.5% / 5.0% stops), which is only possible with unadjusted corporate actions in the source series."
+      "principle": "Trade only with the trend of the higher timeframe. Shorter MA above longer MA confirms trend alignment; a daily-timeframe long is stronger when the weekly trend agrees."
     },
     {
       "name": "gujral_exceptional_candle_volume",
@@ -628,6 +624,5 @@
       "source": "Stock Market Wizards \u2014 Schwager synthesis, Ryan/Minervini",
       "principle": "Wait for the exact setup: a trending stock that pauses briefly and resumes strength before entering \u2014 patience over action."
     }
-  ],
-  "revision_note": "2 strategies revoked; prior version retained as pre-revocation-2026-07-14.json"
+  ]
 }
