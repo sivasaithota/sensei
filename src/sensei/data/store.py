@@ -24,6 +24,10 @@ import yfinance as yf
 UNIVERSE_URL = "https://archives.nseindia.com/content/indices/ind_nifty500list.csv"
 UA = {"User-Agent": "Mozilla/5.0"}
 
+# Keep the open-descriptor footprint flat under launchd's 256-fd budget.
+_DOWNLOAD_CHUNK = 50
+_DOWNLOAD_THREADS = 4
+
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 PRICES_DIR = DATA_DIR / "prices"
 UNIVERSE_FILE = DATA_DIR / "universe.csv"
@@ -79,14 +83,27 @@ def download_symbols(symbols: list[str] | tuple[str, ...]) -> dict[str, pd.DataF
         starts.append(pd.Timestamp(frame.index[-1]) - timedelta(days=7))
     start = min(starts).date().isoformat()
     tickers = [f"{symbol}.NS" for symbol in selected]
-    downloaded = yf.download(
-        tickers,
-        start=start,
-        auto_adjust=True,
-        progress=False,
-        group_by="ticker",
-        threads=True,
-    )
+    # Bounded concurrency: launchd hands its children only 256 file descriptors
+    # (`launchctl limit maxfiles`), and an unbounded threaded fetch over the full
+    # universe exhausted that budget. sqlite then could not open the operations
+    # journal and the desk died mid-cycle, silently dropping approved theses.
+    # Chunking keeps the descriptor footprint flat regardless of universe size.
+    frames: list[pd.DataFrame] = []
+    for offset in range(0, len(tickers), _DOWNLOAD_CHUNK):
+        chunk = tickers[offset:offset + _DOWNLOAD_CHUNK]
+        part = yf.download(
+            chunk,
+            start=start,
+            auto_adjust=True,
+            progress=False,
+            group_by="ticker",
+            threads=_DOWNLOAD_THREADS,
+        )
+        if part is not None and not part.empty:
+            if not isinstance(part.columns, pd.MultiIndex) and len(chunk) == 1:
+                part.columns = pd.MultiIndex.from_product([[chunk[0]], part.columns])
+            frames.append(part)
+    downloaded = pd.concat(frames, axis=1) if frames else pd.DataFrame()
     result = {}
     for symbol, ticker in zip(selected, tickers, strict=True):
         try:

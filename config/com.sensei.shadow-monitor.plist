@@ -32,6 +32,22 @@
         <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>19</integer><key>Minute</key><integer>30</integer></dict>
     </array>
 
+    <!-- launchd hands its children only 256 descriptors (launchctl limit
+         maxfiles). The market-data refresh opens hundreds of concurrent
+         connections, exhausted that budget, and then sqlite could not open the
+         operations journal - the desk died mid-cycle without a terminal event,
+         silently dropping already-approved theses. -->
+    <key>SoftResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>8192</integer>
+    </dict>
+    <key>HardResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>8192</integer>
+    </dict>
+
     <key>StandardOutPath</key>
     <string>/Users/sivasaithota/Documents/trade/data/logs/shadow-monitor.log</string>
     <key>StandardErrorPath</key>
