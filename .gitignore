@@ -2,6 +2,9 @@ data/prices/
 data/nse_bhavcopy/
 data/nse_bhavcopy_raw/
 data/truedata/
+data/accelpix/
+.accelpix/
+.env.accelpix
 .env.truedata
 TD_Docs.rar
 data/audit.jsonl
