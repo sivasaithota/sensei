@@ -244,6 +244,11 @@ def test_partial_exit_retries_only_remaining_quantity_and_learns_once(tmp_path):
             25,
             "STOP",
         ),
+        (
+            {"open": 120.0, "high": 125.0, "low": 90.0, "close": 100.0},
+            25,
+            "TARGET",
+        ),
     ],
 )
 def test_exit_policy_covers_target_time_and_ambiguous_bars(

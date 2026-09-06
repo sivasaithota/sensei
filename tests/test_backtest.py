@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from sensei.backtest.engine import run_backtest, walk_forward_split
+from sensei.backtest.engine import BacktestResult, Trade, run_backtest, walk_forward_split
 
 
 def make_df(prices: list[float]) -> pd.DataFrame:
@@ -73,3 +73,20 @@ def test_walk_forward_split():
     train, test = walk_forward_split(df, 0.7)
     assert len(train) == 70 and len(test) == 30
     assert train.index[-1] < test.index[0]
+
+
+@pytest.mark.parametrize(
+    ("exit_prices", "expected_drawdown"),
+    [([90], 10.0), ([90, 90], 19.0), ([110, 90], 10.0), ([], 0.0)],
+)
+def test_trade_drawdown_includes_initial_capital(exit_prices, expected_drawdown):
+    dates = pd.bdate_range("2020-01-01", periods=len(exit_prices) + 1)
+    result = BacktestResult(
+        "drawdown_regression",
+        "SYNTHETIC",
+        [
+            Trade("SYNTHETIC", dates[i], 100.0, dates[i + 1], price, "time", 0.0)
+            for i, price in enumerate(exit_prices)
+        ],
+    )
+    assert result.max_drawdown_pct == pytest.approx(expected_drawdown)

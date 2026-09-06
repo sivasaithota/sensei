@@ -333,8 +333,11 @@ class ReplayProductionPaperSession(
 
     def __init__(
         self, *, source_as_of: date, target_as_of: date,
+        execution_source_session: date | None = None,
         frame_cache: ReplayFrameCache | None = None, **kwargs,
     ):
+        if execution_source_session is not None and execution_source_session <= source_as_of:
+            raise ValueError("execution session must follow the decision session")
         super().__init__(
             **kwargs,
             event_window=lambda _symbol, _on: (
@@ -351,6 +354,7 @@ class ReplayProductionPaperSession(
             allow_simulation_surveillance=True,
         )
         self._source_as_of = source_as_of
+        self._execution_source_session = execution_source_session
         self._target_as_of = target_as_of
         self._raw_frame_cache = frame_cache or ReplayFrameCache()
         self._frame_cache = {}
@@ -383,27 +387,38 @@ class ReplayProductionPaperSession(
         self._frame_cache[symbol] = frame
         return frame
 
-    def _quote(self, instrument_id, now):
-        from sensei.orchestration import ExecutableQuote
-        from sensei.runtime.production import _entry_limit_paise
+    def _authorized_plans(self, journal, lifecycle):
+        from dataclasses import replace
 
-        frame = self._bars(instrument_id)
-        if frame.empty:
-            return None
-        paise = _entry_limit_paise(
-            round(float(frame["close"].iloc[-1]) * 100)
-        )
-        snapshot = "snapshot:" + hashlib.sha256(
-            f"replay:{instrument_id}:{paise}:{now.isoformat()}".encode()
-        ).hexdigest()
-        return ExecutableQuote(instrument_id, snapshot, paise, now)
+        return tuple(replace(plan, evidence_as_of=(
+            self._target_as_of if plan.evidence_as_of is not None
+            and plan.evidence_as_of <= self._source_as_of else None
+        )) for plan in super()._authorized_plans(journal, lifecycle))
 
     def _execution_observation(self, instrument_id, now):
         from sensei.execution.nse import NseMarketObservation
 
-        frame = self._bars(instrument_id)
-        row = frame.iloc[-1]
-        reference = round(float(row["close"]) * 100)
+        import pandas as pd
+
+        if self._execution_source_session is None:
+            raise ReplayCurrentSessionBarUnavailable("execution session must be explicit")
+        symbol = instrument_id.split(":")[-1]
+        frame = self._raw_frame_cache.load(self._prices_path / f"{symbol}.parquet")
+        rows = frame.loc[pd.to_datetime(frame.index).date == self._execution_source_session]
+        if len(rows) != 1:
+            raise ReplayCurrentSessionBarUnavailable(
+                f"EXECUTION_OPEN_MISSING:{symbol}:{self._execution_source_session}"
+            )
+        opening = float(rows["open"].iloc[0])
+        if not math.isfinite(opening) or opening <= 0:
+            raise ReplayCurrentSessionBarUnavailable("invalid execution opening price")
+        reference = round(opening * 100)
+        # Daily data has no opening auction volume. A labelled capacity proxy
+        # uses only earlier sessions, never the execution day's eventual volume.
+        prior = frame.loc[pd.to_datetime(frame.index).date < self._execution_source_session]
+        lagged_volume = float(prior["volume"].tail(20).median())
+        if not math.isfinite(lagged_volume) or lagged_volume < 0:
+            raise ReplayCurrentSessionBarUnavailable("invalid lagged volume")
         half_spread = max(5, round(reference * 0.0005))
         return NseMarketObservation(
             instrument_id=(
@@ -414,12 +429,13 @@ class ReplayProductionPaperSession(
             reference_price_paise=reference,
             best_bid_paise=max(1, reference - half_spread),
             best_ask_paise=reference,
-            traded_volume=int(max(0, float(row["volume"]))),
+            traded_volume=int(lagged_volume * 0.01),
             lower_circuit_paise=max(1, round(reference * 0.8)),
             upper_circuit_paise=round(reference * 1.2),
-            evidence_source="POINT_IN_TIME_DAILY_BAR_REPLAY",
+            evidence_source="DAILY_OPEN_PROXY_LAGGED_VOLUME",
             spread_is_estimated=True,
             circuit_is_estimated=True,
+            volume_is_estimated=True,
         )
 
     def _regime(self):
@@ -537,6 +553,7 @@ class _ProductionSessionExecutor:
             previous_synthetic -= timedelta(days=1)
         session = ReplayProductionPaperSession(
             source_as_of=self._source_sessions[current_index],
+            execution_source_session=source_session,
             target_as_of=previous_synthetic,
             journal_path=self._sandbox.journal_path,
             scheduler_config=self._config,
@@ -767,7 +784,7 @@ def complete_market_sessions(
     required_sessions: int,
     minimum_completeness: float = 0.99,
 ) -> tuple[date, ...]:
-    """Select recent sessions meeting a preregistered universe coverage floor."""
+    """Require coverage of every recent observed session; never skip gaps."""
 
     import pandas as pd
     from collections import Counter
@@ -783,17 +800,16 @@ def complete_market_sessions(
     for path in paths:
         frame = pd.read_parquet(path, columns=["close"])
         counts.update(set(pd.to_datetime(frame.index).date))
-    eligible = tuple(sorted(
-        session for session, count in counts.items()
-        if count / len(paths) >= minimum_completeness
-    ))
-    if len(eligible) < required_sessions:
+    recent = tuple(sorted(counts))[-required_sessions:]
+    if len(recent) < required_sessions:
         raise ValueError(
-            f"only {len(eligible)} sessions meet "
-            f"{minimum_completeness:.3f} completeness; "
-            f"{required_sessions} required"
+            f"only {len(recent)} observed sessions; {required_sessions} required"
         )
-    return eligible[-required_sessions:]
+    missing = [session.isoformat() for session in recent
+               if counts[session] / len(paths) < minimum_completeness]
+    if missing:
+        raise ValueError(f"incomplete market sessions cannot be skipped: {missing}")
+    return recent
 
 
 def _eligibility_by_session(

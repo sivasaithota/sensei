@@ -25,6 +25,16 @@ CLAIM_1 = "claim:" + "1" * 64
 CLAIM_2 = "claim:" + "2" * 64
 
 
+def test_experiment_identity_includes_execution_policy(monkeypatch):
+    import sensei.research.examiner as examiner_module
+
+    request = target_trade_request()
+    before = ResearchExaminer().examine(request)
+    monkeypatch.setattr(examiner_module, "DAILY_EXECUTION_POLICY", "revised-policy")
+    after = ResearchExaminer().examine(request)
+    assert before.experiment_id != after.experiment_id
+
+
 def target_trade_bars() -> pd.DataFrame:
     index = pd.bdate_range("2020-01-01", periods=10)
     close = np.array([90, 90, 90, 100, 100, 110, 110, 110, 110, 110], dtype=float)

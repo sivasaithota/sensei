@@ -1,6 +1,6 @@
 import hashlib
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pytest
 
@@ -60,6 +60,7 @@ def test_confirmation_burns_access_before_resolution_and_applies_bonferroni(tmp_
         )
         assert policy_id == "opaque:holdout-2026h2"
         return ResolvedHoldout(
+            start=date(2017, 1, 1), end=date(2017, 1, 31),
             snapshot_id="snapshot:server-selected-sealed-data",
             material={"server_only": True},
         )
@@ -181,6 +182,7 @@ def test_confirmation_remains_consumed_when_holdout_resolution_crashes(tmp_path)
     rebuilt = ExperimentRegistry(
         OperationalJournal(journal_path),
         confirmation_resolver=lambda _policy: ResolvedHoldout(
+            start=date(2017, 1, 1), end=date(2017, 1, 31),
             snapshot_id="snapshot:late", material={}
         ),
         confirmation_examiner=never_called,
@@ -228,6 +230,7 @@ def test_confirmation_result_survives_an_interleaved_confirmation(tmp_path):
     registry = ExperimentRegistry(
         journal,
         confirmation_resolver=lambda _policy: ResolvedHoldout(
+            start=date(2017, 1, 1), end=date(2017, 1, 31),
             snapshot_id="snapshot:sealed", material={}
         ),
         confirmation_examiner=examine,
@@ -288,6 +291,7 @@ def test_confirmation_requires_every_preregistered_statistical_gate(
     registry = ExperimentRegistry(
         OperationalJournal(tmp_path / "sensei.sqlite3"),
         confirmation_resolver=lambda _policy: ResolvedHoldout(
+            start=date(2017, 1, 1), end=date(2017, 1, 31),
             snapshot_id="snapshot:sealed", material={}
         ),
         confirmation_examiner=lambda _registered, _material: replace(

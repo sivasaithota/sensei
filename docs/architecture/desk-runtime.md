@@ -132,18 +132,23 @@ incomplete, global kernel recovery and quarantine run before an otherwise
 completed replay is returned. Any interrupted supervisor stream is quarantined
 on restart, even when the restart uses a different command ID.
 
-The supervisor is a deep paper-session module, not yet a production composition
-root. The `compose(...)` callback is a privileged trust boundary because it
+The supervisor is the paper-session boundary used by the production composition
+root in `sensei.runtime.production`. The `compose(...)` callback is a privileged trust boundary because it
 executes while the runtime is being assembled; it must not run untrusted code.
 The public factory rejects subclasses throughout the side-effecting Kernel,
 Coordinator, Trader, Desk, gateway, verifier and safety chain after composition.
-This repository still lacks provisioned issuer keys, a production account
-adapter, a durable paper gateway, authenticated market/broker truth providers,
-a cycle source, alert delivery and a continuously running scheduler. The old launchd jobs still
-call the contained legacy commands; they are not silently redirected into this
-governed runtime. Production scheduling should be added only after those
-adapters exist and the bounded `run_session(...)` seam passes paper-soak and
-restart drills. Live and micro-live remain out of scope.
+Runtime bootstrap, a paper account projector, journal-backed paper gateway,
+signed internal facts, a signal planner and scheduler composition now exist.
+`scheduler-run-once` and `scheduler-health` are the deployment entry points;
+their presence does not establish that a particular machine passed a paper soak.
+Broker and account facts currently represent the simulated paper account.
+Yahoo entry snapshots retain provider observation timestamps and reject stale
+quotes. After-market exits use separately labelled completed daily bars, with
+the session-close timestamp retained. These are retrospective paper fills.
+The supervisor still restricts its gateway to `RecordingPaperGateway`; the
+legacy OpenAlgo integration remains sandbox-only. A governed live broker
+adapter, authenticated broker reconciliation, broker-native protection and
+operational acceptance evidence remain prerequisites for live capital.
 
 ## Scheduler liveness
 

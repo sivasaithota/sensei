@@ -1,4 +1,5 @@
 import json
+import pytest
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -298,13 +299,12 @@ def test_session_calendar_requires_declared_universe_completeness(tmp_path):
             index=pd.to_datetime(dates),
         ).to_parquet(prices / f"{symbol}.parquet")
 
-    sessions = complete_market_sessions(
-        prices_path=prices,
-        required_sessions=2,
-        minimum_completeness=1.0,
-    )
-
-    assert sessions == (date(2026, 1, 1), date(2026, 1, 5))
+    with pytest.raises(ValueError, match="incomplete market sessions cannot be skipped"):
+        complete_market_sessions(
+            prices_path=prices,
+            required_sessions=2,
+            minimum_completeness=1.0,
+        )
 
 
 def test_replay_ingestion_records_exact_point_in_time_universe(tmp_path):

@@ -410,7 +410,10 @@ def _input_fingerprint(
 
 
 def _execution_fingerprint(provenance: Mapping[str, str]) -> str:
+    from sensei.backtest import daily_execution
+
     material = {
+        "daily_execution_source": inspect.getsource(daily_execution),
         "campaign_source": inspect.getsource(run_validation_campaign),
         "metrics_source": inspect.getsource(_metrics),
         "verdict_source": inspect.getsource(_verdict),
@@ -488,7 +491,7 @@ def _metrics(trades: list[Trade]) -> TradeMetrics:
     gross_loss = abs(float(losses.sum()))
     profit_factor = float(wins.sum()) / gross_loss if gross_loss else None
     equity = np.cumprod(1 + returns / 100)
-    peaks = np.maximum.accumulate(equity)
+    peaks = np.maximum.accumulate(np.concatenate(([1.0], equity)))[1:]
     drawdown = float(((peaks - equity) / peaks).max() * 100)
     reasons = [trade.exit_reason for trade in trades]
     return TradeMetrics(

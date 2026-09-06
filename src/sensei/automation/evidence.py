@@ -383,6 +383,8 @@ class PlanStaticEvidenceProducer:
             "expected_plan_version_id": plan_version_id,
             "assessed_plan_id": assessment.plan_id,
             "conformant": conformant,
+            "evidence_scope": assessment.evidence_scope,
+            "portfolio_parity_proven": assessment.portfolio_parity_proven,
             "issues": issues,
         }
         return self._publisher.publish(

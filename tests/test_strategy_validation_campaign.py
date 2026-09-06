@@ -12,6 +12,39 @@ from sensei.backtest.campaign import (
 )
 
 
+def test_campaign_drawdown_includes_losses_from_initial_capital():
+    frame = _frame("2020-01-01", [100, 100, 90, 90, 90, 90, 90, 90] * 4)
+    report = run_validation_campaign(
+        frames={"TEST": frame},
+        strategies={"loss_probe": {
+            "fn": lambda bars: bars.close.eq(100), "stop_pct": 5,
+            "target_pct": 20, "max_hold_days": 3,
+        }},
+        folds=4, cost_pct=0, historical_membership_available=True,
+    )
+    result = report.strategies[0]
+    assert [fold.metrics.trades for fold in result.folds] == [1] * 4
+    assert [fold.metrics.trade_sequence_max_drawdown_pct for fold in result.folds] == [10] * 4
+    assert result.total.trade_sequence_max_drawdown_pct == pytest.approx(34.39)
+
+
+def test_campaign_fingerprint_covers_shared_execution_implementation(monkeypatch):
+    import sensei.backtest.campaign as campaign
+    from sensei.backtest import daily_execution
+
+    frames = {"TEST": _frame("2020-01-01", [100] * 40)}
+    strategies = {"probe": {
+        "fn": _every_fifth, "stop_pct": 5, "target_pct": 10, "max_hold_days": 3,
+    }}
+    original = validation_campaign_id(frames=frames, strategies=strategies, folds=4, cost_pct=0)
+    getsource = campaign.inspect.getsource
+    monkeypatch.setattr(campaign.inspect, "getsource", lambda obj: (
+        getsource(obj) + "\n# execution revision" if obj is daily_execution else getsource(obj)
+    ))
+    revised = validation_campaign_id(frames=frames, strategies=strategies, folds=4, cost_pct=0)
+    assert revised != original
+
+
 def _frame(start: str, closes: list[float]) -> pd.DataFrame:
     close = pd.Series(closes, index=pd.bdate_range(start, periods=len(closes)))
     return pd.DataFrame({

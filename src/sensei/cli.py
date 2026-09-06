@@ -16,6 +16,7 @@ import argparse
 import json
 import sys
 from datetime import date, datetime, timezone
+from sensei.research.exposure import record_development_frames
 
 
 def main() -> None:
@@ -273,6 +274,7 @@ def main() -> None:
             path.stem: pd.read_parquet(path).sort_index()
             for path in sorted((root / "data/prices").glob("*.parquet"))
         }
+        record_development_frames(frames, campaign_id="diagnose-strategies")
         report = run_strategy_diagnostic_matrix(
             frames=frames,
             strategies=strategies,
@@ -323,6 +325,7 @@ def main() -> None:
         for path in sorted((root / "data/prices").glob("*.parquet")):
             frame = pd.read_parquet(path).sort_index()
             frames[path.stem] = frame
+        record_development_frames(frames, campaign_id="portfolio-campaign")
         sessions = sorted({date for frame in frames.values() for date in frame.index})
         if not sessions:
             parser.error("portfolio campaign requires price sessions")
@@ -389,6 +392,7 @@ def main() -> None:
         }
         if not frames:
             parser.error("research-cycle price directory contains no parquet data")
+        record_development_frames(frames, campaign_id="research-cycle")
         git_status = subprocess.check_output(
             ("git", "status", "--porcelain=v1"), cwd=root, text=True
         )
@@ -483,6 +487,8 @@ def main() -> None:
         raise SystemExit(0)
 
     if args.cmd == "validate-strategies":
+        if args.consume_locked:
+            parser.error("legacy local history cannot provide locked confirmation; use the date-aware ExperimentRegistry resolver")
         import hashlib
         import subprocess
         from pathlib import Path
@@ -517,6 +523,7 @@ def main() -> None:
             path.stem: pd.read_parquet(path)
             for path in sorted(prices_path.glob("*.parquet"))
         }
+        record_development_frames(frames, campaign_id="validate-strategies")
         root = Path(__file__).resolve().parents[2]
         git_status = subprocess.check_output(
             ("git", "status", "--porcelain=v1"), cwd=root, text=True
@@ -812,14 +819,8 @@ def main() -> None:
         if args.strategy:
             adopted = [a for a in adopted if a["name"] == args.strategy]
         reg = all_strategies()
-        frames = {}
-        for s in available_symbols():
-            try:
-                df = load_prices(s)
-                if len(df) >= 500:
-                    frames[s] = df
-            except Exception:
-                pass
+        frames = {symbol: load_prices(symbol) for symbol in available_symbols()}
+        record_development_frames(frames, campaign_id="backtest-audit")
         cfg = PortfolioConfig(capital=args.capital, max_positions=args.max_positions)
         reports = []
         for a in adopted:

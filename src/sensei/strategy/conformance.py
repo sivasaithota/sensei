@@ -12,6 +12,8 @@ class StrategyConformance:
     conformant: bool
     plan_id: str | None
     issues: tuple[str, ...]
+    evidence_scope: str = "canonical_plan_type_only"
+    portfolio_parity_proven: bool = False
 
 
 def assess_strategy_conformance(candidate: object) -> StrategyConformance:

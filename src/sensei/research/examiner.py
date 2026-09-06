@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sensei.backtest.rulespec import compile_spec
+from sensei.backtest.daily_execution import DAILY_EXECUTION_POLICY
 from sensei.research.artifacts import ImmutableEvidenceStore
 from sensei.research.market_data import MarketDataSnapshot
 from sensei.research.models import (
@@ -25,7 +26,7 @@ from sensei.research.models import (
 )
 from sensei.research.simulation import ResearchTrade, simulate_fold, summarize
 
-EXAMINER_VERSION = "1.0"
+EXAMINER_VERSION = "1.1"
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,7 @@ class ResearchExaminer:
 
         identity = {
             "examiner_version": EXAMINER_VERSION,
+            "execution_policy": DAILY_EXECUTION_POLICY,
             "hypothesis": request.hypothesis.identity_payload(),
             "snapshot_id": request.snapshot.snapshot_id,
             "protocol": request.protocol.identity_payload(),

@@ -20,6 +20,7 @@ class NseMarketObservation:
     evidence_source: str = "TEST_FIXTURE"
     spread_is_estimated: bool = False
     circuit_is_estimated: bool = False
+    volume_is_estimated: bool = False
 
     def __post_init__(self) -> None:
         if not self.instrument_id.startswith("NSE:"):
@@ -213,6 +214,7 @@ class NseExecutionModel:
                 "source": observation.evidence_source,
                 "observed_at": observation.observed_at.isoformat(),
                 "session_volume": observation.traded_volume,
+                "volume_is_estimated": observation.volume_is_estimated,
                 "spread_is_estimated": observation.spread_is_estimated,
                 "circuit_is_estimated": observation.circuit_is_estimated,
             },

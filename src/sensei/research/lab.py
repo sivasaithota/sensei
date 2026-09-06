@@ -151,6 +151,13 @@ class ResearchBacktestLab:
                 occurred_at=occurred_at,
             )
         )
+        from sensei.research.exposure import record_development_frames
+
+        record_development_frames(
+            {instrument: candidate.snapshot.frame(instrument)
+             for instrument in candidate.snapshot.instrument_ids},
+            campaign_id=candidate.campaign_id, journal=self._journal, now=occurred_at,
+        )
         dossier = self._examiner.examine(
             ExaminationRequest(
                 hypothesis=candidate.hypothesis,

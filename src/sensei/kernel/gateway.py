@@ -401,11 +401,20 @@ class RecordingPaperGateway:
                     lower_circuit_paise=observation.lower_circuit_paise,
                     reason_code=command.reason_code,
                 )
+                payload = fill.to_payload()
+                payload["market_evidence"] = {
+                    "source": observation.evidence_source,
+                    "observed_at": observation.observed_at.isoformat(),
+                    "session_volume": observation.traded_volume,
+                    "volume_is_estimated": observation.volume_is_estimated,
+                    "spread_is_estimated": observation.spread_is_estimated,
+                    "circuit_is_estimated": observation.circuit_is_estimated,
+                }
                 return (
                     fill.filled_quantity,
                     fill.fill_price_paise,
                     False,
-                    fill.to_payload(),
+                    payload,
                 )
             if self._auto_fill_at_limit:
                 return (

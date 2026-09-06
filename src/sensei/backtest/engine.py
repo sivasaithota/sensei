@@ -23,6 +23,10 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 
+from sensei.backtest.daily_execution import (
+    DAILY_EXECUTION_POLICY, intraday_exit, opening_exit,
+)
+
 SignalFn = Callable[[pd.DataFrame], pd.Series]
 
 ROUND_TRIP_COST_PCT = 0.25  # STT, charges, slippage — conservative for delivery
@@ -75,11 +79,13 @@ class BacktestResult:
         if not self.trades:
             return 0.0
         eq = np.cumprod([1 + t.ret_pct / 100 for t in self.trades])
-        peak = np.maximum.accumulate(eq)
+        # Initial capital is a high-water mark even when the first trade loses.
+        peak = np.maximum.accumulate(np.concatenate(([1.0], eq)))[1:]
         return float(((peak - eq) / peak).max() * 100)
 
     def stats(self) -> dict:
         return {
+            "execution_policy": DAILY_EXECUTION_POLICY,
             "strategy": self.strategy,
             "symbol": self.symbol,
             "trades": self.n,
@@ -125,15 +131,11 @@ def run_backtest(
         exit_price, exit_idx, reason = None, None, None
 
         for j in range(e_idx, min(e_idx + max_hold_days, n)):
-            if o[j] <= stop:
-                # Stops execute at the first available price after a gap.
-                exit_price, exit_idx, reason = o[j], j, "stop_gap"
-                break
-            if l[j] <= stop:  # stop first — conservative
-                exit_price, exit_idx, reason = stop, j, "stop"
-                break
-            if h[j] >= target:
-                exit_price, exit_idx, reason = target, j, "target"
+            outcome = opening_exit(o[j], stop, target) or intraday_exit(
+                l[j], h[j], stop, target,
+            )
+            if outcome is not None:
+                exit_price, exit_idx, reason = outcome.price, j, outcome.reason
                 break
         if exit_price is None:
             exit_idx = min(e_idx + max_hold_days, n) - 1

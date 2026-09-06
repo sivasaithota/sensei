@@ -8,9 +8,10 @@ import math
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import Any
+from sensei.research.exposure import ResearchExposureLedger
 
 from sensei.operations.journal import (
     EventAppend,
@@ -50,6 +51,8 @@ class ResolvedHoldout:
 
     snapshot_id: str
     material: Any
+    start: date | None = None
+    end: date | None = None
 
     def __post_init__(self) -> None:
         if not self.snapshot_id.strip():
@@ -369,6 +372,9 @@ class ExperimentRegistry:
             raise RuntimeError("confirmation resolver and examiner must be configured")
 
         adjusted_alpha = registration.familywise_alpha / campaign.trial_count
+        exposure = ResearchExposureLedger(self._journal)
+        exposure.claim_policy(registration.confirmation_holdout_policy_id or "",
+                              request.campaign_id, request.occurred_at)
         burn = self._journal.append(
             EventAppend(
                 stream_id=_campaign_stream(request.campaign_id),
@@ -394,6 +400,11 @@ class ExperimentRegistry:
         holdout = self._confirmation_resolver(
             registration.confirmation_holdout_policy_id or ""
         )
+        if holdout.start is None or holdout.end is None:
+            raise ValueError("resolved confirmation must declare its actual date interval")
+        exposure.record(start=holdout.start, end=holdout.end,
+                        campaign_id=request.campaign_id, snapshot_id=holdout.snapshot_id,
+                        purpose="confirmation", now=request.occurred_at)
         evidence = self._confirmation_examiner(registration, holdout.material)
         passed = (
             evidence.protocol_passed

@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from sensei.backtest.rulespec import RuleSpec
+from sensei.backtest.daily_execution import intraday_exit, opening_exit
 from sensei.research.models import EvaluationFold, EvidenceSummary
 
 
@@ -79,17 +80,13 @@ def simulate_fold(
         for j in range(entry_index, last_available_index + 1):
             if dates[j].date() > fold.end:
                 break
-            if opens[j] <= stop:
-                exit_index, exit_price, exit_reason = j, opens[j], "stop"
-                break
-            if opens[j] >= target:
-                exit_index, exit_price, exit_reason = j, target, "target"
-                break
-            if lows[j] <= stop:
-                exit_index, exit_price, exit_reason = j, stop, "stop"
-                break
-            if highs[j] >= target:
-                exit_index, exit_price, exit_reason = j, target, "target"
+            outcome = opening_exit(opens[j], stop, target) or intraday_exit(
+                lows[j], highs[j], stop, target,
+            )
+            if outcome is not None:
+                exit_index, exit_price = j, outcome.price
+                # The examiner's evidence schema groups all stop exits.
+                exit_reason = "target" if outcome.reason == "target" else "stop"
                 break
 
         if exit_index is None:

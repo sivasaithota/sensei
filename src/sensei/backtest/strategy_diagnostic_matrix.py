@@ -45,6 +45,7 @@ class DiagnosticResult:
     turnover: float
     open_positions: int
     strategy_pnl: dict[str, float]
+    experiment_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -65,10 +66,13 @@ class StrategyDiagnosticReport:
     rankings: tuple[DiagnosticRanking, ...]
 
     def to_dict(self) -> dict:
+        from sensei.backtest.daily_execution import DAILY_EXECUTION_POLICY
+
         return {
             "results": [asdict(result) for result in self.results],
             "rankings": [asdict(ranking) for ranking in self.rankings],
             "methodology": {
+                "execution_policy": DAILY_EXECUTION_POLICY,
                 "signal_warmup": "full history before evaluation_start",
                 "trade_window": "evaluation_start through evaluation_end only",
                 "cost_model": (
@@ -81,9 +85,9 @@ class StrategyDiagnosticReport:
                 ),
                 "warning": (
                     "Diagnostic reuse of the same history; not independent "
-                    "confirmation or lifecycle promotion evidence. Symbols "
-                    "without a complete evaluation-window bar series are "
-                    "excluded and counted; this is not point-in-time membership."
+                    "confirmation or lifecycle promotion evidence. Instruments "
+                    "are not filtered by future bar completeness; missing held "
+                    "bars block the run. Stored universe is not point-in-time membership."
                 ),
             },
             "authority": "RESEARCH_ONLY",
@@ -126,6 +130,8 @@ def run_strategy_diagnostic_matrix(
     """Compare frozen strategies and combinations on identical portfolio rules."""
     if not frames or not strategies or not scenarios or not windows or not costs:
         raise ValueError("matrix inputs must not be empty")
+    if base_config.cost_model != "flat_round_trip":
+        raise ValueError("cost_pct matrix requires the flat round-trip stress model")
     if any(isinstance(value, bool) or value <= 0 for value in windows):
         raise ValueError("diagnostic windows must be positive")
     if any(isinstance(value, bool) or not math.isfinite(value) or value < 0
@@ -155,13 +161,7 @@ def run_strategy_diagnostic_matrix(
             evaluated = min(requested_sessions, len(sessions))
             start = sessions[-evaluated]
             end = sessions[-1]
-            evaluation_sessions = set(sessions[-evaluated:])
-            eligible_frames = {
-                symbol: frame for symbol, frame in frames.items()
-                if evaluation_sessions.issubset(
-                    {pd.Timestamp(date) for date in frame.index}
-                )
-            }
+            eligible_frames = frames
             if not eligible_frames:
                 raise ValueError(
                     f"no complete price frames for {requested_sessions}-session window"
@@ -186,6 +186,7 @@ def run_strategy_diagnostic_matrix(
                 if losses:
                     factor = round(sum(wins) / sum(losses), 3)
                 results.append(DiagnosticResult(
+                    experiment_id=campaign.experiment_id,
                     scenario=scenario.name,
                     strategies=scenario.strategies,
                     requested_sessions=requested_sessions,

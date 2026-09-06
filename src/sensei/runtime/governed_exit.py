@@ -30,6 +30,7 @@ from sensei.learning.episodes import (
 )
 from sensei.learning.outcomes import OutcomeLearner
 from sensei.operations import OperationalJournal
+from sensei.backtest.daily_execution import intraday_exit, opening_exit
 
 
 @dataclass(frozen=True)
@@ -151,10 +152,11 @@ class GovernedExitProcessor:
         session_low = round(float(row["low"]) * 100)
         session_high = round(float(row["high"]) * 100)
         session_close = round(float(row["close"]) * 100)
-        if session_open <= stop or session_low <= stop:
-            return "STOP", min(session_open, stop)
-        if session_high >= target:
-            return "TARGET", target
+        outcome = opening_exit(session_open, stop, target) or intraday_exit(
+            session_low, session_high, stop, target,
+        )
+        if outcome is not None:
+            return ("TARGET" if outcome.reason == "target" else "STOP"), int(outcome.price)
         holding_sessions = self._trading_sessions_between(
             episode.signal_time, now
         )

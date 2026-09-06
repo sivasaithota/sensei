@@ -274,6 +274,8 @@ def test_static_conformance_uses_canonical_assessment_and_publishes_failures(
         "candidate_contract": "StrategyPlan",
         "check": "canonical_strategy_plan_conformance",
         "conformant": True,
+        "evidence_scope": "canonical_plan_type_only",
+        "portfolio_parity_proven": False,
         "expected_plan_version_id": plan.plan_id,
         "issues": [],
     }

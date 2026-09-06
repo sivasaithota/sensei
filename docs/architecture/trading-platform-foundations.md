@@ -215,14 +215,14 @@ kernel. Existing legacy data files are not rewritten by the new platform.
 `DeskRuntime.run_cycle(...)` connects all nine roles from the original PRD to
 the governed swing-paper path, and `GovernedDeskSupervisor.run_session(...)`
 now owns the fail-closed, single-writer paper-session seam above it; see
-`desk-runtime.md`. The runtime and modules are covered by focused tests, but
-there is not yet a continuously deployed composition root that provisions
-signing keys and supplies reconciled account truth, heartbeats, broker
-snapshots, session events and alert delivery. Intraday
+`desk-runtime.md`. `runtime/production.py`, the runtime bootstrap, paper account
+projector, signed internal truth providers and governed scheduler implement
+the paper composition. Deployment and soak evidence must still be assessed
+for the actual host. Intraday
 directives are deterministic but are not a live/MIS order path. The Research
 Backtest Lab requires an executable candidate rule; it does not yet synthesize
 new rules from books, videos or free-form Coach prose. The only kernel gateway
-is an in-memory paper recorder.
+is a journal-backed paper recorder. It is not connected to a live broker.
 
 Before canary, a completed paper soak must produce plan-pinned paper-trial,
 risk-readiness and operations-readiness dossiers, followed by explicit owner

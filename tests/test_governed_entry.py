@@ -428,7 +428,7 @@ def test_planner_audits_full_signal_count_and_selected_rank(tmp_path):
     assert event.payload["signal_candidate_count"] == 3
     assert event.payload["selected_signal_rank"] == 1
     assert event.payload["policy"]["version"] == (
-        "full-universe-market-quality-v1"
+        "full-universe-market-quality-dated-evidence-v2"
     )
     assert len(event.payload["candidates"]) == 3
     assert all(

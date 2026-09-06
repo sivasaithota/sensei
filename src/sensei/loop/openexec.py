@@ -16,6 +16,7 @@ Guards:
 from __future__ import annotations
 
 import json
+import math
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -56,16 +57,21 @@ def live_price(symbol: str) -> float | None:
         return None
 
 
-def live_market_snapshot(symbol: str) -> dict[str, float] | None:
-    """Fetch one internally consistent Yahoo quote/liquidity snapshot."""
+def live_market_snapshot(symbol: str) -> dict[str, object] | None:
+    """Preserve the provider's market time; fast_info has no reliable time."""
     import yfinance as yf
     try:
-        info = yf.Ticker(f"{symbol}.NS").fast_info
-        price = info.get("last_price") or info.get("lastPrice")
-        volume = info.get("last_volume") or info.get("lastVolume")
-        if not price or volume is None:
+        info = yf.Ticker(f"{symbol}.NS").get_info()
+        price = info.get("regularMarketPrice")
+        volume = info.get("regularMarketVolume")
+        market_time = info.get("regularMarketTime")
+        if any(isinstance(value, bool) or not isinstance(value, (int, float))
+               or not math.isfinite(value) for value in (price, volume, market_time)):
             return None
-        return {"last_price": float(price), "session_volume": float(volume)}
+        if price <= 0 or volume < 0 or market_time <= 0:
+            return None
+        return {"last_price": float(price), "session_volume": float(volume),
+                "observed_at": datetime.fromtimestamp(market_time, timezone.utc)}
     except Exception:
         return None
 

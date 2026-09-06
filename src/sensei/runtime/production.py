@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 from sensei.execution.nse import NseExecutionModel, NseMarketObservation
+from sensei.strategy.selection import average_turnover
 
 from sensei.agents.chain import ApprovalChain
 from sensei.automation.governed_entry import (
@@ -221,6 +222,7 @@ class ProductionPaperSession:
         self._maximum_shortlist_candidates = maximum_shortlist_candidates
         self._maximum_daily_admissions = maximum_daily_admissions
         self._wall_clock = wall_clock
+        self._execution_observation_cache = {}
 
     def __call__(self, task: ScheduledTask, now: datetime) -> TaskOutcome:
         secrets = RuntimeSecretStore.load(self._config.runtime_secrets_path)
@@ -384,7 +386,7 @@ class ProductionPaperSession:
                 base_impact_bps=5,
             ),
             market_observation=lambda instrument_id: (
-                self._execution_observation(instrument_id, now)
+                self._daily_paper_exit_observation(instrument_id, now)
             ),
             clock=lambda: now,
         )
@@ -691,6 +693,11 @@ class ProductionPaperSession:
 
     def _authorized_plans(self, journal, lifecycle):
         stats = _playbook_stats(self._playbook_path)
+        raw_version = json.loads(self._playbook_path.read_text()).get("version")
+        try:
+            evidence_as_of = date.fromisoformat(str(raw_version))
+        except ValueError:
+            evidence_as_of = None
         records = StrategyPlanCatalog(journal).plans_at_stage(
             lifecycle, LifecycleStage.PAPER
         )
@@ -705,7 +712,7 @@ class ProductionPaperSession:
                 + ", ".join(sorted(missing))
             )
         return tuple(
-            AuthorizedPlan(record.lineage_id, record.plan, stats[record.source_rule_name])
+            AuthorizedPlan(record.lineage_id, record.plan, stats[record.source_rule_name], evidence_as_of)
             for record in records
         )
 
@@ -747,53 +754,92 @@ class ProductionPaperSession:
         return pd.read_parquet(self._prices_path / f"{symbol}.parquet")
 
     def _quote(self, instrument_id, now):
-        from sensei.loop.openexec import live_price
+        from sensei.automation.governed_entry import CandidateMarketDataUnavailable
 
-        symbol = instrument_id.split(":")[-1]
-        price = live_price(symbol)
-        if price is None or price <= 0:
+        try:
+            observation = self._execution_observation(instrument_id, now)
+        except (RuntimeTrustError, CandidateMarketDataUnavailable):
             return None
-        reference_paise = round(price * 100)
-        paise = _entry_limit_paise(reference_paise)
+        if not timedelta(0) <= now - observation.observed_at <= timedelta(seconds=30):
+            return None
+        paise = _entry_limit_paise(observation.reference_price_paise)
         snapshot = "snapshot:" + hashlib.sha256(
             f"{instrument_id}:{paise}:{now.isoformat()}".encode()
         ).hexdigest()
-        return ExecutableQuote(instrument_id, snapshot, paise, now)
+        return ExecutableQuote(instrument_id, snapshot, paise, observation.observed_at)
 
     def _execution_observation(self, instrument_id, now):
+        cached = self._execution_observation_cache.get((instrument_id, now))
+        if cached is not None:
+            return cached
         symbol = instrument_id.split(":")[-1]
         from sensei.loop.openexec import live_market_snapshot
 
         snapshot = live_market_snapshot(symbol)
-        if snapshot is None or snapshot["last_price"] <= 0:
+        observed_at = None if snapshot is None else snapshot.get("observed_at")
+        if (snapshot is None or not isinstance(observed_at, datetime)
+                or observed_at.tzinfo is None
+                or not timedelta(0) <= now - observed_at <= timedelta(seconds=30)):
             raise RuntimeTrustError(
                 f"fresh execution observation unavailable for {instrument_id}"
             )
         reference = round(snapshot["last_price"] * 100)
         volume = int(max(0, snapshot["session_volume"]))
         half_spread = max(5, round(reference * 0.0005))
-        return NseMarketObservation(
+        observation = NseMarketObservation(
             instrument_id=(
                 instrument_id if instrument_id.startswith("NSE:")
                 else f"NSE:{instrument_id}"
             ),
-            observed_at=now,
+            observed_at=observed_at,
             reference_price_paise=reference,
             best_bid_paise=max(1, reference - half_spread),
             best_ask_paise=reference,
             traded_volume=volume,
             lower_circuit_paise=max(1, round(reference * 0.8)),
             upper_circuit_paise=round(reference * 1.2),
-            evidence_source="YAHOO_FAST_INFO_SESSION_SNAPSHOT",
+            evidence_source="YAHOO_TIMESTAMPED_SESSION_SNAPSHOT",
             spread_is_estimated=True,
             circuit_is_estimated=True,
         )
+        # Quote and execution at the same decision time must use the same fact.
+        self._execution_observation_cache = {
+            key: value for key, value in self._execution_observation_cache.items()
+            if key[1] == now
+        }
+        self._execution_observation_cache[(instrument_id, now)] = observation
+        return observation
+
+    def _daily_paper_exit_observation(self, instrument_id, now):
+        """Retrospective paper settlement from today's completed daily bar.
+
+        This is not an executable quote. Retain the session-close timestamp,
+        and label full-day volume/circuit assumptions in the fill evidence.
+        """
+        local_now = now.astimezone(ZoneInfo("Asia/Kolkata"))
+        close_at = local_now.replace(hour=15, minute=30, second=0, microsecond=0)
+        frame = self._bars(instrument_id)
+        if (now < close_at or frame.empty
+                or frame.index[-1].date() != local_now.date()):
+            raise RuntimeTrustError("completed current-session bar required for paper settlement")
+        row = frame.iloc[-1]
+        closing, volume = float(row["close"]), float(row["volume"])
+        if not math.isfinite(closing) or closing <= 0 or not math.isfinite(volume) or volume < 0:
+            raise RuntimeTrustError("invalid daily paper settlement observation")
+        reference = round(closing * 100)
+        return NseMarketObservation(
+            instrument_id=instrument_id if instrument_id.startswith("NSE:") else f"NSE:{instrument_id}",
+            observed_at=close_at, reference_price_paise=reference,
+            best_bid_paise=max(1, reference - 5), best_ask_paise=reference,
+            traded_volume=int(volume), lower_circuit_paise=1,
+            upper_circuit_paise=max(reference, round(float(row["high"]) * 100)),
+            evidence_source="COMPLETED_DAILY_BAR_PAPER_SETTLEMENT",
+            spread_is_estimated=True, circuit_is_estimated=True,
+            volume_is_estimated=True,
+        )
 
     def _turnover(self, instrument_id):
-        frame = self._bars(instrument_id)
-        if "turnover" in frame:
-            return float(frame["turnover"].tail(60).mean())
-        return float((frame["close"] * frame["volume"]).tail(60).mean())
+        return average_turnover(self._bars(instrument_id))
 
     def _marks(self, *, instrument_ids, now):
         marks = {}

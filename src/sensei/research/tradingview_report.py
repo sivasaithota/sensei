@@ -160,7 +160,10 @@ def analyze_exports(directory: Path, *, phase: Phase) -> dict[str, object]:
         "symbol_net_profit": {key: round(value, 2) for key, value in symbol_pnl.items()},
     }
 
-    return {**metrics, "checks": checks, "verdict": "PASS" if all(checks.values()) else "REJECTED"}
+    return {**metrics, "checks": checks, "verdict": "PASS" if all(checks.values()) else "REJECTED",
+            "evidence_scope": "frozen_single_chart_development_screen",
+            "holdout_is_untouched": False, "can_authorize_trading": False,
+            "warning": "2024 onward has already been examined by prior stock campaigns; this is not locked confirmation"}
 
 
 def _load_file(
