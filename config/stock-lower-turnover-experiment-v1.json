@@ -1,0 +1,20 @@
+{
+  "frozen_at_utc": "2026-09-06T20:53:12.792871+00:00",
+  "control_config": "config/stock-research-demerger-sensitivity.json",
+  "control_sha256": "684cdf83d8eb5be4e2c583e3589f686d2154936788988edf5011fabeafb1b771",
+  "variants": [
+    {
+      "config": "config/stock-research-lower-turnover-hold60.json",
+      "sha256": "99f96df0f1adf29734fb680bc047ac2e4aeac7a06e390c46e493281f9cdf42b7"
+    },
+    {
+      "config": "config/stock-research-lower-turnover-hold60-target20.json",
+      "sha256": "466a2543bcfe34cc34fc997747fcc4056f519aa569981cdd8f140ba101c98f5f"
+    },
+    {
+      "config": "config/stock-research-lower-turnover-trend-hold60-target20.json",
+      "sha256": "9b89c60f932107c0f24721a97a10d7bb5e4feb0ebb42bf85e05f6c473922d1d4"
+    }
+  ],
+  "decision_rule": "All variants reported once; no promotion or parameter search; compare net excess return, drawdown, costs, turnover and trade count on reused development history. Any unresolved holding event withholds economics."
+}

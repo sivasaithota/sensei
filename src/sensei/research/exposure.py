@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from sensei.operations import EventAppend, OperationalJournal
+from sensei.operations import EventAppend, JournalConflict, OperationalJournal
 
 
 class ResearchDataAlreadyExposed(ValueError):
@@ -73,24 +73,33 @@ class ResearchExposureLedger:
             raise ValueError("research interval cannot extend into the future")
         if purpose not in {"discovery", "confirmation"}:
             raise ValueError("invalid research exposure purpose")
-        events = self.journal.read_stream(EXPOSURE_STREAM)
-        if purpose == "confirmation":
-            known_start, known_end = KNOWN_STOCK_EXPOSURE
-            if start <= known_end and known_start <= end:
-                raise ResearchDataAlreadyExposed("requested dates are known stock development history")
-            for event in events:
-                payload = event.payload
-                overlaps = start <= date.fromisoformat(payload["end"]) and date.fromisoformat(payload["start"]) <= end
-                same_fixed_cohort = payload["purpose"] == "confirmation" and payload["campaign_id"] == campaign_id
-                if overlaps and not same_fixed_cohort:
-                    raise ResearchDataAlreadyExposed("dates were exposed by a previous experiment")
         payload = {"start": start.isoformat(), "end": end.isoformat(),
                    "campaign_id": campaign_id, "snapshot_id": snapshot_id, "purpose": purpose}
-        if any(event.payload == payload for event in events):
-            return
-        key = hashlib.sha256(str(sorted(payload.items())).encode()).hexdigest()
-        self.journal.append(EventAppend(
-            stream_id=EXPOSURE_STREAM, event_type="ResearchWindowExposed",
-            payload=payload, idempotency_key=f"research-exposure:{key}",
-            expected_version=len(events), occurred_at=now,
-        ))
+        # Include the command timestamp: concurrent identical payloads may have
+        # different occurred_at values. Payload deduplication below still makes
+        # exposure idempotent; a stream conflict triggers a fresh overlap check.
+        key = hashlib.sha256((str(sorted(payload.items())) + now.isoformat()).encode()).hexdigest()
+        for attempt in range(8):
+            events = self.journal.read_stream(EXPOSURE_STREAM)
+            if purpose == "confirmation":
+                known_start, known_end = KNOWN_STOCK_EXPOSURE
+                if start <= known_end and known_start <= end:
+                    raise ResearchDataAlreadyExposed("requested dates are known stock development history")
+                for event in events:
+                    previous = event.payload
+                    overlaps = start <= date.fromisoformat(previous["end"]) and date.fromisoformat(previous["start"]) <= end
+                    same_fixed_cohort = previous["purpose"] == "confirmation" and previous["campaign_id"] == campaign_id
+                    if overlaps and not same_fixed_cohort:
+                        raise ResearchDataAlreadyExposed("dates were exposed by a previous experiment")
+            if any(event.payload == payload for event in events):
+                return
+            try:
+                self.journal.append(EventAppend(
+                    stream_id=EXPOSURE_STREAM, event_type="ResearchWindowExposed",
+                    payload=payload, idempotency_key=f"research-exposure:{key}",
+                    expected_version=len(events), occurred_at=now,
+                ))
+                return
+            except JournalConflict:
+                if attempt == 7:
+                    raise

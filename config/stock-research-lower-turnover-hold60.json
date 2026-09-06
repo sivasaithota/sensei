@@ -1,0 +1,38 @@
+{
+  "name": "swing-lower-turnover-v1-hold60",
+  "snapshot_type": "kite_development",
+  "start": "2024-01-01",
+  "end": "2026-09-03",
+  "warmup_sessions": 252,
+  "strategy_name": "momentum_breakout_55",
+  "strategy_parameters": {
+    "stop_pct": 5.0,
+    "target_pct": 12.0,
+    "max_hold_days": 60
+  },
+  "portfolio": {
+    "capital": 300000,
+    "max_position_pct": 20,
+    "max_risk_per_trade_pct": 2,
+    "max_open_positions": 5,
+    "max_positions_per_strategy": 5,
+    "liquidate_at_end": true,
+    "cost_model": "current_delivery_schedule",
+    "dp_charge_inr": 15.34,
+    "entry_slippage_bps": 10
+  },
+  "evaluation": {
+    "maximum_drawdown_pct": 100,
+    "minimum_sessions": 252,
+    "minimum_trades": 30,
+    "bootstrap_block_sessions": 20,
+    "bootstrap_samples": 2000,
+    "confidence": 0.9,
+    "random_seed": 20260906
+  },
+  "prices_path": "../../../.local/share/sensei/kite/development/111ffe46d9d3ee797882f63b080ea32817a78ad02e73bf5f19bdc6911b0b409c",
+  "benchmark_path": "../data/research/benchmarks/nifty500-tri-20260906.parquet",
+  "benchmark_name": "Nifty 500 gross total return",
+  "output_directory": "../data/reports/stock-development",
+  "event_risk_path": "stock-demerger-risk.json"
+}
