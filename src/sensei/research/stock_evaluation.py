@@ -33,8 +33,11 @@ class EvaluationProtocol:
     random_seed: int = 20260906
 
     def __post_init__(self):
-        if self.maximum_drawdown_pct is not None and not 0 < self.maximum_drawdown_pct < 100:
-            raise ValueError("maximum drawdown must be between 0 and 100 percent")
+        if self.maximum_drawdown_pct is not None and (
+            isinstance(self.maximum_drawdown_pct, bool)
+            or not 0 < self.maximum_drawdown_pct <= 100
+        ):
+            raise ValueError("maximum drawdown must be greater than zero and at most 100 percent")
         for value in (self.minimum_sessions, self.minimum_trades, self.bootstrap_block_sessions, self.bootstrap_samples):
             if type(value) is not int or value < 1:
                 raise ValueError("sample and block counts must be positive integers")

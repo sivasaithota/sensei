@@ -1,8 +1,10 @@
 # Stock portfolio evaluation
 
-Scope: NSE cash-equity swing, ₹300,000 shared capital. The user's maximum
-acceptable account drawdown is not yet specified. Existing repository risk
-limits are research configuration, not a new live mandate.
+Scope: NSE cash-equity swing, ₹300,000 shared capital. The user confirmed a
+100% maximum acceptable account drawdown on 6 September 2026, accepting the
+possibility of complete capital loss. This is the research evaluation budget;
+per-trade stops, daily/weekly operational limits and live authorization are
+separate controls.
 
 Run the new development report with a frozen strategy and declared benchmark:
 
@@ -13,14 +15,16 @@ Run the new development report with a frozen strategy and declared benchmark:
   --benchmark /absolute/path/to/benchmark.parquet \
   --benchmark-name 'Nifty 500 total return' \
   --entry-slippage-bps 10 \
+  --max-drawdown 100 \
   --report data/reports/stock-portfolio-development.json
 ```
 
 The benchmark file is an explicit input, not supplied by this change. It must
 contain a `close` series indexed by dates, including the exact preceding
 portfolio session. Missing dates are not forward-filled. Specify
-`--max-drawdown` only after choosing the actual account loss budget. Omitting
-it produces an inconclusive economic verdict rather than assuming consent.
+`--max-drawdown 100` for the owner's confirmed budget. Omitting the option
+still produces an inconclusive economic verdict; the library has no implicit
+owner-specific risk default.
 
 The report gives net return, CAGR, maximum drawdown, longest time underwater,
 capital utilization, turnover, completed trades, realized costs and benchmark

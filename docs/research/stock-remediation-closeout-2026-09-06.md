@@ -46,6 +46,15 @@ produced. Historical membership, corporate-action/executable-price treatment,
 exchange-calendar provenance and a verified benchmark are still absent from
 this evaluation. The AccelPix adapter's existence does not supply those inputs.
 
+**Window-specific follow-up:** classification of the same 500 files found zero
+invalid OHLCV rows between 2024-01-01 and 2026-09-04, including each instrument's
+preceding 252 stored sessions for indicator warmup. All 58 flagged files have
+their structural failures outside that input window. This narrows the initial
+whole-history blocker; it does not verify historical membership, corporate
+actions, calendar completeness or benchmark alignment. No rows were repaired
+and no instruments were removed. Results are in
+`data/reports/stock-data-window-diagnosis-20260906.json`.
+
 ## Review and validation
 
 The independent Standards review found five substantive issues during the
@@ -69,8 +78,9 @@ completed without errors.
 
 1. Validate historical data and the benchmark, then run a frozen portfolio
    protocol and retain all outcomes. Do not optimize until a result looks good.
-2. Specify the maximum acceptable account drawdown. ₹300,000 capital is
-   confirmed; existing repository risk defaults are not a new live mandate.
+2. Apply the owner's subsequently confirmed 100% maximum account drawdown to
+   the ₹300,000 research account. Complete capital loss is accepted as a
+   budget boundary; net-edge requirements and operational controls still apply.
 3. Obtain forward paper evidence for the exact strategy and allocation policy.
 4. Implement and certify a governed broker gateway, reconciliation and broker
    protection under an explicit canary mandate. The current runtime is paper;

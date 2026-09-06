@@ -96,3 +96,19 @@ def test_benchmark_rejects_session_missing_from_entire_stock_calendar():
     report = evaluate_stock_portfolio(campaign=campaign, protocol=EvaluationProtocol(),
         data_audit=audit_stock_data({"A": frame}), benchmark=benchmark)
     assert report["benchmark"] is None
+
+
+def test_total_loss_drawdown_budget_is_valid_but_does_not_create_an_edge():
+    frame, campaign = fixture()
+    protocol = EvaluationProtocol(maximum_drawdown_pct=100, minimum_sessions=20,
+        minimum_trades=5, bootstrap_samples=100)
+    report = evaluate_stock_portfolio(campaign=campaign, protocol=protocol,
+        data_audit=audit_stock_data({"A": frame}), benchmark=frame.close)
+    assert report["economics"]["verdict"] == "NO_CLEAR_NET_EDGE"
+    assert not report["can_trade"]
+
+
+@pytest.mark.parametrize("drawdown", [0, -1, 100.01, float("nan"), float("inf"), True])
+def test_invalid_drawdown_budgets_are_rejected(drawdown):
+    with pytest.raises(ValueError, match="maximum drawdown"):
+        EvaluationProtocol(maximum_drawdown_pct=drawdown)

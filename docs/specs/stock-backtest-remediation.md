@@ -5,6 +5,10 @@ the existing governed architecture. Target ₹300,000 NSE cash-equity swing;
 intraday/crypto are excluded. This document tracks implementation acceptance,
 not authorization to activate live orders.
 
+Owner clarification, 6 September 2026: maximum acceptable account drawdown is
+100%. Accept 100 as a research evaluation boundary; this does not waive data
+quality, net-edge requirements, per-trade protection or broker readiness.
+
 ## Acceptance
 
 1. Daily research paths use consistent opening/intraday ordering, entry-day
