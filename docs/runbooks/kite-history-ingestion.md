@@ -90,3 +90,54 @@ economic strategy readiness are distinct results. No capture or normalization
 grants live authority. Ordinary cash dividends and complex actions need explicit
 accounting; Kite-adjusted prices must not be silently mixed with Yahoo's series.
 See the [capture contract](../research/kite-capture-contract-2026-09-06.md).
+
+## Offline validation and the recent development cohort
+
+The full archive retains rejected windows and remains blocked from complete
+normalization. A separate, explicitly scoped development snapshot can be built
+for the original research symbols that match the frozen master. This is not a
+repair or certification of the full archive and not historical Nifty 500
+membership. Unmapped original symbols are listed in its manifest. Every matched
+instrument remains included regardless of history length or subsequent returns.
+
+```bash
+.venv/bin/python -m sensei.data.kite_validation audit \
+  --plan /absolute/path/to/plan.json --output /absolute/path/to/audit.json
+.venv/bin/python -m sensei.data.kite_validation snapshot \
+  --plan /absolute/path/to/plan.json --universe data/universe.csv \
+  --start 2022-01-01 --end 2026-09-04 \
+  --output /absolute/path/to/development-snapshots
+```
+
+These commands are offline: no credentials, API calls or subscription renewal.
+The audit validates all original response hashes/schemas, inventories missing
+and rejected windows, diagnoses all malformed rows and reports observed crisis
+coverage. Nonfinite numbers in diagnostic JSON are shown as strings; original
+bytes remain unchanged. Some bars in a crisis window do not establish complete
+coverage or historical security identity.
+
+The snapshot blocks any missing/rejected request overlapping its selected date
+window. Rejected older windows are retained outside the scope. It removes only
+the previously verified flat, zero-volume holiday placeholders, never fills
+gaps, and publishes symbol-named Parquet plus `kite_snapshot_manifest.json`
+atomically. The manifest binds the plan, universe, selected raw responses,
+implementation, exclusions and exact output set. It always records
+`admissible: false` and `can_trade: false`.
+
+The frozen Kite config must declare `"snapshot_type": "kite_development"` so a
+missing manifest fails rather than falling back to generic Parquet. The runner
+verifies source and output hashes before using the snapshot. The saved config
+uses the local private store relative to this checkout; on another machine,
+rebuild the snapshot and update `prices_path` explicitly.
+
+```bash
+.venv/bin/python -m sensei.research.stock_evaluation \
+  --config config/stock-research-kite-development.json
+```
+
+This preserves the existing baseline dates, strategy parameters and risk/cost
+settings. It remains reused-history development, including when the provider or
+snapshot ID changes. Economic results and data-admissibility decisions are
+reported separately. See the [security exception evidence](../research/kite-security-exceptions-2026-09-07.md)
+for the confirmed FORCEMOT inactive interval and JBCHEPHARM suspension; neither
+authorizes price interpolation or silent removal from an earlier universe.

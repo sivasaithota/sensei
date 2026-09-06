@@ -15,6 +15,7 @@ import pandas as pd
 
 from sensei.backtest.portfolio_campaign import PortfolioCampaignConfig, run_portfolio_campaign
 from sensei.data.stock_repair import MANIFEST_NAME, verify_repair_snapshot
+from sensei.data.kite_validation import SNAPSHOT_MANIFEST, verify_priority_snapshot
 from sensei.research.exposure import record_development_frames
 from sensei.research.stock_evaluation import EvaluationProtocol, audit_stock_data, evaluate_stock_portfolio
 
@@ -33,6 +34,7 @@ class StockRunSettings:
     benchmark_path: Path
     benchmark_name: str
     output_directory: Path
+    snapshot_type: str = "unverified_parquet"
 
     def __post_init__(self):
         if self.start > self.end:
@@ -43,6 +45,8 @@ class StockRunSettings:
             raise ValueError("run and strategy names are required")
         if set(self.strategy_parameters) != {"stop_pct", "target_pct", "max_hold_days"}:
             raise ValueError("freeze stop_pct, target_pct and max_hold_days explicitly")
+        if self.snapshot_type not in {"unverified_parquet", "kite_development"}:
+            raise ValueError("unknown snapshot_type")
 
     def identity_payload(self):
         return json.loads(json.dumps(asdict(self), default=str))
@@ -52,7 +56,7 @@ def load_run_settings(path: Path, *, maximum_drawdown_pct: float | None = None) 
     raw = json.loads(path.read_text())
     allowed = {"name", "start", "end", "warmup_sessions", "strategy_name", "strategy_parameters",
                "portfolio", "evaluation", "prices_path", "benchmark_path", "benchmark_name", "output_directory"}
-    if not isinstance(raw, dict) or set(raw) != allowed:
+    if not isinstance(raw, dict) or not allowed <= set(raw) or set(raw) - allowed - {"snapshot_type"}:
         raise ValueError("run configuration must contain exactly the documented settings")
     for key in ("prices_path", "benchmark_path", "output_directory"):
         raw[key] = (path.resolve().parent / raw[key]).resolve()
@@ -109,6 +113,11 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
     repair_evidence = None
     if (settings.prices_path / MANIFEST_NAME).exists():
         repair_evidence = verify_repair_snapshot(settings.prices_path)
+    kite_evidence = None
+    if settings.snapshot_type == "kite_development" and not (settings.prices_path / SNAPSHOT_MANIFEST).exists():
+        raise ValueError("required Kite snapshot manifest is missing")
+    if (settings.prices_path / SNAPSHOT_MANIFEST).exists():
+        kite_evidence = verify_priority_snapshot(settings.prices_path)
     original = {path.stem: pd.read_parquet(path) for path in sorted(settings.prices_path.glob("*.parquet"))}
     frames = scope_price_frames(original, start=settings.start, end=settings.end, warmup_sessions=settings.warmup_sessions)
     benchmark_frame = pd.read_parquet(settings.benchmark_path)
@@ -137,6 +146,7 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
                 "benchmark_sha256": benchmark_hash,
                 "benchmark_manifest": benchmark_evidence,
                 "repair_manifest": repair_evidence,
+                "kite_manifest": kite_evidence,
                 "implementation_sha256": hashlib.sha256((implementation
                     + inspect.getsource(sys.modules[__name__])).encode()).hexdigest()}
     run_id = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
@@ -159,6 +169,10 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
         manifest_path.write_text(json.dumps({"run_id": run_id, "recorded_before_evaluation": datetime.now(timezone.utc).isoformat(),
             "identity": identity, "phase": "REUSED_HISTORY_DEVELOPMENT"}, indent=2) + "\n")
     audit = audit_stock_data(frames)
+    if kite_evidence is not None:
+        audit["kite_snapshot"] = {"snapshot_id": kite_evidence["snapshot_id"],
+            "unmapped_symbols": kite_evidence["identity"]["unmapped_symbols"],
+            "limitations": kite_evidence["identity"]["limitations"], "admissible": False}
     if repair_evidence is not None:
         audit["repair"] = {key: repair_evidence[key] for key in
             ("snapshot_id", "removed_row_count", "instrument_count", "inserted_rows", "authority", "admissible", "unresolved")}

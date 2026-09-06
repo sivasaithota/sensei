@@ -126,6 +126,48 @@ def test_cached_report_requires_original_manifest(tmp_path):
         run_stock_development(settings, journal=journal)
 
 
+def test_kite_snapshot_is_verified_and_bound_to_frozen_run(tmp_path):
+    from sensei.data.kite_history import KiteRawStore, KiteDataError, build_plan, encoded, private_write
+    from sensei.data.kite_validation import build_priority_snapshot
+
+    path, frame = configured_run(tmp_path)
+    master = b'instrument_token,tradingsymbol,exchange,segment,instrument_type\n1,A,NSE,NSE,EQ\n'
+    master_request = {'kind': 'master', 'as_of': '2026-09-06'}
+    class Client:
+        def fetch(self, req):
+            if req['kind'] == 'master': return master
+            return encoded({'status': 'success', 'data': {'candles': [
+                [str(stamp.date())+'T00:00:00+0530', 100,101,99,100,1000000]
+                for stamp in frame.index]}})
+    store, client = KiteRawStore(tmp_path/'raw-store'), Client()
+    store.capture(master_request, client)
+    plan = build_plan(master, master_request=master_request,
+                      start=frame.index[0].date(), end=frame.index[-1].date())
+    plan_path = tmp_path/'plan.json'; private_write(plan_path, encoded(plan))
+    for req in plan['identity']['requests']: store.capture(req, client)
+    universe = tmp_path/'universe.csv'; universe.write_text('symbol\nA\nRETIRED\n')
+    snapshot = build_priority_snapshot(plan_path, store, universe,
+        start=frame.index[0].date(), end=frame.index[-1].date(), output=tmp_path/'snapshots')
+    settings = replace(load_run_settings(path), prices_path=snapshot, snapshot_type='kite_development')
+    journal = OperationalJournal(tmp_path/'journal.sqlite3')
+    report_path = run_stock_development(settings, journal=journal)
+    report = json.loads(report_path.read_text())
+    assert report['data']['kite_snapshot']['unmapped_symbols'] == ['RETIRED']
+    assert report['data']['kite_snapshot']['admissible'] is False
+    assert report['can_trade'] is False
+    manifest = json.loads(report_path.with_name('manifest.json').read_text())
+    assert manifest['identity']['kite_manifest']['snapshot_id'] == snapshot.name
+    snapshot_manifest = snapshot/'kite_snapshot_manifest.json'
+    original_manifest = snapshot_manifest.read_bytes()
+    snapshot_manifest.unlink()
+    with pytest.raises(ValueError, match='required Kite snapshot manifest'):
+        run_stock_development(settings, journal=journal)
+    snapshot_manifest.write_bytes(original_manifest)
+    (snapshot/'A.parquet').write_bytes(b'changed')
+    with pytest.raises(KiteDataError, match='content'):
+        run_stock_development(settings, journal=journal)
+
+
 def test_changed_compiled_rules_cannot_reuse_results(tmp_path, monkeypatch):
     from sensei.backtest import playbook
     from sensei.backtest.rulespec import RuleSpec, compile_spec
