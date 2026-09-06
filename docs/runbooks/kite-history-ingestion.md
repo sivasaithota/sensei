@@ -69,6 +69,16 @@ schema-verified before reuse, including empty windows. A verified empty response
 means the provider returned no data for that window, not that no earlier history
 exists. A corrupted artifact stops the run for inspection.
 
+Invalid history responses are retained under `rejected/` with original bytes,
+request hashes and validation reasons. Other windows continue downloading;
+resumes verify and reuse these rejected captures without requesting them again.
+Progress counts include processed rejected windows, with `rejected_responses`
+reported separately. `<plan ID>-rejected.json` lists the affected requests.
+Rejection is not an empty response or usable data. The download exits nonzero
+after acquisition if any rejected responses remain, so normalization stays
+blocked. An operator must resolve conflicting bars with independent evidence;
+the downloader never chooses one duplicate automatically.
+
 Normalization writes per-instrument-token Parquet files plus symbol mappings,
 raw-input hashes, first/last dates and special-session gaps under
 `normalized/<plan ID>/`. It requires every planned request. Tokens are output

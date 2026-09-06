@@ -34,3 +34,10 @@ first, with all captured history remaining research data.
    captures into private per-instrument Parquet with raw-input lineage and
    coverage reports. Missing/invalid requests must not become fabricated bars
    or a successful completeness claim.
+6. Retain invalid historical responses separately with request identity, original
+   bytes, hashes and rejection reason. Continue acquiring other windows, reuse
+   verified rejected responses on resume, and report their count explicitly.
+   Conflicting duplicate bars must never be selected, merged or dropped silently.
+   Corrupt caches and failed probes still stop the job. An acquisition containing
+   rejected responses must exit unsuccessfully and block normalization until
+   those responses receive an explicit, independently justified resolution.

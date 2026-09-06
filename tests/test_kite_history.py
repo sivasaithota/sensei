@@ -202,3 +202,40 @@ def test_empty_windows_are_cached_and_never_filled(tmp_path, monkeypatch):
     assert len(client.calls) == 3
     _, result = normalize(plan, store)
     assert result['total_rows'] == 0 and result['instruments'] == 2
+
+
+def test_conflicting_vendor_rows_are_preserved_without_stopping_other_downloads(tmp_path, monkeypatch):
+    monkeypatch.setattr('sensei.data.kite_history.probe', lambda *args: {'coverage_passed': True})
+    payload = json.loads(candles(['2024-01-23']))
+    payload['data']['candles'].append(['2024-01-23T00:00:00+05:30', 99, 103, 98, 100, 900])
+    conflicting = encoded(payload)
+
+    class ConflictClient(FixtureClient):
+        def fetch(self, req):
+            if req.get('symbol') == 'OTHER':
+                self.calls.append(req)
+                return conflicting
+            return super().fetch(req)
+
+    store, client = KiteRawStore(tmp_path), ConflictClient()
+    store.capture(MASTER_REQUEST, client)
+    plan = build_plan(MASTER, master_request=MASTER_REQUEST, start=date(2024,1,1),
+                      end=date(2024,1,23), priority_symbols=['TCS'])
+    report = download(plan, store, client, progress=lambda *a, **k: None)
+    assert report['rejected_responses'] == 1
+    assert report['new_requests'] == 2
+    good, bad = plan['identity']['requests']
+    assert store.verified(good) is not None
+    assert store.verified(bad) is None
+    assert store.verified_rejection(bad) == conflicting
+    calls = len(client.calls)
+    assert download(plan, store, client, progress=lambda *a, **k: None)['rejected_responses'] == 1
+    assert len(client.calls) == calls
+    with pytest.raises(KiteDataError, match='Complete the capture'):
+        normalize(plan, store)
+    assert not list((tmp_path / 'normalized').rglob('*.parquet'))
+    rejection, _ = store.rejection_paths(bad)
+    rejection.write_bytes(b'corrupt')
+    with pytest.raises(KiteDataError, match='integrity'):
+        download(plan, store, client)
+    assert len(client.calls) == calls

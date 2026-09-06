@@ -34,6 +34,10 @@ class KiteDataError(RuntimeError):
     pass
 
 
+class KiteRejectedResponse(KiteDataError):
+    """Original vendor bytes were retained, but cannot become price data."""
+
+
 class KiteRequestError(KiteDataError):
     def __init__(self, classification: str, status: int | None = None):
         self.classification, self.status = classification, status
@@ -203,6 +207,41 @@ class KiteRawStore:
         directory = self.root / "raw" / identifier[:2] / identifier
         return directory / "response.bin", directory / "manifest.json"
 
+    def rejection_paths(self, request):
+        identifier = digest(encoded(request))
+        directory = self.root / "rejected" / identifier[:2] / identifier
+        return directory / "response.bin", directory / "manifest.json"
+
+    def verified_rejection(self, request) -> bytes | None:
+        validate_request(request)
+        raw_path, meta_path = self.rejection_paths(request)
+        if not raw_path.exists() and not meta_path.exists():
+            return None
+        if not raw_path.exists() or not meta_path.exists():
+            raise KiteDataError("Incomplete rejected artifact; inspect before resuming")
+        content, metadata = raw_path.read_bytes(), json.loads(meta_path.read_text())
+        if (metadata.get("request") != request or metadata.get("sha256") != digest(content)
+                or metadata.get("bytes") != len(content) or metadata.get("classification") != "rejected"):
+            raise KiteDataError("Kite rejected artifact integrity mismatch")
+        if any(path.exists() for path in self.paths(request)):
+            raise KiteDataError("Request has both accepted and rejected artifacts; inspect before resuming")
+        try:
+            history_frame(content, request)
+        except KiteDataError as exc:
+            if metadata.get("reason") != str(exc):
+                raise KiteDataError("Rejected response validation changed; inspect before resuming") from None
+            return content
+        raise KiteDataError("Rejected response now passes validation; explicit resolution is required")
+
+    def _publish(self, paths, content, metadata):
+        raw_path, meta_path = paths
+        raw_path.parent.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        with TemporaryDirectory(prefix=".capture-", dir=raw_path.parent.parent) as temporary:
+            staging = Path(temporary)
+            private_write(staging / raw_path.name, content)
+            private_write(staging / meta_path.name, encoded(metadata))
+            staging.rename(raw_path.parent)
+
     def verified(self, request) -> bytes | None:
         raw_path, meta_path = self.paths(request)
         if not raw_path.exists() and not meta_path.exists():
@@ -222,21 +261,24 @@ class KiteRawStore:
         return content
 
     def capture(self, request, client) -> bytes:
+        if request["kind"] == "history" and self.verified_rejection(request) is not None:
+            raise KiteRejectedResponse("Kite rejected response retained for review")
         existing = self.verified(request)
         if existing is not None:
             return existing
         content = client.fetch(request)
-        rows = len(master_equities(content)) if request["kind"] == "master" else len(history_frame(content, request))
         metadata = {"request": request, "sha256": digest(content), "bytes": len(content),
-                    "rows": rows, "classification": "data" if rows else "no_data",
                     "retrieved_at": datetime.now(IST).isoformat(), **AUTHORITY}
-        raw_path, meta_path = self.paths(request)
-        raw_path.parent.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        with TemporaryDirectory(prefix=".capture-", dir=raw_path.parent.parent) as temporary:
-            staging = Path(temporary)
-            private_write(staging / raw_path.name, content)
-            private_write(staging / meta_path.name, encoded(metadata))
-            staging.rename(raw_path.parent)
+        try:
+            rows = len(master_equities(content)) if request["kind"] == "master" else len(history_frame(content, request))
+        except KiteDataError as exc:
+            if request["kind"] != "history":
+                raise
+            self._publish(self.rejection_paths(request), content,
+                          {**metadata, "classification": "rejected", "reason": str(exc)})
+            raise KiteRejectedResponse("Kite rejected response retained for review") from None
+        self._publish(self.paths(request), content,
+                      {**metadata, "rows": rows, "classification": "data" if rows else "no_data"})
         return content
 
 
@@ -352,11 +394,17 @@ def download(plan, store, client, *, progress=print):
         raise KiteDataError("Required-session probe failed; bulk download and resume are blocked")
     requests = plan["identity"]["requests"]
     fetched = skipped = empty = 0
+    rejected = []
     for i, request in enumerate(requests, 1):
-        content = store.verified(request)
-        if content is None:
+        retained_rejection = store.verified_rejection(request)
+        content = store.verified(request) if retained_rejection is None else None
+        if retained_rejection is not None:
+            skipped += 1
+        elif content is None:
             try:
                 content = store.capture(request, client)
+            except KiteRejectedResponse:
+                retained_rejection = store.verified_rejection(request)
             except KiteRequestError as exc:
                 private_write(store.root / "reports" / f'{plan["plan_id"]}-stopped.json', encoded({
                     "request": request, "completed": i - 1, "classification": exc.classification,
@@ -365,12 +413,17 @@ def download(plan, store, client, *, progress=print):
             fetched += 1
         else:
             skipped += 1
-        if history_frame(content, request).empty:
+        if retained_rejection is not None:
+            rejected.append({"request": request, "raw_sha256": digest(retained_rejection)})
+            private_write(store.root / "reports" / f'{plan["plan_id"]}-rejected.json', encoded({
+                "plan_id": plan["plan_id"], "rejected": rejected, **AUTHORITY}))
+        elif history_frame(content, request).empty:
             empty += 1
         if i % 25 == 0 or i == len(requests):
             progress(json.dumps({"completed": i, "total": len(requests), "new_requests": fetched,
-                "cached": skipped, "empty_responses": empty}), flush=True)
-    return {"requests": len(requests), "new_requests": fetched, "cached": skipped, "empty_responses": empty}
+                "cached": skipped, "empty_responses": empty, "rejected_responses": len(rejected)}), flush=True)
+    return {"requests": len(requests), "new_requests": fetched, "cached": skipped,
+            "empty_responses": empty, "rejected_responses": len(rejected)}
 
 
 def probe(master, master_request, store, client):
@@ -403,6 +456,10 @@ def probe(master, master_request, store, client):
 
 def normalize(plan, store):
     verify_plan(plan, store)
+    # A later bad instrument must block the entire output before any writes.
+    for request in plan["identity"]["requests"]:
+        if store.verified_rejection(request) is not None or store.verified(request) is None:
+            raise KiteDataError("Complete the capture and resolve rejected responses before normalization")
     grouped = {}
     for request in plan["identity"]["requests"]:
         grouped.setdefault(request["symbol"], []).append(request)
@@ -483,7 +540,10 @@ def main():
             else:
                 plan = json.loads(args.plan.read_text())
             if args.command in ("capture", "download"):
-                print(json.dumps(download(plan, store, client)), flush=True)
+                result = download(plan, store, client)
+                print(json.dumps(result), flush=True)
+                if result["rejected_responses"]:
+                    raise KiteDataError("Acquisition finished with rejected responses; normalization remains blocked")
             if args.command in ("capture", "normalize"):
                 path, report = normalize(plan, store)
                 print(json.dumps({"normalized": str(path), "rows": report["total_rows"],
@@ -492,8 +552,10 @@ def main():
                 verify_plan(plan, store)
                 requests = plan["identity"]["requests"]
                 verified = sum(store.verified(r) is not None for r in requests)
+                rejected = sum(store.verified_rejection(r) is not None for r in requests)
                 print(json.dumps({"expected": len(requests), "verified": verified,
-                                  "missing": len(requests) - verified, **AUTHORITY}))
+                                  "rejected": rejected, "missing": len(requests) - verified - rejected,
+                                  **AUTHORITY}))
                 if verified != len(requests):
                     raise SystemExit(2)
     except KiteDataError as exc:
