@@ -147,3 +147,26 @@ rescale prices. Use primary company/exchange evidence and retain missing
 receipts/entitlements explicitly. No invented cash credits or new price repair
 without a verified convention. No new subscriptions or Kite requests needed
 for the initial local comparison. Keep all failed experiments as prior exposure.
+
+## Pass 5 — held-trade endpoint evidence
+
+Resumed from `8799f1b` around 04:58 IST. Compared all 908 baseline/hold60 trade
+records against 485 verified local raw NSE sessions. Of 1,816 endpoint records,
+1,770 matched and 46 fall beyond the August 14 raw archive. Matched endpoints
+include 66 differing historical ISINs, explicitly unverified. Canonical NSE
+symbol matching fixed four false missing candidates for the Kite HEG-BE alias.
+
+No greater-than-1% entry/exit volume-scaling change appeared among 880 comparable
+trade records; 28 lack a comparison. This is endpoint screening, not proof of
+complete corporate-action accounting. Primary dividend research documents the
+unresolved Kite adjustment formula and the danger of double-crediting dividends
+against already-adjusted prices. No prices, cash or strategy results changed.
+
+Full suite: **922 passed**. Spec implementation review clear; Standards matching
+finding fixed with a regression. [Results and artifact identity](held-price-screen-results-2026-09-07.md).
+No Kite requests, new spending or live orders were made.
+
+Next pass: reconcile historical ISIN changes against official split/bonus notices,
+starting with MAZDOCK and HEG. Preserve effective dates, ratios and identity
+uncertainty; use this evidence to scope actual-price/entitlement accounting.
+Continue to stop strategy parameter tuning until the accounting basis is sound.
