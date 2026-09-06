@@ -6,7 +6,53 @@ possibility of complete capital loss. This is the research evaluation budget;
 per-trade stops, daily/weekly operational limits and live authorization are
 separate controls.
 
-Run the new development report with a frozen strategy and declared benchmark:
+The reusable settings are in `config/stock-research.json`. Edit
+`evaluation.maximum_drawdown_pct` to choose the research budget (greater than
+zero, up to 100%). Capital, position limits, costs, dates and strategy exits are
+also explicit settings. Relative paths resolve against the JSON file's folder.
+This threshold evaluates historical results; it does not change the running
+paper/live kill-switch configuration in `config/risk.yaml`.
+
+Run the frozen development baseline:
+
+```bash
+.venv/bin/python -m sensei.research.stock_evaluation --config config/stock-research.json
+```
+
+Override only the drawdown budget for a separate run:
+
+```bash
+.venv/bin/python -m sensei.research.stock_evaluation \
+  --config config/stock-research.json --max-drawdown 20
+```
+
+The override leaves the saved file unchanged. It creates a different run
+identity and output directory. Settings, actual signal definitions, input
+hashes, runtime versions and implementation identity are recorded in
+`manifest.json` before simulation. Cached reports require that manifest and
+a matching `report.sha256`. Source captures and results are local data artifacts,
+not checked into Git.
+
+The baseline retains every instrument but limits input dates to the declared
+2024-01-01 through 2026-09-03 evaluation and each instrument's preceding 252
+stored sessions. Missing sessions remain visible. September 3 is the explicit
+endpoint selected from local availability, before performance inspection.
+
+The official benchmark has been captured locally. To reproduce the capture
+on a fresh checkout, run:
+
+```bash
+.venv/bin/python -m sensei.data.nifty_benchmark \
+  --start 2022-12-01 --end 2026-09-04 \
+  --output data/research/benchmarks/nifty500-tri-20260906.parquet
+```
+
+This uses the request format published by the official
+[NSE Indices historical-data page](https://www.niftyindices.com/reports/historical-data)
+and retains raw responses and a hash-bound manifest. It rejects an existing
+destination; choose a new filename for a new capture.
+
+The earlier direct CLI remains available for explicit exploratory inputs:
 
 ```bash
 .venv/bin/python -m sensei.research.stock_evaluation \
@@ -19,7 +65,7 @@ Run the new development report with a frozen strategy and declared benchmark:
   --report data/reports/stock-portfolio-development.json
 ```
 
-The benchmark file is an explicit input, not supplied by this change. It must
+An external benchmark file is also accepted by that direct CLI. It must
 contain a `close` series indexed by dates, including the exact preceding
 portfolio session. Missing dates are not forward-filled. Specify
 `--max-drawdown 100` for the owner's confirmed budget. Omitting the option
@@ -55,3 +101,10 @@ medium-horizon relative strength as a separately registered hypothesis. The
 explains its basis and limits. No new strategy is declared profitable by these
 engineering corrections. Historical data validation, a benchmark, forward
 paper evidence, and a governed broker adapter remain required for a live decision.
+
+The first frozen run stopped on a calendar mismatch: four real sessions are
+missing from all local stock files and four holidays have zero-volume rows.
+The raw NSE archive contains all four missing sessions, but their prices must
+be reconciled to the adjusted series before insertion. See the
+[source verification report](../research/stock-data-admissibility-next-actions-2026-09-06.md)
+for exact dates, counts and exchange circulars.

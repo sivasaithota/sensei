@@ -188,18 +188,38 @@ def evaluate_stock_portfolio(*, campaign: PortfolioCampaignReport,
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--prices", type=Path, default=Path("data/prices"))
+    parser.add_argument("--config", type=Path, help="Reusable frozen-run JSON settings; paths resolve relative to this file")
+    parser.add_argument("--prices", type=Path)
     parser.add_argument("--benchmark", type=Path, help="Parquet with DatetimeIndex and close; include prior session")
-    parser.add_argument("--benchmark-name", default="unspecified")
-    parser.add_argument("--start", required=True)
-    parser.add_argument("--end", required=True)
-    parser.add_argument("--strategy", default="momentum_breakout_55")
+    parser.add_argument("--benchmark-name")
+    parser.add_argument("--start")
+    parser.add_argument("--end")
+    parser.add_argument("--strategy")
     parser.add_argument("--max-drawdown", type=float)
-    parser.add_argument("--entry-slippage-bps", type=float, default=10)
-    parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--entry-slippage-bps", type=float)
+    parser.add_argument("--report", type=Path)
     args = parser.parse_args()
     from sensei.backtest.playbook import all_strategies
     from sensei.research.exposure import record_development_frames
+
+    if args.config:
+        from sensei.research.stock_run import load_run_settings, run_stock_development
+
+        if any(value is not None for value in (args.start, args.end, args.report, args.benchmark,
+                args.prices, args.benchmark_name, args.strategy, args.entry_slippage_bps)):
+            parser.error("with --config, edit the JSON settings; only --max-drawdown may override them")
+        settings = load_run_settings(args.config, maximum_drawdown_pct=args.max_drawdown)
+        report_path = run_stock_development(settings)
+        payload = json.loads(report_path.read_text())
+        print(json.dumps({"report": str(report_path), "decision": payload["decision"],
+                          "economics": payload.get("economics"), "simulation_blockers": payload["simulation_blockers"]}))
+        return
+    if not args.start or not args.end or not args.report:
+        parser.error("supply --config or --start, --end and --report")
+    args.prices = args.prices or Path("data/prices")
+    args.strategy = args.strategy or "momentum_breakout_55"
+    args.benchmark_name = args.benchmark_name or "unspecified"
+    args.entry_slippage_bps = 10 if args.entry_slippage_bps is None else args.entry_slippage_bps
 
     available = all_strategies()
     if args.strategy not in available:
