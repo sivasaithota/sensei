@@ -483,3 +483,40 @@ def test_cli_eod_probe_rejects_empty_data(
         == 2
     )
     assert "returned no sessions" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("returned_dates,expected_status,exit_code", [
+    ([], "REQUIRED_SESSIONS_MISSING", 2),
+    (["2024-01-19", "2024-01-23"], "REQUIRED_SESSIONS_MISSING", 2),
+    (["2024-01-19", "2024-01-20", "2024-01-23"], "REQUIRED_SESSIONS_PRESENT", 0),
+])
+def test_eod_probe_checks_required_special_session(returned_dates, expected_status, exit_code,
+                                                  monkeypatch, capsys):
+    monkeypatch.setenv("ACCELPIX_API_TOKEN", "secret-token")
+    content = json.dumps([{"tkr": "TCS", "td": day, "op": 100, "hp": 110,
+        "lp": 90, "cp": 105, "vol": 1000, "eod": True} for day in returned_dates]).encode()
+    monkeypatch.setattr(accelpix_cli.AccelPixClient, "fetch", lambda _self, request:
+        FetchedPayload(content=content, content_type="application/json",
+            retrieved_at=datetime.now(timezone.utc), source_uri=request.safe_source_uri, status_code=200))
+    result = accelpix_cli.main(["probe-eod", "--ticker", "TCS", "--start", "2024-01-19",
+        "--end", "2024-01-23", "--required-session", "2024-01-20", "--required-session", "2024-01-23"])
+    assert result == exit_code
+    output = capsys.readouterr().out
+    report = json.loads(output)
+    assert report["status"] == expected_status
+    assert report["missing_sessions"] == sorted({"2024-01-20", "2024-01-23"} - set(returned_dates))
+    assert report["observed_sessions"] == returned_dates
+    assert report["adjustment_factors_verified"] is False
+    assert report["admissible"] is False
+    assert "secret-token" not in output
+    assert '"cp"' not in output
+
+
+def test_required_session_outside_window_fails_before_credentials_or_network(monkeypatch, capsys):
+    def unexpected_config(*args, **kwargs):
+        pytest.fail("must reject the window before reading credentials")
+    monkeypatch.setattr(accelpix_cli, "_config", unexpected_config)
+    result = accelpix_cli.main(["probe-eod", "--ticker", "TCS", "--start", "2024-01-19",
+        "--end", "2024-01-23", "--required-session", "2024-03-02"])
+    assert result == 2
+    assert "outside the probe window" in capsys.readouterr().err

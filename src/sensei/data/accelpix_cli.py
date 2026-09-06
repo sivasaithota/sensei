@@ -46,6 +46,10 @@ def _parser() -> argparse.ArgumentParser:
     probe_eod.add_argument("--ticker", required=True)
     probe_eod.add_argument("--start", type=_date, required=True)
     probe_eod.add_argument("--end", type=_date, required=True)
+    probe_eod.add_argument(
+        "--required-session", type=_date, action="append", default=[],
+        help="require this exchange session in the response; repeat for multiple dates",
+    )
 
     master = sub.add_parser("capture-master", help="capture and hash the symbol master")
     master.add_argument("--store", type=Path, default=None)
@@ -166,24 +170,34 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "probe-eod":
             if args.start > args.end or (args.end - args.start).days > 7:
                 raise AccelPixError("EOD probe must be bounded to at most five sessions")
+            required = set(args.required_session)
+            if any(not args.start <= session <= args.end for session in required):
+                raise AccelPixError("required session is outside the probe window")
             request = AccelPixRequest.eod(args.ticker, args.start, args.end)
             payload = AccelPixClient(_config()).fetch(
                 request
             )
             rows = validate_eod_payload(request, payload.content)
-            if not rows:
+            if not rows and not required:
                 raise AccelPixError("EOD probe returned no sessions")
             if len(rows) > 5:
                 raise AccelPixError("EOD probe returned more than five sessions")
+            observed = {row["date"].date() for row in rows}
+            missing = sorted(required - observed)
             _print(
                 {
-                    "status": "EOD_SCHEMA_VALID",
+                    "status": ("REQUIRED_SESSIONS_MISSING" if missing else
+                               "REQUIRED_SESSIONS_PRESENT" if required else "EOD_SCHEMA_VALID"),
                     "stamp": ACCELPIX_STAMP,
                     "admissible": False,
                     "rows": len(rows),
+                    "observed_sessions": [str(session) for session in sorted(observed)],
+                    "required_sessions": [str(session) for session in sorted(required)],
+                    "missing_sessions": [str(session) for session in missing],
+                    "adjustment_factors_verified": False,
                 }
             )
-            return 0
+            return 2 if missing else 0
 
         if args.command == "capture-master":
             config = _config(args.store)

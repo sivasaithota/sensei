@@ -112,8 +112,46 @@ Run these steps only after the API team confirms access.
      --output "$SENSEI_ACCELPIX_DIR/normalized/nse-equity-eod.parquet"
    ```
 
-All commands output status and counts only. Raw payloads and API tokens are
+Commands output status, counts and probe session dates only. Raw payloads and API tokens are
 never printed.
+
+## Targeted stock-repair probe
+
+Access was still pending on 6 September 2026. These commands are prepared for
+activation; they have not been run against AccelPix. After the activation
+checks above, test the four sessions missing from the current stock corpus:
+
+```bash
+uv run sensei-accelpix probe-eod --ticker TCS \
+  --start 2024-01-19 --end 2024-01-23 --required-session 2024-01-20
+uv run sensei-accelpix probe-eod --ticker TCS \
+  --start 2024-03-01 --end 2024-03-04 --required-session 2024-03-02
+uv run sensei-accelpix probe-eod --ticker TCS \
+  --start 2024-05-17 --end 2024-05-21 --required-session 2024-05-18
+uv run sensei-accelpix probe-eod --ticker TCS \
+  --start 2026-01-30 --end 2026-02-02 --required-session 2026-02-01
+```
+
+A valid response containing only neighbors returns
+`REQUIRED_SESSIONS_MISSING`, names the missing dates and exits with code 2.
+`REQUIRED_SESSIONS_PRESENT` establishes date coverage for that probe only;
+`adjustment_factors_verified` and `admissible` remain false. Repeat
+`--required-session` to require multiple dates in one bounded window.
+
+The [repair audit](../research/stock-calendar-repair-results-2026-09-06.md)
+also found neighboring factor discrepancies for BALKRISIND, BPCL, IDEA and
+LTFOODS around 2026-02-01. Check these exact tickers against the captured
+vendor master, then use the February command above for each confirmed ticker.
+Probe responses are not stored; capture approved responses through the normal
+plan/download flow before using them as repair evidence. Reconcile adjustment
+methodology and dated factors against verified raw NSE bars before insertion.
+
+Once the dataset passes the existing audits, rerun the frozen ₹300,000 swing
+baseline and report its benchmark-relative outcome. The next strategy campaign
+is the bounded relative-strength comparison in the
+[strategy evidence review](../research/stock-strategy-evidence-2026-09-06.md),
+with its rules frozen before evaluating returns. No new performance test or
+live activation follows merely from a successful provider probe.
 
 ## Fail-closed behavior
 
