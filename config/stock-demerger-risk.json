@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "post_event_observations": 252,
+  "events": [
+    {
+      "id": "abfrl-ablbl-2025",
+      "symbol": "ABFRL",
+      "announced_on": "2025-05-12",
+      "available_from": "2025-05-13",
+      "ex_date": "2025-05-22",
+      "sources": [
+        "https://www.abfrl.com/wp-content/uploads/2025/05/SE-Record-Date.pdf",
+        "https://niftyindices.com/Press_Release/ind_prs19052025.pdf"
+      ]
+    },
+    {
+      "id": "vedl-four-demerger-2026",
+      "symbol": "VEDL",
+      "announced_on": "2026-04-20",
+      "available_from": "2026-04-21",
+      "ex_date": "2026-04-30",
+      "sources": [
+        "https://www.vedantalimited.com/public/uploads/19056/VEDLSEIntimationRecordDate20April2026signed.pdf",
+        "https://nsearchives.nseindia.com/content/circulars/FAOP73857.pdf"
+      ]
+    }
+  ]
+}

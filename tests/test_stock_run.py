@@ -188,3 +188,64 @@ def test_changed_compiled_rules_cannot_reuse_results(tmp_path, monkeypatch):
     assert first != second
     assert json.loads(first.read_text())["campaign"]["trades"] == []
     assert json.loads(second.read_text())["campaign"]["trades"]
+
+
+def configure_event_run(tmp_path, monkeypatch, *, announcement_offset):
+    from sensei.backtest import playbook
+    from sensei.backtest.rulespec import RuleSpec, compile_spec
+
+    path, frame = configured_run(tmp_path)
+    dates = frame.index
+    policy = {"version": 1, "post_event_observations": 252, "events": [{
+        "id": "a-demerger", "symbol": "A",
+        "announced_on": str(dates[252 + announcement_offset].date()),
+        "available_from": str(dates[253 + announcement_offset].date()),
+        "ex_date": str(dates[260].date()), "sources": ["https://example.com/notice.pdf"]}]}
+    policy_path = tmp_path / "policy.json"
+    policy_path.write_text(json.dumps(policy))
+    config = json.loads(path.read_text())
+    config["event_risk_path"] = "policy.json"
+    path.write_text(json.dumps(config))
+    rule = RuleSpec(name="momentum_breakout_55", source="fixture", principle="fixture",
+        conditions=[{"left": "close", "op": ">", "right": 50}],
+        stop_pct=5, target_pct=12, max_hold_days=30)
+    monkeypatch.setattr(playbook, "all_strategies", lambda: {
+        rule.name: {"fn": compile_spec(rule), **config["strategy_parameters"]}})
+    return load_run_settings(path), policy_path
+
+
+def test_event_policy_blocks_entries_and_policy_content_changes_run_identity(tmp_path, monkeypatch):
+    settings, policy_path = configure_event_run(tmp_path, monkeypatch, announcement_offset=-1)
+    journal = OperationalJournal(tmp_path / "journal.sqlite3")
+    first = run_stock_development(settings, journal=journal)
+    report = json.loads(first.read_text())
+    assert report["campaign"]["trades"] == []
+    assert report["data"]["event_risk"]["blocked_entry_sessions"] == {"A": 18}
+    assert report["data"]["event_risk"]["held_event_exposure"] == []
+    assert report["can_trade"] is False
+    policy = json.loads(policy_path.read_text())
+    policy["post_event_observations"] = 253
+    policy_path.write_text(json.dumps(policy))
+    assert run_stock_development(settings, journal=journal) != first
+    policy_path.unlink()
+    with pytest.raises(FileNotFoundError):
+        run_stock_development(settings, journal=journal)
+
+
+def test_existing_holding_crossing_event_withholds_economic_verdict(tmp_path, monkeypatch):
+    settings, _ = configure_event_run(tmp_path, monkeypatch, announcement_offset=2)
+    report_path = run_stock_development(settings, journal=OperationalJournal(tmp_path / "journal.sqlite3"))
+    report = json.loads(report_path.read_text())
+    assert report["simulation_blockers"] == ["unmodeled_demerger_entitlements_in_held_positions"]
+    exposure = report["data"]["event_risk"]["held_event_exposure"]
+    assert len(exposure) == 1 and exposure[0]["symbol"] == "A"
+    assert report["economics"]["verdict"] == "INCONCLUSIVE"
+    assert "campaign" not in report
+    assert report["decision"] == "DATA_BLOCKED" and report["can_trade"] is False
+
+
+def test_event_policy_requires_closed_position_audit(tmp_path, monkeypatch):
+    settings, _ = configure_event_run(tmp_path, monkeypatch, announcement_offset=-1)
+    settings = replace(settings, portfolio=replace(settings.portfolio, liquidate_at_end=False))
+    with pytest.raises(ValueError, match="end liquidation"):
+        run_stock_development(settings, journal=OperationalJournal(tmp_path / "journal.sqlite3"))

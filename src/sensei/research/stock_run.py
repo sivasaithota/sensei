@@ -35,6 +35,7 @@ class StockRunSettings:
     benchmark_name: str
     output_directory: Path
     snapshot_type: str = "unverified_parquet"
+    event_risk_path: Path | None = None
 
     def __post_init__(self):
         if self.start > self.end:
@@ -56,10 +57,12 @@ def load_run_settings(path: Path, *, maximum_drawdown_pct: float | None = None) 
     raw = json.loads(path.read_text())
     allowed = {"name", "start", "end", "warmup_sessions", "strategy_name", "strategy_parameters",
                "portfolio", "evaluation", "prices_path", "benchmark_path", "benchmark_name", "output_directory"}
-    if not isinstance(raw, dict) or not allowed <= set(raw) or set(raw) - allowed - {"snapshot_type"}:
+    if not isinstance(raw, dict) or not allowed <= set(raw) or set(raw) - allowed - {"snapshot_type", "event_risk_path"}:
         raise ValueError("run configuration must contain exactly the documented settings")
     for key in ("prices_path", "benchmark_path", "output_directory"):
         raw[key] = (path.resolve().parent / raw[key]).resolve()
+    if raw.get("event_risk_path") is not None:
+        raw["event_risk_path"] = (path.resolve().parent / raw["event_risk_path"]).resolve()
     raw["start"], raw["end"] = date.fromisoformat(raw["start"]), date.fromisoformat(raw["end"])
     raw["portfolio"] = PortfolioCampaignConfig(**raw["portfolio"])
     raw["evaluation"] = EvaluationProtocol(**raw["evaluation"])
@@ -106,6 +109,7 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
     from sensei.execution import nse
     from sensei.strategy import selection
     from sensei.research import stock_evaluation
+    from sensei.research import event_risk
 
     strategies = all_strategies()
     if settings.strategy_name not in strategies:
@@ -120,6 +124,10 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
         kite_evidence = verify_priority_snapshot(settings.prices_path)
     original = {path.stem: pd.read_parquet(path) for path in sorted(settings.prices_path.glob("*.parquet"))}
     frames = scope_price_frames(original, start=settings.start, end=settings.end, warmup_sessions=settings.warmup_sessions)
+    policy = event_risk.load_event_risk(settings.event_risk_path) if settings.event_risk_path is not None else None
+    if policy is not None and not settings.portfolio.liquidate_at_end:
+        raise ValueError("event risk sensitivity requires end liquidation to audit every holding")
+    eligibility = event_risk.entry_masks(frames, policy) if policy is not None else None
     benchmark_frame = pd.read_parquet(settings.benchmark_path)
     if list(benchmark_frame.columns) != ["close"]:
         raise ValueError("benchmark must contain a single close column")
@@ -136,7 +144,7 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
     record_development_frames({"NIFTY500_TRI": benchmark_frame}, campaign_id=settings.name, journal=journal)
     spec = {**strategies[settings.strategy_name], **settings.strategy_parameters}
     implementation = "".join(inspect.getsource(module) for module in
-        (portfolio_campaign, costs, daily_execution, nse, selection, stock_evaluation))
+        (portfolio_campaign, costs, daily_execution, nse, selection, stock_evaluation, event_risk))
     identity = {"settings": settings.identity_payload(),
                 "signal": _signal_identity(spec["fn"]),
                 "runtime": {name: version(name) for name in ("numpy", "pandas", "pydantic")},
@@ -147,6 +155,7 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
                 "benchmark_manifest": benchmark_evidence,
                 "repair_manifest": repair_evidence,
                 "kite_manifest": kite_evidence,
+                "event_risk_policy": policy.identity() if policy is not None else None,
                 "implementation_sha256": hashlib.sha256((implementation
                     + inspect.getsource(sys.modules[__name__])).encode()).hexdigest()}
     run_id = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
@@ -169,6 +178,11 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
         manifest_path.write_text(json.dumps({"run_id": run_id, "recorded_before_evaluation": datetime.now(timezone.utc).isoformat(),
             "identity": identity, "phase": "REUSED_HISTORY_DEVELOPMENT"}, indent=2) + "\n")
     audit = audit_stock_data(frames)
+    if policy is not None:
+        audit["event_risk"] = {"policy": policy.identity(), "coverage": "only the explicitly listed events",
+            "treatment": "new-entry exclusion; original prices and universe retained; no entitlement accounting",
+            "blocked_entry_sessions": {symbol: int((~mask.loc[str(settings.start):str(settings.end)]).sum())
+                for symbol, mask in eligibility.items() if not mask.all()}, "held_event_exposure": []}
     if kite_evidence is not None:
         audit["kite_snapshot"] = {"snapshot_id": kite_evidence["snapshot_id"],
             "unmapped_symbols": kite_evidence["identity"]["unmapped_symbols"],
@@ -196,12 +210,19 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
     if not blockers:
         try:
             campaign = run_portfolio_campaign(frames=frames, strategies={settings.strategy_name: spec},
-                config=settings.portfolio, evaluation_start=pd.Timestamp(settings.start), evaluation_end=pd.Timestamp(settings.end))
+                config=settings.portfolio, evaluation_start=pd.Timestamp(settings.start), evaluation_end=pd.Timestamp(settings.end),
+                entry_eligibility=eligibility)
         except ValueError as exc:
             blockers.append(str(exc))
         else:
-            payload.update(evaluate_stock_portfolio(campaign=campaign, protocol=settings.evaluation,
-                data_audit=audit, benchmark=benchmark, benchmark_name=settings.benchmark_name))
+            exposed = event_risk.held_event_exposure(campaign.trades, policy) if policy is not None else []
+            if exposed:
+                audit["event_risk"]["held_event_exposure"] = exposed
+                blockers.append("unmodeled_demerger_entitlements_in_held_positions")
+                payload["economics"] = {"verdict": "INCONCLUSIVE", "limitations": blockers.copy()}
+            else:
+                payload.update(evaluate_stock_portfolio(campaign=campaign, protocol=settings.evaluation,
+                    data_audit=audit, benchmark=benchmark, benchmark_name=settings.benchmark_name))
     payload["simulation_blockers"] = blockers
     report_path.write_text(json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n")
     report_hash_path.write_text(hashlib.sha256(report_path.read_bytes()).hexdigest() + "\n")

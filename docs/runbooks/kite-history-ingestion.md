@@ -141,3 +141,24 @@ snapshot ID changes. Economic results and data-admissibility decisions are
 reported separately. See the [security exception evidence](../research/kite-security-exceptions-2026-09-07.md)
 for the confirmed FORCEMOT inactive interval and JBCHEPHARM suspension; neither
 authorizes price interpolation or silent removal from an earlier universe.
+
+## Demerger entry-risk sensitivity
+
+The optional `event_risk_path` setting resolves relative to the run config and
+loads a strict, versioned JSON policy. A configured missing file is an error.
+The policy lists dated announcements, conservative next-day availability,
+ex-dates and source references. It blocks new entries until at least 252
+post-event observations precede the entry session; it does not adjust prices,
+remove symbols, or account for entitlement shares.
+
+```bash
+.venv/bin/python -m sensei.research.stock_evaluation \
+  --config config/stock-research-demerger-sensitivity.json
+```
+
+This separate ABFRL/VEDL sensitivity preserves the original baseline config.
+It requires end liquidation, audits all holdings crossing listed ex-dates
+(including sales on the ex-date), and withholds economics when any requires
+unmodeled entitlements. Coverage remains limited to the listed events. The
+policy content and implementation are hashed into the frozen run identity.
+See the [actual comparison and limitations](../research/demerger-sensitivity-result-2026-09-07.md).
