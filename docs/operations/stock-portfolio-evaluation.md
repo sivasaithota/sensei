@@ -126,6 +126,8 @@ The original price directory and original run configuration remain available.
 
 The 6 September cleanup removed 1,917 placeholders. Its frozen rerun has no
 extra holiday dates, but still lacks four real sessions and stops before
-simulation. AccelPix access remains pending. See the
+simulation. The owner subsequently declined AccelPix because of cost; the
+[lower-cost source review](../research/stock-low-cost-data-options-2026-09-06.md)
+replaces that acquisition path. See the
 [repair results](../research/stock-calendar-repair-results-2026-09-06.md)
 for the snapshot, factor audit and remaining evidence requirements.

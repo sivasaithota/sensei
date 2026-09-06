@@ -7,6 +7,12 @@ execution
 
 ## Decision
 
+**Superseded acquisition decision, 6 September 2026:** the owner has ruled
+out AccelPix on cost grounds. Do not follow the AccelPix trial actions below
+as the current plan. Evaluate lower-cost broker data first; see the
+[updated source comparison](stock-low-cost-data-options-2026-09-06.md).
+The original investigation below is retained as historical context.
+
 Do not wait exclusively for TrueData. Request **historical API trials from
 Global Financial Datafeeds (GFDL) and AccelPix in parallel**, then run both
 through the same provider-neutral acceptance audit. They are the two practical

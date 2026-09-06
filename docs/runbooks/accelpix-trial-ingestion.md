@@ -1,5 +1,10 @@
 # AccelPix EOD trial ingestion
 
+**Inactive acquisition path, 6 September 2026:** the owner declined AccelPix
+because of cost. The adapter and this runbook are retained for reference;
+AccelPix activation is no longer the next action. See the
+[lower-cost data options](../research/stock-low-cost-data-options-2026-09-06.md).
+
 This runbook captures AccelPix NSE cash-equity EOD history into an owner-only,
 quarantined store. It never makes the data admissible for strategy governance
 or real-capital decisions.

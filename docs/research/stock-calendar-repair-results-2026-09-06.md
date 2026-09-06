@@ -1,5 +1,10 @@
 # Calendar repair results — 6 September 2026
 
+**Subsequent owner decision:** AccelPix was declined because of cost. The
+pending-access references below describe the state when this run finished;
+they are no longer the acquisition plan. Continue with the
+[lower-cost source evaluation](stock-low-cost-data-options-2026-09-06.md).
+
 The first repair is complete: **1,917 verified holiday placeholders were
 removed in a separate 500-instrument snapshot**. No missing price was inserted.
 The frozen baseline still stops before simulation because four real exchange
