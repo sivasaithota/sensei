@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from sensei.data.kite_validation import verify_priority_snapshot
+from sensei.research import market_attribution
 from sensei.research.stock_run import _frame_digest, scope_price_frames
 
 
@@ -106,16 +107,20 @@ def diagnose_report(report_path: Path, output: Path) -> Path:
     benchmark = Path(settings["benchmark_path"])
     if _sha(benchmark) != identity["benchmark_sha256"]:
         raise ValueError("source benchmark checksum mismatch")
-    calendar = pd.read_parquet(benchmark).index
+    benchmark_frame = pd.read_parquet(benchmark)
+    calendar = benchmark_frame.index
     result = {"authority": "RESEARCH_ONLY", "decision": "DATA_BLOCKED", "can_trade": False,
         "phase": "DESCRIPTIVE_REUSED_DEVELOPMENT", "source_run_id": run_id,
         "source_report_sha256": report_hash, "source_manifest_sha256": _sha(manifest_path),
         "implementation_sha256": _sha(Path(__file__)),
+        "market_implementation_sha256": _sha(Path(market_attribution.__file__)),
         "definitions": {"atr": "simple mean true range of 14 complete benchmark sessions strictly before entry",
             "year": "exit-year realized trade P&L, not annual portfolio return",
             "limitations": "Adjusted-chart volatility; historical membership and shareholder accounting remain unresolved. No causal benefit of a wider stop is established."},
         "attribution": attribute_trades(report["campaign"], frames, calendar,
-            stop_pct=settings["strategy_parameters"]["stop_pct"])}
+            stop_pct=settings["strategy_parameters"]["stop_pct"]),
+        "market_attribution": market_attribution.attribute_market(report["campaign"], benchmark_frame["close"],
+            start=settings["start"], end=settings["end"])}
     content = (json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
     digest = hashlib.sha256(content).hexdigest()
     path = output / digest / "report.json"

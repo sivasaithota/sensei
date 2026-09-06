@@ -82,3 +82,34 @@ introducing a regime-filter backtest or optimizing parameters. Retain all
 current data/accounting limits, and pursue actionable FORCEMOT/history policy
 or shareholder accounting evidence separately. Do not repeat completed
 lower-turnover runs or this attribution as new evidence.
+
+## Pass 3 — market-state attribution
+
+Resumed from `3146510` around 03:39 IST. Added a fixed diagnostic comparing
+the preceding Nifty 500 TRI close with its preceding 200-close mean. No
+strategy filter or new backtest was run. All four saved portfolios have 504
+above-average and 161 at-or-below sessions; none has unknown benchmark state.
+
+- Baseline trade P&L grouped by state at entry: above +₹37,352.25;
+  at-or-below −₹42,690.29. The hold60 variant's at-or-below entry cohort was
+  slightly positive at +₹1,831.02, so a blanket deletion claim is unsupported.
+- Actual baseline daily marked P&L: above +₹80,997.25; at-or-below −₹86,335.29.
+  It stayed 72.649% invested on average at day-end in the latter state.
+- All four portfolios lost marked value on at-or-below sessions. This view
+  includes existing holdings crossing states and differs from entry cohorts.
+- Review found and fixed a derivative calendar check that could accept a
+  missing first session and shift state attribution despite total P&L matching.
+  The check now uses full frozen evaluation dates. Original curves were complete;
+  final regenerated metrics and earlier trade/ATR attributions are unchanged.
+
+Full suite: **911 passed**. Standards clear; Spec calendar finding resolved and
+re-reviewed. [Detailed results and final artifact IDs](market-state-attribution-2026-09-07.md).
+Local index: `data/reports/stock-attribution/market-index-20260907.json`.
+
+Next pass: freeze two actual SMA200 new-entry-gate experiments, one on the
+original baseline and one on hold60. Same benchmark definition, demerger guard,
+universe, fees and sizing; existing holdings retain their original exits.
+Unknown state blocks new entries. Run each once, compare against both saved
+controls, report all outcomes and keep reused-development/data-blocked status.
+No moving-average grid, historical date selection or new automatic liquidation
+policy. Preserve these descriptive artifacts as prior exposure.
