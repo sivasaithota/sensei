@@ -113,3 +113,37 @@ Unknown state blocks new entries. Run each once, compare against both saved
 controls, report all outcomes and keep reused-development/data-blocked status.
 No moving-average grid, historical date selection or new automatic liquidation
 policy. Preserve these descriptive artifacts as prior exposure.
+
+## Pass 4 — actual market-entry gate experiment
+
+Resumed from `65408a5` around 04:17 IST. Frozen declaration at 04:20:24 IST:
+`config/stock-market-entry-experiment-v1.json`. Completed both gates and reran
+both controls. Control campaigns, trades and equity curves reproduce exactly.
+
+| Run | Return | Max drawdown | Trades | Costs |
+|---|---:|---:|---:|---:|
+| Original control | −1.779% | 29.451% | 467 | ₹68,191.57 |
+| Original with gate | −4.921% | 26.928% | 373 | ₹54,664.77 |
+| Hold60 control | +9.951% | 23.974% | 441 | ₹64,723.86 |
+| Hold60 with gate | −5.316% | 27.332% | 360 | ₹52,659.99 |
+
+The gate reduced costs and below-average exposure but worsened both returns.
+Baseline below-average EOD utilization fell from 72.649% to 5.989%; its gains
+on above-average sessions also shrank sharply. This confirms that deleting a
+retrospective losing cohort does not reproduce a portfolio filter's outcome.
+All gated entries were checked to be above the prior SMA200. Existing exits
+remained unchanged; separate demerger counts stayed ABFRL259/VEDL95.
+
+Full suite: **917 passed**. Standards and Spec implementation reviews clear.
+All four remain NO_CLEAR_NET_EDGE, DATA_BLOCKED and research-only.
+[Results and exact report IDs](market-entry-gate-results-2026-09-07.md).
+Local comparison: `data/reports/stock-development/market-entry-comparison-v1-20260907.json`.
+
+Next pass: stop tuning this seed/filter family. Investigate actual held-trade
+corporate-action exposure with verified raw NSE bhavcopies and Kite bars;
+start split/bonus and cash-dividend accounting checks. Raw/adjusted factor
+changes are screening evidence, not confirmed action events or a license to
+rescale prices. Use primary company/exchange evidence and retain missing
+receipts/entitlements explicitly. No invented cash credits or new price repair
+without a verified convention. No new subscriptions or Kite requests needed
+for the initial local comparison. Keep all failed experiments as prior exposure.

@@ -249,3 +249,46 @@ def test_event_policy_requires_closed_position_audit(tmp_path, monkeypatch):
     settings = replace(settings, portfolio=replace(settings.portfolio, liquidate_at_end=False))
     with pytest.raises(ValueError, match="end liquidation"):
         run_stock_development(settings, journal=OperationalJournal(tmp_path / "journal.sqlite3"))
+
+
+@pytest.mark.parametrize("state", ["at_or_below_sma200", "unknown"])
+def test_market_gate_changes_run_identity_and_denies_below_or_unknown_entries(tmp_path, monkeypatch, state):
+    settings, _ = configure_event_run(tmp_path, monkeypatch, announcement_offset=-1)
+    settings = replace(settings, event_risk_path=None)
+    if state == "unknown":
+        benchmark = pd.read_parquet(settings.benchmark_path)
+        benchmark.iloc[250:].to_parquet(settings.benchmark_path)
+    journal = OperationalJournal(tmp_path / "journal.sqlite3")
+    control = run_stock_development(settings, journal=journal)
+    gated = run_stock_development(replace(settings, market_entry_gate="benchmark_above_sma200"), journal=journal)
+    assert control != gated
+    assert json.loads(control.read_text())["campaign"]["trades"]
+    result = json.loads(gated.read_text())
+    assert result["campaign"]["trades"] == []
+    assert result["data"]["market_entry_gate"]["session_states"] == {state: 18}
+    assert result["can_trade"] is False
+
+
+def test_market_gate_does_not_liquidate_existing_holdings_on_state_change(tmp_path, monkeypatch):
+    settings, _ = configure_event_run(tmp_path, monkeypatch, announcement_offset=-1)
+    settings = replace(settings, event_risk_path=None, market_entry_gate="benchmark_above_sma200")
+    benchmark = pd.read_parquet(settings.benchmark_path)
+    benchmark["close"] = list(range(100, 100 + len(benchmark)))
+    benchmark.iloc[253:, 0] = 1
+    benchmark.to_parquet(settings.benchmark_path)
+    report = run_stock_development(settings, journal=OperationalJournal(tmp_path / "journal.sqlite3"))
+    result = json.loads(report.read_text())
+    trades = result["campaign"]["trades"]
+    assert len(trades) == 1
+    assert trades[0]["entry_date"] == str(settings.start)
+    assert trades[0]["exit_date"] == str(settings.end)
+    assert trades[0]["exit_reason"] == "final_session"
+    assert result["data"]["market_entry_gate"]["session_states"]["at_or_below_sma200"] == 16
+
+
+def test_unknown_market_gate_setting_is_not_silently_ignored(tmp_path):
+    path, _ = configured_run(tmp_path)
+    payload = json.loads(path.read_text()); payload["market_entry_gate"] = "sma_50"
+    path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match="market_entry_gate"):
+        load_run_settings(path)

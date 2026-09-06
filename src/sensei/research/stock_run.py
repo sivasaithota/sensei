@@ -36,6 +36,7 @@ class StockRunSettings:
     output_directory: Path
     snapshot_type: str = "unverified_parquet"
     event_risk_path: Path | None = None
+    market_entry_gate: str | None = None
 
     def __post_init__(self):
         if self.start > self.end:
@@ -48,6 +49,8 @@ class StockRunSettings:
             raise ValueError("freeze stop_pct, target_pct and max_hold_days explicitly")
         if self.snapshot_type not in {"unverified_parquet", "kite_development"}:
             raise ValueError("unknown snapshot_type")
+        if self.market_entry_gate is not None and self.market_entry_gate != "benchmark_above_sma200":
+            raise ValueError("unknown market_entry_gate")
 
     def identity_payload(self):
         return json.loads(json.dumps(asdict(self), default=str))
@@ -57,7 +60,7 @@ def load_run_settings(path: Path, *, maximum_drawdown_pct: float | None = None) 
     raw = json.loads(path.read_text())
     allowed = {"name", "start", "end", "warmup_sessions", "strategy_name", "strategy_parameters",
                "portfolio", "evaluation", "prices_path", "benchmark_path", "benchmark_name", "output_directory"}
-    if not isinstance(raw, dict) or not allowed <= set(raw) or set(raw) - allowed - {"snapshot_type", "event_risk_path"}:
+    if not isinstance(raw, dict) or not allowed <= set(raw) or set(raw) - allowed - {"snapshot_type", "event_risk_path", "market_entry_gate"}:
         raise ValueError("run configuration must contain exactly the documented settings")
     for key in ("prices_path", "benchmark_path", "output_directory"):
         raw[key] = (path.resolve().parent / raw[key]).resolve()
@@ -109,7 +112,7 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
     from sensei.execution import nse
     from sensei.strategy import selection
     from sensei.research import stock_evaluation
-    from sensei.research import event_risk
+    from sensei.research import event_risk, market_gate, market_attribution
 
     strategies = all_strategies()
     if settings.strategy_name not in strategies:
@@ -127,7 +130,8 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
     policy = event_risk.load_event_risk(settings.event_risk_path) if settings.event_risk_path is not None else None
     if policy is not None and not settings.portfolio.liquidate_at_end:
         raise ValueError("event risk sensitivity requires end liquidation to audit every holding")
-    eligibility = event_risk.entry_masks(frames, policy) if policy is not None else None
+    event_eligibility = event_risk.entry_masks(frames, policy) if policy is not None else None
+    eligibility = event_eligibility
     benchmark_frame = pd.read_parquet(settings.benchmark_path)
     if list(benchmark_frame.columns) != ["close"]:
         raise ValueError("benchmark must contain a single close column")
@@ -140,11 +144,13 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
         benchmark_evidence = json.loads(raw_manifest)
         if benchmark_evidence.get("parquet_sha256") != benchmark_hash:
             raise ValueError("benchmark does not match its capture manifest")
+    if settings.market_entry_gate is not None:
+        eligibility = market_gate.entry_masks(frames, benchmark, event_eligibility)
     record_development_frames(frames, campaign_id=settings.name, journal=journal)
     record_development_frames({"NIFTY500_TRI": benchmark_frame}, campaign_id=settings.name, journal=journal)
     spec = {**strategies[settings.strategy_name], **settings.strategy_parameters}
     implementation = "".join(inspect.getsource(module) for module in
-        (portfolio_campaign, costs, daily_execution, nse, selection, stock_evaluation, event_risk))
+        (portfolio_campaign, costs, daily_execution, nse, selection, stock_evaluation, event_risk, market_gate, market_attribution))
     identity = {"settings": settings.identity_payload(),
                 "signal": _signal_identity(spec["fn"]),
                 "runtime": {name: version(name) for name in ("numpy", "pandas", "pydantic")},
@@ -182,7 +188,13 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
         audit["event_risk"] = {"policy": policy.identity(), "coverage": "only the explicitly listed events",
             "treatment": "new-entry exclusion; original prices and universe retained; no entitlement accounting",
             "blocked_entry_sessions": {symbol: int((~mask.loc[str(settings.start):str(settings.end)]).sum())
-                for symbol, mask in eligibility.items() if not mask.all()}, "held_event_exposure": []}
+                for symbol, mask in event_eligibility.items() if not mask.all()}, "held_event_exposure": []}
+    if settings.market_entry_gate is not None:
+        states = market_attribution.market_states(benchmark).loc[str(settings.start):str(settings.end), "state"]
+        audit["market_entry_gate"] = {"policy": settings.market_entry_gate,
+            "benchmark": settings.benchmark_name, "session_states": {str(k): int(v) for k, v in states.value_counts().items()},
+            "timing": "preceding benchmark close versus preceding 200-close average; unknown or missing state denies entry",
+            "scope": "new entries only; original holding exits unchanged; combined with event eligibility using AND"}
     if kite_evidence is not None:
         audit["kite_snapshot"] = {"snapshot_id": kite_evidence["snapshot_id"],
             "unmapped_symbols": kite_evidence["identity"]["unmapped_symbols"],

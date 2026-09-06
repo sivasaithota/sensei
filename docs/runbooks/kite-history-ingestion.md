@@ -162,3 +162,18 @@ It requires end liquidation, audits all holdings crossing listed ex-dates
 unmodeled entitlements. Coverage remains limited to the listed events. The
 policy content and implementation are hashed into the frozen run identity.
 See the [actual comparison and limitations](../research/demerger-sensitivity-result-2026-09-07.md).
+
+## Fixed market entry gate experiment
+
+The optional frozen-run setting `market_entry_gate: benchmark_above_sma200`
+permits new entries only when the preceding benchmark close exceeds its
+preceding 200-close mean. Omission/null leaves the control unchanged; other
+values are rejected. Unknown or missing states deny entries. The mask combines
+with demerger eligibility using AND; existing positions retain their original
+exits. Both policy audit counts remain separate.
+
+The two saved experiments are `config/stock-research-market-gate-baseline.json`
+and `config/stock-research-market-gate-hold60.json`. Their settings and source
+code are included in frozen identity. [Observed results](../research/market-entry-gate-results-2026-09-07.md)
+were worse than their controls; these configurations are retained research
+experiments, not live defaults or validated improvements.
