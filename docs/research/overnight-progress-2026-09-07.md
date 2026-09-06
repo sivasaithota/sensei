@@ -51,3 +51,34 @@ sweep or fictitious holdout. Continue actionable data/accounting work separately
 
 Stop or checkpoint and pause the heartbeat at 10:00 IST; provide the owner a
 consolidated report. Preserve unrelated runtime JSON and LinkedIn files.
+
+## Pass 2 — loss attribution
+
+Resumed from `c246e7b` at approximately 03:00 IST. Completed descriptive
+attribution of all four existing runs; no strategy change or new backtest.
+Added `sensei.research.stock_attribution`, which verifies frozen source reports,
+manifests, snapshots, scoped frames and benchmark before producing derivatives.
+It groups every trade by exit year, security, exit reason and fixed pre-entry
+ATR bins, reconciles rounded P&L, and preserves missing history as unknown.
+
+- Baseline realised exit-year net P&L: 2024 +₹49,254.26; 2025 +₹5,409.88;
+  2026 through evaluation end −₹60,002.18. These are not annual account returns.
+- The five worst baseline securities account for only 6.85% of all losing-trade
+  amounts. Losses are spread across many securities; do not delete the worst
+  names after inspection.
+- Stops/gap stops account for 99.64% of baseline losing-trade amounts, but the
+  volatility bins do not establish a causal benefit from widening stops.
+- Every run has one unknown prior ATR: FORCEMOT entered 2024-03-01, before
+  enough sessions existed following its February 14 NSE resumption. The
+  diagnostic keeps the trade and does not fill the inactive period.
+
+Full suite: **903 passed**. Standards and Spec implementation reviews clear.
+[Results and exact artifact IDs](stock-loss-attribution-2026-09-07.md).
+Local index: `data/reports/stock-attribution/comparison-index-20260907.json`.
+
+Next pass: describe these same trade entries by a fixed benchmark trend state
+known at decision time. Measure state-level trade P&L and exposure without
+introducing a regime-filter backtest or optimizing parameters. Retain all
+current data/accounting limits, and pursue actionable FORCEMOT/history policy
+or shareholder accounting evidence separately. Do not repeat completed
+lower-turnover runs or this attribution as new evidence.
