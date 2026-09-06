@@ -1,5 +1,5 @@
 import json
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import pandas as pd
@@ -94,6 +94,26 @@ def test_benchmark_capture_hash_is_checked(tmp_path):
     (tmp_path / "benchmark.manifest.json").write_text(json.dumps({"parquet_sha256": "wrong"}))
     with pytest.raises(ValueError, match="benchmark does not match"):
         run_stock_development(load_run_settings(path), journal=OperationalJournal(tmp_path / "journal.sqlite3"))
+
+
+def test_repaired_inputs_are_verified_and_recorded_without_certification(tmp_path):
+    from sensei.data.stock_repair import build_calendar_clean_snapshot, verify_repair_snapshot
+
+    path, _ = configured_run(tmp_path)
+    snapshot = build_calendar_clean_snapshot(prices_path=tmp_path / "prices", output_directory=tmp_path / "repairs")
+    settings = replace(load_run_settings(path), prices_path=snapshot)
+    journal = OperationalJournal(tmp_path / "journal.sqlite3")
+    report_path = run_stock_development(settings, journal=journal)
+    report = json.loads(report_path.read_text())
+    manifest = json.loads(report_path.with_name("manifest.json").read_text())
+    assert manifest["identity"]["repair_manifest"] == verify_repair_snapshot(snapshot)
+    assert report["data"]["repair"]["snapshot_id"] == snapshot.name
+    assert report["data"]["repair"]["admissible"] is False
+    assert report["decision"] == "DATA_BLOCKED"
+    assert report["can_trade"] is False
+    (snapshot / "A.parquet").write_bytes(b"changed")
+    with pytest.raises(ValueError, match="content mismatch"):
+        run_stock_development(settings, journal=journal)
 
 
 def test_cached_report_requires_original_manifest(tmp_path):

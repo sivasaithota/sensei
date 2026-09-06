@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 
 from sensei.backtest.portfolio_campaign import PortfolioCampaignConfig, run_portfolio_campaign
+from sensei.data.stock_repair import MANIFEST_NAME, verify_repair_snapshot
 from sensei.research.exposure import record_development_frames
 from sensei.research.stock_evaluation import EvaluationProtocol, audit_stock_data, evaluate_stock_portfolio
 
@@ -105,6 +106,9 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
     strategies = all_strategies()
     if settings.strategy_name not in strategies:
         raise ValueError("unknown frozen strategy")
+    repair_evidence = None
+    if (settings.prices_path / MANIFEST_NAME).exists():
+        repair_evidence = verify_repair_snapshot(settings.prices_path)
     original = {path.stem: pd.read_parquet(path) for path in sorted(settings.prices_path.glob("*.parquet"))}
     frames = scope_price_frames(original, start=settings.start, end=settings.end, warmup_sessions=settings.warmup_sessions)
     benchmark_frame = pd.read_parquet(settings.benchmark_path)
@@ -132,6 +136,7 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
                 "input_frames": {symbol: _frame_digest(frame) for symbol, frame in sorted(frames.items())},
                 "benchmark_sha256": benchmark_hash,
                 "benchmark_manifest": benchmark_evidence,
+                "repair_manifest": repair_evidence,
                 "implementation_sha256": hashlib.sha256((implementation
                     + inspect.getsource(sys.modules[__name__])).encode()).hexdigest()}
     run_id = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
@@ -154,6 +159,9 @@ def run_stock_development(settings: StockRunSettings, *, journal=None) -> Path:
         manifest_path.write_text(json.dumps({"run_id": run_id, "recorded_before_evaluation": datetime.now(timezone.utc).isoformat(),
             "identity": identity, "phase": "REUSED_HISTORY_DEVELOPMENT"}, indent=2) + "\n")
     audit = audit_stock_data(frames)
+    if repair_evidence is not None:
+        audit["repair"] = {key: repair_evidence[key] for key in
+            ("snapshot_id", "removed_row_count", "instrument_count", "inserted_rows", "authority", "admissible", "unresolved")}
     calendar = pd.DatetimeIndex(sorted({stamp for frame in frames.values() for stamp in frame.index
                                        if settings.start <= stamp.date() <= settings.end}))
     expected = benchmark.index[(benchmark.index.date >= settings.start) & (benchmark.index.date <= settings.end)]

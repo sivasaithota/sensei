@@ -1,0 +1,36 @@
+{
+  "name": "swing-momentum-baseline-v1",
+  "start": "2024-01-01",
+  "end": "2026-09-03",
+  "warmup_sessions": 252,
+  "strategy_name": "momentum_breakout_55",
+  "strategy_parameters": {
+    "stop_pct": 5.0,
+    "target_pct": 12.0,
+    "max_hold_days": 30
+  },
+  "portfolio": {
+    "capital": 300000,
+    "max_position_pct": 20,
+    "max_risk_per_trade_pct": 2,
+    "max_open_positions": 5,
+    "max_positions_per_strategy": 5,
+    "liquidate_at_end": true,
+    "cost_model": "current_delivery_schedule",
+    "dp_charge_inr": 15.34,
+    "entry_slippage_bps": 10
+  },
+  "evaluation": {
+    "maximum_drawdown_pct": 100,
+    "minimum_sessions": 252,
+    "minimum_trades": 30,
+    "bootstrap_block_sessions": 20,
+    "bootstrap_samples": 2000,
+    "confidence": 0.9,
+    "random_seed": 20260906
+  },
+  "prices_path": "../data/research/stock-repairs/c707298d8f2f7e0db5b69945f71fdb2db3566da4cf761eef8bd2aba6196f82ef",
+  "benchmark_path": "../data/research/benchmarks/nifty500-tri-20260906.parquet",
+  "benchmark_name": "Nifty 500 gross total return",
+  "output_directory": "../data/reports/stock-development"
+}

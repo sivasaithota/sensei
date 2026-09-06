@@ -108,3 +108,24 @@ The raw NSE archive contains all four missing sessions, but their prices must
 be reconciled to the adjusted series before insertion. See the
 [source verification report](../research/stock-data-admissibility-next-actions-2026-09-06.md)
 for exact dates, counts and exchange circulars.
+
+The calendar cleanup is now implemented as a separate snapshot:
+
+```bash
+.venv/bin/python -m sensei.data.stock_repair
+.venv/bin/python -m sensei.research.stock_evaluation \
+  --config config/stock-research-calendar-clean.json
+```
+
+The repair validates every proposed holiday exclusion before writing, retains
+all instruments, records each removed row and verifies output hashes on reuse.
+It also audits the missing-session factors against verified raw NSE sessions.
+Agreement between neighboring factors is diagnostic and never inserts a price.
+The frozen runner verifies and records the snapshot manifest before evaluation.
+The original price directory and original run configuration remain available.
+
+The 6 September cleanup removed 1,917 placeholders. Its frozen rerun has no
+extra holiday dates, but still lacks four real sessions and stops before
+simulation. AccelPix access remains pending. See the
+[repair results](../research/stock-calendar-repair-results-2026-09-06.md)
+for the snapshot, factor audit and remaining evidence requirements.
