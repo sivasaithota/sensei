@@ -578,3 +578,40 @@ Next: establish the changed dated schema and AHL/AFSL identity timing, acquire a
 frozen contiguous daily block, then formalize lagged metadata knowledge and stock
 eligibility. No new strategy performance claim, full-portfolio rerun, order,
 purchase, activation, external message or automation change occurred.
+
+## Owner go — dated schema and preceding-session identity agreement
+
+CMTR73845 and its attachment resolve the September schema: effective August 3,
+2026, field 24 becomes CAS eligibility and field 59 changes its tag while remaining
+filler. Field 23 also becomes filler despite retaining its header. The new daily
+auditor applies the exact dated header and preserves fillers without interpretation.
+CML67269 documents AHL → AFSL from April 1, 2025. Its March 28 master discrepancy
+is now explicitly identified as ahead of the effective symbol, without source repair.
+
+The frozen initial plan contains January's 23 sessions, nine around the rename,
+and the cached September 3 probe. V2 adds September 2 solely to test the preceding
+snapshot for TCC. Thirty new NSE master requests plus four reused files produce
+29 validated masters with 852,039 retained normalized rows. Five HTTP 404 gaps remain:
+January 13 and 22, and April 2–4. Longest validated runs are eight January sessions
+and six transition-window sessions. No master is carried across a missing date.
+
+The key diagnostic compares each raw session with its immediately preceding
+exchange-session master. **All 80,320 observations across 27 available pairs match
+exactly.** On the 24 dates where both source choices exist, same-day masters match
+71,429 / 71,442 versus 71,442 / 71,442 using the preceding master. The 13 discrepancies
+in that paired subset therefore disappear. This supports an explicit research
+snapshot policy; it does not certify archival publication time or ordinary-stock
+eligibility. September 2's own MANBRO/KDGREEN discrepancy is unpaired because
+September 1 is outside the sample, and remains unresolved.
+
+[Daily results, source notes and all final hashes](security-master-daily-results-2026-09-07.md).
+The new module preserves exact identities, records notice diagnostics separately,
+validates full calendar windows, and writes deterministic gzip JSONL artifacts.
+Focused suite: 52 passed. Full suite: **1,193 passed in 31.55 seconds**. Standards
+and Spec reviews found no actionable issues. A repeat capture made zero requests.
+
+Next: implement the explicitly labelled preceding-session metadata policy with
+missing-snapshot entry blocks, establish ordinary-share/board and price-history
+identity continuity, then expand the frozen daily coverage and rerun the coherent
+portfolio against Nifty 500 TRI. No new strategy result, Kite call/credit usage,
+order, purchase, activation, external message or automation change occurred.

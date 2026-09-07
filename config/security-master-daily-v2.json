@@ -1,0 +1,476 @@
+{
+  "version": 2,
+  "authority": "RESEARCH_ONLY",
+  "can_trade": false,
+  "windows": [
+    {
+      "start": "2025-01-01",
+      "end": "2025-01-31"
+    },
+    {
+      "start": "2025-03-24",
+      "end": "2025-04-04"
+    }
+  ],
+  "probe_sessions": [
+    "2026-09-02",
+    "2026-09-03"
+  ],
+  "sessions": [
+    "2025-01-01",
+    "2025-01-02",
+    "2025-01-03",
+    "2025-01-06",
+    "2025-01-07",
+    "2025-01-08",
+    "2025-01-09",
+    "2025-01-10",
+    "2025-01-13",
+    "2025-01-14",
+    "2025-01-15",
+    "2025-01-16",
+    "2025-01-17",
+    "2025-01-20",
+    "2025-01-21",
+    "2025-01-22",
+    "2025-01-23",
+    "2025-01-24",
+    "2025-01-27",
+    "2025-01-28",
+    "2025-01-29",
+    "2025-01-30",
+    "2025-01-31",
+    "2025-03-24",
+    "2025-03-25",
+    "2025-03-26",
+    "2025-03-27",
+    "2025-03-28",
+    "2025-04-01",
+    "2025-04-02",
+    "2025-04-03",
+    "2025-04-04",
+    "2026-09-02",
+    "2026-09-03"
+  ],
+  "selection_basis": "Initial complete month; documented rename boundary; previously blocked schema probe. Fixed before new master requests.",
+  "contract": {
+    "path": "docs/specs/security-master-daily.md",
+    "sha256": "1197f4972918f01aefdec9f7a7f32448fb16d2ab99f611e1069e8f3f75a828ef"
+  },
+  "sample_plan": {
+    "path": "config/security-master-sample-v1.json",
+    "sha256": "c2ecf9587a7b6004a0f7b454ded8941ea2ec88932124d3990f904e81a6e4c3c5"
+  },
+  "implementations": [
+    {
+      "path": "src/sensei/research/security_master_daily.py",
+      "sha256": "b6d3313a2c388ef8d2fc151a981a0becb52701cfa2faddb9dab40b7086d02657"
+    },
+    {
+      "path": "src/sensei/research/security_master_batch.py",
+      "sha256": "a1b9263eec6b096e3b0d891a161806230c52aa520bf9cc068b2368070f2aea4e"
+    },
+    {
+      "path": "src/sensei/research/security_master_sample.py",
+      "sha256": "36b66bfaf20eb00f1713ba4888bd6d910b1c98ca3e6e7fe75e76e64253683306"
+    },
+    {
+      "path": "src/sensei/research/split_reproduction.py",
+      "sha256": "1198d7127c3286f5b2c46d37ae8dbe5e9916c31c4fc9ec0e45792827b0c8c5b0"
+    },
+    {
+      "path": "src/sensei/data/bhavcopy.py",
+      "sha256": "9b7cc2acc3cc54fb57d5ad537da1ec5ea36d1ce46aaf55b8ad4f8de5a17c6991"
+    }
+  ],
+  "schema_evidence": [
+    {
+      "path": "data/research/nse-mii-schema/20260907/manifest.json",
+      "sha256": "2e2416707287596e6adc4f6283801c0f0cdb93be16bcd1e3be7c66b32f15f9b4"
+    },
+    {
+      "path": "docs/research/nse-mii-classification-schema-2026-09-07.md",
+      "sha256": "0a688ef4c941c95df2ffeeb5f3eaec3d13b9bb0f671a1917281178e0819dad63"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/MSD55276.zip",
+      "sha256": "b221d3ede7f7e6e8ba3e5da7377f147ce0535e22b7df8904c14d063797fd7c8e"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/MSD55276.pdf",
+      "sha256": "2d9abce78153e299c9162e394cf7fdd33e065ae1f769092462c7e32971c2f2da"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/Annexure-A_CM.xlsx",
+      "sha256": "05443f4d0b14163f2398ba3b6bdf133b633291780b65cfea58a2084d51b21a6d"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/CMTR61813.zip",
+      "sha256": "d58c836cc1ce5504b328118b7887c91bc75189d13a806c5b3c83f343584a8c90"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/CMTR61813.pdf",
+      "sha256": "9c956956c9c4e57f31bce4e6195bf58f1acbadeb3b45a6c28e533f1c88a21211"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/PART-D.xlsx",
+      "sha256": "936082c7f2308d84e5865022dff0bf803738745dc38cbc5ae00695d28bd3be82"
+    },
+    {
+      "path": "docs/research/nse-master-universe-rules-2026-09-07.md",
+      "sha256": "5fa348a0e9c40937dfa51f03b3f0ff2360dd039aceb5cb3056c11e898329c413"
+    },
+    {
+      "path": "data/research/nse-master-rules/20260907/manifest.json",
+      "sha256": "27503448d981f1e0d39c245daf2036e501c96bb8acb11099ca3baae5229dcc28"
+    },
+    {
+      "path": "data/research/nse-master-rules/20260907/MSD67344.pdf",
+      "sha256": "8cff554cd21720ada13a9837f47e33f000f43974e1b8da480e49f200204c1786"
+    },
+    {
+      "path": "data/research/nse-master-rules/20260907/legend.capture.json",
+      "sha256": "5879000474b8762a0c68794876eb0489817e24a7001610b38729afc17f9b4321"
+    },
+    {
+      "path": "data/research/nse-master-rules/20260907/legend-of-series.html",
+      "sha256": "57309990d7e4418d3f3293a7a11a94116bc99afdf15a5e2b7267b28ce153bba7"
+    },
+    {
+      "path": "docs/research/nse-master-schema-change-2026-09-07.md",
+      "sha256": "a86ebd79d346db7d90637e465743fd7a2b2a13ead23b31fe6a49f13918bc04bc"
+    },
+    {
+      "path": "data/research/nse-master-schema-change/20260907/investigation.json",
+      "sha256": "5bb4f764b844d7f574230adf4bf8949f387763555708bc708162cd45f10ff03d"
+    },
+    {
+      "path": "docs/research/ahl-afsl-identity-2026-09-07.md",
+      "sha256": "3cb9e0a96d59db6384f8231376ced593db8f3f0411ff8ddabb5d1fd8face4c05"
+    },
+    {
+      "path": "docs/research/nse-master-schema-vintage-2026-09-07.md",
+      "sha256": "97974a8dd959a03610587cae33c20a7d63206b6afad14104b309c5e300e13c52"
+    },
+    {
+      "path": "data/research/ahl-afsl-identity/20260907/manifest.json",
+      "sha256": "1c2762a6a185fae8f4a387f704e6215c354edf5a2164abafccf7df6d937f8b20"
+    },
+    {
+      "path": "data/research/ahl-afsl-identity/20260907/CML67269.pdf",
+      "sha256": "31f405ed7543c569fd8ae75635539eaf451724827ae5637bcae04bdde0b13299"
+    },
+    {
+      "path": "data/research/ahl-afsl-identity/20260907/observations.json",
+      "sha256": "4a8fd0a713b0a50ff01eb4146848b3bc451d3457ac0abf1cd1ab3fe9bddcb217"
+    },
+    {
+      "path": "data/research/nse-master-schema-vintage/20260907/manifest.json",
+      "sha256": "efa6f93a57962ff247dd77e46cfaa9e9175d0030b4d1a29bfb8f760ba7814497"
+    },
+    {
+      "path": "data/research/nse-master-schema-vintage/20260907/schema-comparison.json",
+      "sha256": "45186da631946580fa6ff449833a527909b4f8cdbe32c615fbbe4b1793d2b52b"
+    },
+    {
+      "path": "data/research/nse-master-schema-vintage/20260907/CMTR73845.zip",
+      "sha256": "94f9288a24e815265feb03023f997ecc3a4993cbc1445b0b20383beb7c4c7239"
+    },
+    {
+      "path": "data/research/nse-master-schema-vintage/20260907/CMTR73845_CMTR73845.pdf",
+      "sha256": "aef6e11c636ce079ec105307a55772a79d3c1be3218147f8b3fd97970312e65d"
+    },
+    {
+      "path": "data/research/nse-master-schema-vintage/20260907/CMTR73845_Annexure A.xlsx",
+      "sha256": "da1dad1077b0fe70c14a068a1c4f6a665a80f35af81b6d454ba7271d2969efae"
+    },
+    {
+      "path": "data/research/nse-master-schema-vintage/20260907/CMTR73927.zip",
+      "sha256": "11988491ecb0088222614ae240995b6ef8881628757c903a959dd79c910a7479"
+    },
+    {
+      "path": "data/research/nse-master-schema-vintage/20260907/CMTR73927_PART-D.xlsx",
+      "sha256": "30a4e37956ba5ab1acdda177411beca0146ebab0bcb155f1cd4f12576d195798"
+    }
+  ],
+  "reuse_evidence": [
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-01/capture.json",
+      "sha256": "31fb01b32d7714e53057f27044659b02fdfab5fb399fce8283b314e1bc878056"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-01/response.bin",
+      "sha256": "6aabe202b014fb2eb5fd95b22fbf3f084cf797fe1143001a62b1be51f333e9d4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-02/capture.json",
+      "sha256": "dac835c3ebf60e2fcd16af055eceef30777d839ebe5e4394319037f3f719e022"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-02/response.bin",
+      "sha256": "ad620cdd441b7240a64564463651ac594e131a1bb788f2ae9e2902f838180ffa"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-03/capture.json",
+      "sha256": "e0a23164964a7445b228c7c57f5e99fa55efcef62e60f435caafce7702b6cda0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-03/response.bin",
+      "sha256": "43961837a525137ac78df1a06948b0868b8f3e78ddaed06d7e62405a28f1d3dd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-06/capture.json",
+      "sha256": "03487aacc4f308bd8ce10efac2a9b66e794fbcc28b726077cba1db0cbbe26e41"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-06/response.bin",
+      "sha256": "ac2945ad785cb705a880e253e311a460fc57983b9d64444396d6d88f1795e2bc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-07/capture.json",
+      "sha256": "b8dc422a06e4dd7a82aba033210f73ec14dca0e6e4063502a04051cf701922ea"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-07/response.bin",
+      "sha256": "e18bab334685011ff22c6f830da1267ff82d2050be0d92b5e06c81c2f15c7646"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-08/capture.json",
+      "sha256": "ad5ec3f6fccc3a4a75e810180017a00866251064f3c3620150c51e6b3401974d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-08/response.bin",
+      "sha256": "6b02d8a48a9342c67fbecbbedca0e9e17b9a5c7ee2cf82a343b1f8ce4c4b6567"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-09/capture.json",
+      "sha256": "d539a63e25e00d6e1c4e8d310aa27df30f04fe77dd2151730330524bf16bca6c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-09/response.bin",
+      "sha256": "565af47ce7afcccd8a3e0f016da443799cca2c8cd8e0c000a954427b8f59d177"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-10/capture.json",
+      "sha256": "7c17d8ee29266505d8c6c83f947aa4d00e0815eac3992231518cee138300235c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-10/response.bin",
+      "sha256": "4545130d5d56824162d7642652c19da415b82db603679e15be3341bfbffff0a1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-13/capture.json",
+      "sha256": "a2960081427f4a898373c20458459668e6ee55f631f6cbfed2224f651fec5bfc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-13/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-14/capture.json",
+      "sha256": "995144e15a29648d07b99208402e7a8ed25ea6a804df3949187a1480806ce8e6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-14/response.bin",
+      "sha256": "380120cb51da2d7b8d3159477db16b8899510281328aade4778c71f2764e14bd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-15/capture.json",
+      "sha256": "0f71f362ec486a09b9857507f132e9980c643ec6e04e3665d4a940ca2fdec70e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-15/response.bin",
+      "sha256": "0eaa242db30cd7ba5d6b2f44266a02de20d2eb4e7cc72a54f02c68afc3d4409d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-16/capture.json",
+      "sha256": "af771fce7908d947bdb8b4bc22140614573225b76125b507c757fe591189e97a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-16/response.bin",
+      "sha256": "6c95802bc4bf3462670768a16160ab7a2ee1107c5625c3642695eae7dcf553b6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-17/capture.json",
+      "sha256": "f2127abb3255f0435269aa84f4041d695c3f0d3db4317ccc934dd4e771676fb8"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-17/response.bin",
+      "sha256": "d39ab4664e51d5c8f414c875eff68e8a20ec8c1b815f0e9eb103b7111e23d26c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-20/capture.json",
+      "sha256": "da2bd6d212265b8f058b3d1322745158a66d6d6e0c9cc8e9189fa4a955fffac9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-20/response.bin",
+      "sha256": "6053831ab8cf08571b341a5b24aa2c50d330aae845379c1408b8f1ac55853630"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-21/capture.json",
+      "sha256": "01235c64bee7485050412fe68d8914f018a35076d658ef8517991af28468896d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-21/response.bin",
+      "sha256": "ea81e680acb4e6979d8ebaace33480326e430e6226e39ee6862a35ec8c72d313"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-22/capture.json",
+      "sha256": "1496b0ea295f465e3fc3621a2ca6d79254a56b896ba19063f7732757d2aa9de9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-22/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-23/capture.json",
+      "sha256": "f6843e8f2f98236b2798567fe596abe3ba3a1178c1d9815d6660439ae1bffc4e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-23/response.bin",
+      "sha256": "a5d80f643a0a6fc9eddce72eb6d6b6db9568a797be943cf214e76fd9ace20bdd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-24/capture.json",
+      "sha256": "0d8faa7baa0ff6d381ce58834e5db3f2b0cd39326976d58a823e5303726ba5d2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-24/response.bin",
+      "sha256": "a6dab5e4dace10501fb25de8e0c3498238029b066ca0e21615221438842d1ac4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-27/capture.json",
+      "sha256": "acbcdd7c5b2644189a615148c2e1fb59601a63abada2e7ed0a18dc460f24a481"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-27/response.bin",
+      "sha256": "981a4cfb9053e4f5cb32b2b12ee31ff35419ca9f5090cc40cbfc10aac6b9a457"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-28/capture.json",
+      "sha256": "3aab9656f18144077b32c02a8a5e0c1ac833da6739f4043d1ae0ea835bd22733"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-28/response.bin",
+      "sha256": "24f7241d1729f8edc8d213e1c78e925e97161fe763848564f6916cb1df51059f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-29/capture.json",
+      "sha256": "eb3ffe5b806762965812efd3aa4798c2cd4703f37cd8a072221113150ada62a6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-29/response.bin",
+      "sha256": "6040d8a4b20da5dadc94b51488a03965064439c8a85f3907691ba36d32a6759f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-30/capture.json",
+      "sha256": "009a2ed85284f88e9ed9ad03cf5f84749cad7d8ebf3ab7b5b6b27ecc09153372"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-30/response.bin",
+      "sha256": "eb25162cb33735b4850786ec82b934d7021fd08c2fcb388fb9ee2d1575dbe04b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-31/capture.json",
+      "sha256": "3994064c625275fbd857e115aa766886502601669b2827fd2ae050c15703d24a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-31/response.bin",
+      "sha256": "8d109d2942bd0a41f4c59fd25d77c62ca15184fdfef6c622bf60d57aba9c04c4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-24/capture.json",
+      "sha256": "08ea8817a2e62a1da00311fb76d88b10662910cd7622e0b2c028fadb0b77f54d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-24/response.bin",
+      "sha256": "950323d92f0fb65d2810b8f46098f024c1f13599e96aaec4a7246164ba5b6dc0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-25/capture.json",
+      "sha256": "04c2d740af1c866dc36b206e3eedf0da9ccb9dbab657ae2e037b0c17d83d3c2f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-25/response.bin",
+      "sha256": "937b4c1d32058d36bbc96c7305da7da43ea6283cf17706e1f94e4eb935c642db"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-26/capture.json",
+      "sha256": "73f03fa6d06f229a6a99f852b1f1a01ba68591c1c870fdf645a41a7021bd67e6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-26/response.bin",
+      "sha256": "95d222cde8aaa4079f1a43c49d8e54946f806f569d680bbb2551a2cc029a6c13"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-27/capture.json",
+      "sha256": "6e6d5f5ad21bac52451434750777f2fec0d3a2156f38bc2c445b5a25b4e80b56"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-27/response.bin",
+      "sha256": "aafe6230a32446ff5801d22652cadc0c7d59bf47e169704167ba6f76083aa632"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-28/capture.json",
+      "sha256": "8376db9b0b81ff68aadd76dc6fe272d96afe51838893b88e7c8f72a953b88130"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-28/response.bin",
+      "sha256": "3a8575d68a6f141a4b3046dbe02a60afea7560509f25024fe61632e094361487"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-01/capture.json",
+      "sha256": "78ed0700a1f8e2a9a8af162dbf59ea8db60db1174c774ba8a93c669a901eef9b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-01/response.bin",
+      "sha256": "00d3dccf5dea1b10be7ba43a07db911685a0c6f026f1f0ebe5f85aac712cc214"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-02/capture.json",
+      "sha256": "bb9c6843b897d377c9774a718b4c50d2b35006f4b204cd664d63bd1a04cc4015"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-02/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-03/capture.json",
+      "sha256": "2763ae1b21da78985fdf4f544a8ba98377ec819c30ee5e4256c5c163c27a4ef0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-03/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-04/capture.json",
+      "sha256": "b50b08c2df64cbff3c06418e1511da1487efdec10c545e135e0b6c7016f4fdd7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-04/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-09-03/capture.json",
+      "sha256": "aab5659e24af0f12bcdb5d3f376329f983861a850a4174b6541bcecafa12b523"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-09-03/response.bin",
+      "sha256": "02d3df3cb15410588ca77a8f77f633ed84b0433d305335515dd7182b7dc2833e"
+    }
+  ],
+  "identity_events": [
+    {
+      "old_symbol": "AHL",
+      "new_symbol": "AFSL",
+      "announced_on": "2025-03-25",
+      "effective_from": "2025-04-01",
+      "source": {
+        "path": "data/research/ahl-afsl-identity/20260907/CML67269.pdf",
+        "sha256": "31f405ed7543c569fd8ae75635539eaf451724827ae5637bcae04bdde0b13299"
+      },
+      "source_sha256": "31f405ed7543c569fd8ae75635539eaf451724827ae5637bcae04bdde0b13299"
+    }
+  ],
+  "revision_note": "Add the immediately preceding September session to test the remaining TCC ISIN mismatch; all original windows and source responses remain unchanged. Selected after the same-day identity audit, without strategy returns."
+}
