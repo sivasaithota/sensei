@@ -1,4 +1,5 @@
 from dataclasses import replace
+import json
 
 import pandas as pd
 import pytest
@@ -36,6 +37,7 @@ def test_orders_wait_for_next_session_and_are_not_enlarged_by_cheaper_open():
     assert result['authority'] == 'RESEARCH_ONLY' and result['can_trade'] is False
     assert result['overhead_inr'] == 1000  # Jan 2 inception; second cycle Feb 2
     assert min(p['cash'] for p in result['equity_curve']) >= 0
+    assert json.loads(json.dumps(result)) == result
 
 
 def test_close_trigger_sells_next_session_and_proceeds_settle_one_session_later():
@@ -173,3 +175,26 @@ def test_unavailable_terminal_shares_are_marked_and_never_invented_as_cash():
     assert position['quantity'] == 568 and position['pending_shares'] == 284
     assert result['liquidation']['status'] == 'NOT_EXECUTED'
     assert result['attribution_residual_inr'] == pytest.approx(0, abs=1e-6)
+
+
+def test_retained_position_does_not_inherit_new_entry_initial_stop_guard():
+    inputs = market()
+    dates = inputs.calendar
+    inputs.formations[dates[0]].loc['A', 'atr20'] = 20.
+    inputs.raw.frames['A'].loc[dates[3]:, ['open', 'high', 'low', 'close']] = [50., 51., 49., 50.]
+    second = inputs.formations[dates[0]].copy()
+    second.loc['A', 'close'] = 50.
+    inputs.formations[dates[8]] = second
+    result = run_momentum_portfolio(inputs, MomentumPolicy(), formation_start=dates[0], end=dates[-1])
+    assert not [f for f in result['fills'] if f['side'] == 'SELL' and f['symbol'] == 'A']
+    assert next(p for p in result['terminal_positions'] if p['symbol'] == 'A')['quantity'] == 37
+
+
+def test_decision_trace_reports_control_priority_separately_from_momentum_rank():
+    inputs = market()
+    d = inputs.calendar[0]
+    inputs.formations[d] = inputs.formations[d].loc[['B', 'A']]
+    result = run_momentum_portfolio(inputs, MomentumPolicy(), formation_start=d, end=inputs.calendar[-1])
+    ranking = result['formations'][0]['ranking']
+    assert [r['rank'] for r in ranking] == [1, 2]
+    assert [r['momentum_rank'] for r in ranking] == [2, 1]

@@ -32,7 +32,7 @@ def test_monthly_rank_uses_calendar_endpoints_and_ignores_future_prices():
 def test_buffer_preserves_model_incumbents_without_using_actual_holdings():
     ranking = [str(i) for i in range(1, 25)]
     assert buffered_roster(ranking, ['18', '19', '20', '21', '22']) == [
-        '1', '2', '3', '4', '5', '18', '19', '20', '6', '7']
+        '1', '2', '3', '4', '5', '6', '7', '18', '19', '20']
 
 
 @pytest.mark.parametrize('problem', ['gap', 'action', 'identity', 'liquidity'])
@@ -56,3 +56,10 @@ def test_missing_formation_metadata_blocks_instead_of_reusing_universe():
     dates, frames = histories()
     with pytest.raises(ValueError, match='missing formation metadata'):
         rank_formation(frames, dates, pd.Timestamp('2025-01-31'), None)
+
+
+def test_calendar_year_age_is_separate_from_last_years_month_end_endpoint():
+    dates, frames = histories()
+    frames['C'] = frames['C'].loc['2024-02-29':]
+    result = rank_formation(frames, dates, pd.Timestamp('2025-02-28'), set(frames))
+    assert list(result.index) == ['B', 'A']  # Feb 29 endpoint exists, but age is <1 calendar year

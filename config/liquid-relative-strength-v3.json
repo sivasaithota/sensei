@@ -1,0 +1,118 @@
+{
+  "version": 3,
+  "authority": "RESEARCH_ONLY",
+  "can_trade": false,
+  "contract": {
+    "path": "docs/specs/liquid-relative-strength-v1.md",
+    "sha256": "021b4a30795f230d5cc2b413c1d6f7ff73592812b7996ec218b24da8d5d113c1"
+  },
+  "source_plan": {
+    "path": "config/stock-closure-v4.json",
+    "sha256": "9bad9a4bddc330347d5222bb94b80275622416a7099e332f00f6c9f0fdc8595d"
+  },
+  "implementations": [
+    {
+      "path": "src/sensei/strategy/relative_strength.py",
+      "sha256": "705919e964274ab8143d955d2a78af3bfb6dc76dd4317192f5067b844a4cb732"
+    },
+    {
+      "path": "src/sensei/backtest/relative_strength.py",
+      "sha256": "1689aaef0c06245703136da920a335943bfed7d5461c40f124c49f0aa57841c1"
+    },
+    {
+      "path": "src/sensei/research/relative_strength_run.py",
+      "sha256": "a1f5e67ff5078d73fb63e9a98c277d02fbce2e57c9a746a5e1ce454614a67ae4"
+    }
+  ],
+  "common_formation": "2025-06-30",
+  "extended_formation": "2025-01-31",
+  "end": "2026-09-03",
+  "policy": {
+    "capital": 300000.0,
+    "position_fraction": 0.095,
+    "risk_fraction": 0.0075,
+    "reserve_fraction": 0.05,
+    "atr_multiple": 3.0,
+    "participation": 0.001,
+    "slippage_bps": 10.0,
+    "subscription_inr": 500.0,
+    "dp_charge_inr": 15.34,
+    "trailing_exit": true,
+    "execution_delay": 0,
+    "exit_delay": 0,
+    "buy_valid_sessions": 5,
+    "maximum_drawdown_pct": 100.0
+  },
+  "experiments": [
+    {
+      "name": "candidate"
+    },
+    {
+      "name": "liquidity_control",
+      "selection": "liquidity"
+    },
+    {
+      "name": "no_trailing_control",
+      "overrides": {
+        "trailing_exit": false
+      }
+    },
+    {
+      "name": "semiannual_control",
+      "cadence": "semiannual"
+    },
+    {
+      "name": "extended_candidate",
+      "extended": true
+    },
+    {
+      "name": "slippage20",
+      "overrides": {
+        "slippage_bps": 20.0
+      }
+    },
+    {
+      "name": "slippage40",
+      "overrides": {
+        "slippage_bps": 40.0
+      }
+    },
+    {
+      "name": "execution_delay",
+      "overrides": {
+        "execution_delay": 1
+      }
+    },
+    {
+      "name": "half_capacity",
+      "overrides": {
+        "participation": 0.0005
+      }
+    },
+    {
+      "name": "exit_delay3",
+      "overrides": {
+        "exit_delay": 3
+      }
+    }
+  ],
+  "assumptions": [
+    "All dates are previously exposed development history; this is not independent validation.",
+    "Historical security-master publication timing and exhaustive ordinary-share subtype remain provisional. Missing formations block complete results; no forward-fill.",
+    "Daily open plus adverse slippage and dated reconstructed ticks is a reference-fill scenario, not actual auction execution.",
+    "Zero-activity and one-price bars are non-fill proxies. Intraday circuits, queues and spreads are not certified.",
+    "Current delivery fee schedule effective 2026-03-01 is applied to every date as a cost counterfactual, not historical tax reconstruction.",
+    "Splits/bonuses retain closure-v4 ex+2 share-availability scenarios. Cash dividends remain nonspendable receivables.",
+    "Sale proceeds settle before the following exchange-session open; broker historical cash availability is not established.",
+    "Kite subscription costs 500 INR per started monthly cycle. Additional production hosting/model overhead is unknown and excluded, not assumed free.",
+    "No certified historical sector labels, no sector-cap claim. No extra announcement alpha filter.",
+    "Gross Nifty 500 TRI is a diagnostic, not a costed investable product. Nifty 200/Momentum 30 series are not pinned in current local inputs.",
+    "Terminal positions remain marked. Without subsequent exchange-session inputs there is no executable terminal liquidation result.",
+    "100 percent research drawdown acceptance remains configurable and does not establish an acceptable live loss mandate."
+  ],
+  "previous_plan": {
+    "path": "config/liquid-relative-strength-v2.json",
+    "sha256": "05180d00e5bc7d93b1c9ed1ce75fda50f974312596b0d131351badcb4cd4a770"
+  },
+  "revision_note": "Audit-only correction: decision traces distinguish each control's actual rank from the original momentum rank. No signal, orders, costs, risk parameters or evidence changes. Preserve all ten blocked v2 attempts."
+}

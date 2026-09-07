@@ -152,7 +152,7 @@ def run(plan_path, output):
         print(f'Running {name} from {formation.date()}', flush=True)
         # Every attempt is durably recorded BEFORE invoking the simulation.
         batch.immutable(root / f'{name}.registration.json', batch.payload({
-            'run_id': run_id, 'experiment': experiment, 'formation_start': formation,
+            'run_id': run_id, 'experiment': experiment, 'formation_start': str(formation.date()),
             'policy': asdict(run_policy), 'status': 'REGISTERED_DEVELOPMENT_ATTEMPT'}))
         try:
             result = run_momentum_portfolio(replace(inputs, formations=formations), run_policy,

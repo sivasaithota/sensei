@@ -41,6 +41,9 @@ def rank_formation(frames, calendar, session, eligible, *, reset_dates=None,
         if symbol not in eligible:
             excluded['metadata'] += 1
             continue
+        if frames[symbol].empty or frames[symbol].index.min() > session - pd.DateOffset(years=1):
+            excluded['less_than_calendar_year_history'] += 1
+            continue
         history = frames[symbol].loc[first:session]
         if not history.index.equals(window) or len(history) < 61:
             excluded['missing_history'] += 1
@@ -98,4 +101,5 @@ def buffered_roster(ranking, previous):
     chosen.extend(s for s in ranking[:20] if s in previous and s not in chosen)
     chosen = chosen[:10]
     chosen.extend(s for s in ranking if s not in chosen)
-    return chosen[:10]
+    selected = set(chosen[:10])
+    return [s for s in ranking if s in selected]

@@ -87,6 +87,9 @@ class PendingOrder:
     reason: str
     formation: pd.Timestamp
 
+    def to_dict(self):
+        return {**asdict(self), 'formation': str(self.formation.date())}
+
 
 def affordable_quantity(quantity, price, cash, *, dp_charge_inr=15.34):
     """Integer quantity whose purchase and charges fit spendable cash."""
@@ -179,7 +182,8 @@ class _Portfolio:
             row = ranking.loc[symbol]
             atr = p.atr if p else float(row.atr20)
             price = self.fill_price(symbol, session, float(row.close), 'BUY')
-            if not math.isfinite(atr) or atr <= 0 or price <= self.policy.atr_multiple * atr:
+            if (not math.isfinite(atr) or atr <= 0
+                    or (p is None and price <= self.policy.atr_multiple * atr)):
                 targets[symbol] = (0, atr, price)
                 continue
             target = self.total_target(equity, price, atr)
@@ -211,9 +215,11 @@ class _Portfolio:
                 self.orders[symbol] = PendingOrder(symbol, 'BUY', q, ready,
                     ready+self.policy.buy_valid_sessions-1, atr, 'rebalance', session)
                 projected -= q*price + delivery_charge(q*price, 'BUY', dp_charge_inr=self.policy.dp_charge_inr)
+        trace_ranking = ranking.rename(columns={'rank': 'momentum_rank'}).copy()
+        trace_ranking['rank'] = range(1, len(trace_ranking)+1)
         self.decisions.append({'session': str(session.date()), 'roster': list(self.roster),
-            'equity': equity, 'orders': [asdict(o) for o in self.orders.values()],
-            'coverage': ranking.attrs, 'ranking': ranking.reset_index().to_dict('records')})
+            'equity': equity, 'orders': [o.to_dict() for o in self.orders.values()],
+            'coverage': ranking.attrs, 'ranking': trace_ranking.reset_index().to_dict('records')})
 
     def apply_actions(self, session):
         for action in self.actions[session]:
@@ -290,7 +296,7 @@ class _Portfolio:
             p = self.positions.get(symbol)
             if order.side == 'BUY':
                 held = p.quantity if p else 0
-                if (price <= self.policy.atr_multiple * order.atr
+                if ((p is None and price <= self.policy.atr_multiple * order.atr)
                         or self.inputs.turnover60[symbol].get(session, 0) < 50_000_000):
                     continue
                 q = min(q, max(0, self.total_target(equity, price, order.atr)-held))
@@ -368,7 +374,9 @@ class _Portfolio:
         for symbol, p in self.positions.items():
             price = float(self.inputs.raw.bar(symbol, session).close)
             contribution[symbol] = contribution.get(symbol, 0) + p.quantity*price-p.basis
-            terminal.append({'symbol': symbol, **asdict(p), 'marked_value': p.quantity*price})
+            terminal.append({'symbol': symbol, **asdict(p), 'marked_value': p.quantity*price,
+                'entry_session': str(p.entry_session.date()),
+                'available_from': str(p.available_from.date()) if p.available_from is not None else None})
         error = equity-self.policy.capital-(sum(contribution.values())-self.overhead)
         if not math.isclose(error, 0, abs_tol=0.001):
             raise ValueError('stock attribution does not reconcile to account equity')
@@ -380,7 +388,7 @@ class _Portfolio:
             'longest_underwater_sessions': self.longest_underwater,
             'fills': self.fills, 'equity_curve': self.curve, 'formations': self.decisions,
             'events': self.events, 'terminal_positions': terminal,
-            'pending_orders': [asdict(o) for o in self.orders.values()],
+            'pending_orders': [o.to_dict() for o in self.orders.values()],
             'fees_inr': self.fees, 'overhead_inr': self.overhead,
             'stock_contributions': contribution, 'attribution_residual_inr': error,
             'turnover_one_way_multiple': sum(f['notional'] for f in self.fills)/self.policy.capital/2,
