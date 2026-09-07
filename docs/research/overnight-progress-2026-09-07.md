@@ -615,3 +615,41 @@ missing-snapshot entry blocks, establish ordinary-share/board and price-history
 identity continuity, then expand the frozen daily coverage and rerun the coherent
 portfolio against Nifty 500 TRI. No new strategy result, Kite call/credit usage,
 order, purchase, activation, external message or automation change occurred.
+
+## Owner “fix all at once” — integrated raw research replay
+
+Built and ran one complete pipeline from the historical raw EQ/BE superset to
+prior-session metadata eligibility, stable raw signal/ranking history, physical
+share accounting and aligned Nifty 500 gross TRI. The raw panel contains 1,566,840
+observations across 3,224 symbols and 665 sessions. A frozen 413-date master scope
+used 382 new NSE requests and 31 cached files; 363 validated, 50 returned 404.
+Missing masters block entries. There were zero Kite calls or credits consumed.
+
+Eight exact split bridges are supported by dated primary notices and raw identity
+observations. Four later cases remain explicitly unsupported. Review fixed cash
+income being used to waive unrelated identity changes, a ticker-only wrong-ISIN
+cash link, and missing/same-day notice timing in the new bridge validator. Signal
+history still resets at these transitions; assumed share availability never
+becomes broker-credit evidence.
+
+All four fixed hypotheses complete January 6, 2025–September 3, 2026 (413 sessions),
+with zero open positions. From ₹300,000: momentum hold30 ends ₹130,787.42 (-56.404%),
+hold60 ₹142,280.50 (-52.573%), pullback ₹229,903.53 (-23.365%), RSI(2) ₹177,367.21
+(-40.878%). Nifty 500 gross TRI is +4.2248% for this exact window. Every result is
+NO_CLEAR_NET_EDGE and remains research-only/inadmissible. All four lose money
+before the separately reported realized fees as well. No variant is promoted.
+
+V4 preserves all v3 history/mask hashes; completed controls preserve every trade
+and equity point. Strategy settings were never tuned between outcomes. These are
+not directly comparable to the old January-2024/current-constituent/adjusted-signal
+reports because period, universe and signal basis differ.
+
+[Final results, limitations, hashes and reproduction](stock-closure-results-2026-09-07.md).
+Final run `f761e7e8e9e21c9b81069cf2d5d85292c50cc3286c71ca1eb064a80a0c72fb86`;
+report SHA `c23c855ed750dcbd1d8355077939135c23122707cca98c85c0b29b8616b27e2c`.
+Full suite: **1,218 passed in 30.83 seconds**. Final Standards/Spec review is clear.
+This closes the integrated engineering/replay pass for the four hypotheses; it
+does not establish profitable strategies, complete historical certification or
+live readiness. Architecture is preserved. No order, purchase, external message,
+live activation or automation change; unrelated runtime and LinkedIn files remain
+untouched by this commit.

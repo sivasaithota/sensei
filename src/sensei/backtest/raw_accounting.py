@@ -47,8 +47,11 @@ class RawAccounting:
     evidence_sha256: str
     start: pd.Timestamp
     end: pd.Timestamp
+    signal_basis: str = "frozen adjusted history used only for signals, ranking and correlation"
 
     def validate(self, symbols, sessions):
+        if not isinstance(self.signal_basis, str) or not self.signal_basis.strip():
+            raise ValueError("raw accounting requires an explicit signal basis")
         if set(self.frames) != set(symbols) or set(self.ticks) != set(symbols):
             raise ValueError("raw execution must retain the complete signal universe")
         if re.fullmatch(r"[0-9a-f]{64}", self.evidence_sha256) is None:
@@ -125,7 +128,7 @@ class RawAccounting:
         def digest(value):
             return hashlib.sha256(pd.util.hash_pandas_object(value, index=True).values.tobytes()).hexdigest()
         return hashlib.sha256(json.dumps({
-            "evidence": self.evidence_sha256, "start": str(self.start), "end": str(self.end),
+            "evidence": self.evidence_sha256, "start": str(self.start), "end": str(self.end), "signal_basis": self.signal_basis,
             "frames": {k: digest(v) for k, v in sorted(self.frames.items())},
             "ticks": {k: digest(v) for k, v in sorted(self.ticks.items())},
             "actions": [vars(a) for a in self.actions],

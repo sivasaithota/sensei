@@ -464,7 +464,7 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
     if raw_accounting is not None:
         identity = "sha256:" + hashlib.sha256((identity + raw_accounting.identity()).encode()).hexdigest()
         raw_summary = {"policy": "raw-whole-share-gross-dividends-no-reinvestment-v1",
-            "signal_basis": "frozen adjusted history used only for signals, ranking and correlation",
+            "signal_basis": raw_accounting.signal_basis,
             "execution_basis": "verified raw NSE OHLC; dated ticks; whole physical shares",
             "dividend_policy": "ex-date gross entitlement, excluded from buying power throughout; no payment-date or tax simulation",
             "bracket_policy": "nominal price brackets unchanged on cash dividends; rounded to each session tick; simulated replacements",

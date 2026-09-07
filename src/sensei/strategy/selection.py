@@ -31,8 +31,24 @@ def selection_tie_breaker(plan_id: str, instrument_id: str) -> str:
 
 def average_turnover(frame: pd.DataFrame) -> float:
     """Use reported turnover when supplied, otherwise close times volume."""
+    frame = current_identity_history(frame)
     values = frame["turnover"] if "turnover" in frame else frame["close"] * frame["volume"]
     return float(values.tail(60).mean())
+
+
+def current_identity_history(frame: pd.DataFrame) -> pd.DataFrame:
+    """Research frames may explicitly reset history after identity/unit changes.
+
+    The caller supplies an as-of prefix. Legacy frames have no epoch column and
+    retain identical behavior. No return crosses an explicitly recorded reset.
+    """
+    if frame.empty or "research_history_epoch" not in frame:
+        return frame
+    epochs = frame["research_history_epoch"]
+    if (epochs.isna().any() or not epochs.is_monotonic_increasing
+            or not pd.api.types.is_integer_dtype(epochs.dtype)):
+        raise ValueError("research history epochs must be ordered integers")
+    return frame.loc[epochs == epochs.iloc[-1]]
 
 
 @dataclass(frozen=True)
@@ -77,6 +93,7 @@ class SignalRankingPolicy:
         evidence: RankingEvidence = RankingEvidence(),
     ) -> CandidateScore:
         frame = frame.loc[frame.index.date <= as_of]
+        frame = current_identity_history(frame)
         if frame.empty:
             raise ValueError("ranking needs observations available as of the decision")
         if evidence.available_as_of is None or evidence.available_as_of > as_of:
@@ -150,6 +167,7 @@ def _range_position(closes: pd.Series, latest: float) -> float:
 def return_correlation(
     left: pd.DataFrame, right: pd.DataFrame, *, lookback: int,
 ) -> float:
+    left, right = current_identity_history(left), current_identity_history(right)
     left_returns = (
         left["close"].astype(float).pct_change(fill_method=None).iloc[:-1].tail(
             lookback

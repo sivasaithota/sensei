@@ -1,0 +1,3818 @@
+{
+  "version": 2,
+  "authority": "RESEARCH_ONLY",
+  "can_trade": false,
+  "contract": {
+    "path": "docs/specs/stock-research-closure.md",
+    "sha256": "567567f76071cc009ba8885a7d4697cf51b02ccee6eda2db972fae2420ca8366"
+  },
+  "implementations": [
+    {
+      "path": "src/sensei/backtest/campaign.py",
+      "sha256": "29ab1865f8d27ca9574341131036cfc43678d9adfbe3a76d08decae0d78b79ab"
+    },
+    {
+      "path": "src/sensei/backtest/costs.py",
+      "sha256": "dfbeaf08aadd628ac4d95c41f5d72e03e99b01c8e5b0daa46a7f7454e275d3f3"
+    },
+    {
+      "path": "src/sensei/backtest/daily_execution.py",
+      "sha256": "fa61f8997570dcfafd6c99dffe8ba10c1560f16306d071bab148ab1904af6e03"
+    },
+    {
+      "path": "src/sensei/backtest/engine.py",
+      "sha256": "3549afe02e9665acf4a8ab06a9e055ba61f3dffc6c3d767680e3f17aa32e391f"
+    },
+    {
+      "path": "src/sensei/backtest/playbook.py",
+      "sha256": "0ab17025bf039869b31f1110c5ead3eeaaf1573d0d66df24f524bed6a7ac5133"
+    },
+    {
+      "path": "src/sensei/backtest/portfolio_campaign.py",
+      "sha256": "1f80b0c5309e112d48cc8323e056abd5a4a0713ee31d60b63ccb2acdc77062f8"
+    },
+    {
+      "path": "src/sensei/backtest/raw_accounting.py",
+      "sha256": "da7372b6482cc49d1dc0e26c987fb8e201309e2545a5f1f6f8d080f493f44231"
+    },
+    {
+      "path": "src/sensei/backtest/research_cycle.py",
+      "sha256": "ec14320a7f1b982b6e1522daf0ed80e180cdcbc34517099f6ab82a997ad9f60d"
+    },
+    {
+      "path": "src/sensei/backtest/rulespec.py",
+      "sha256": "04bf89f9d4308326250beff4caad240f5e8bdf25b54239550defa648a220dc65"
+    },
+    {
+      "path": "src/sensei/backtest/strategies.py",
+      "sha256": "534d4483d5bcd872386e74a7599bf67bb2c62b3384dc5aa8f387d5501ae14c33"
+    },
+    {
+      "path": "src/sensei/backtest/strategy_diagnostic_matrix.py",
+      "sha256": "700873b42d9e72d939d059c30f470afe6f48c777f1df8f8f0833d570fb422e2b"
+    },
+    {
+      "path": "src/sensei/data/bhavcopy.py",
+      "sha256": "9b7cc2acc3cc54fb57d5ad537da1ec5ea36d1ce46aaf55b8ad4f8de5a17c6991"
+    },
+    {
+      "path": "src/sensei/execution/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "src/sensei/execution/nse.py",
+      "sha256": "4dc9f6a746cefd7939b1f05d62e24869c0bfc2a8a3041fb26a3f12b19e95dc84"
+    },
+    {
+      "path": "src/sensei/execution/openalgo.py",
+      "sha256": "680ace9dc30616eaceb09e71c971f5b3040e20a7c3b5070d46178272e04cb012"
+    },
+    {
+      "path": "src/sensei/research/__init__.py",
+      "sha256": "a9156dfa09030c7ddf1f38c55cc92c447e44894d352b519e2c92a61aab6e41c9"
+    },
+    {
+      "path": "src/sensei/research/action_history.py",
+      "sha256": "275749bddeecdc0c54b1e81083bef2dbd00ac619cf4b3d953b7f9d0e1c649c47"
+    },
+    {
+      "path": "src/sensei/research/artifacts.py",
+      "sha256": "f9279155916da3ae34d0afc7f310a8672b991b785b364be117c025d84d530360"
+    },
+    {
+      "path": "src/sensei/research/bonus_indicator_replay.py",
+      "sha256": "7cf121fe0ec17a43b1682dd99498ecd8097def4dcce0a9093817725e5402e020"
+    },
+    {
+      "path": "src/sensei/research/bonus_portfolio_reproduction.py",
+      "sha256": "4d2d177597b28f0592451d408a2dcd5ae35d8e85e4a0098f11528024d6a34d07"
+    },
+    {
+      "path": "src/sensei/research/catalog.py",
+      "sha256": "50f2fb518869d2061c974e07ba53f355666ecfedf8262adb9abfb99818c59851"
+    },
+    {
+      "path": "src/sensei/research/classification_coverage.py",
+      "sha256": "048e6eff37536d1b53bfd539fc26bfc53e19b4518ea61b70f9b114e8c78b921c"
+    },
+    {
+      "path": "src/sensei/research/corporate_action_inventory.py",
+      "sha256": "e8a8c07fb72a2b2a8a087c2137724ad20c48386992ba82f3a7a11f8a4152947d"
+    },
+    {
+      "path": "src/sensei/research/errors.py",
+      "sha256": "cc446e8002470173eeb0206dcfd2bf13d04fe939d6cb36ef05b485a494c43a0e"
+    },
+    {
+      "path": "src/sensei/research/event_risk.py",
+      "sha256": "1f07d555b6588f1ff3ace866cd674266c2a18a51bed67bda50b029c825bbaebc"
+    },
+    {
+      "path": "src/sensei/research/examiner.py",
+      "sha256": "ae131803610848d1411c7a0fae44300258c90d904447c229888d288a6ddf3952"
+    },
+    {
+      "path": "src/sensei/research/exposure.py",
+      "sha256": "5ed4d92b0277e5f3d29dcb631464eaa6a8ef454392a286662426d3af9935e975"
+    },
+    {
+      "path": "src/sensei/research/held_price_screen.py",
+      "sha256": "10519bf33b0cb8dba30daea8e8e03a36efd195fb79cf723d7ddcd6da241abb83"
+    },
+    {
+      "path": "src/sensei/research/lab.py",
+      "sha256": "5cc4e47190b2fbdd48938b8aa80e6785e738ec13ef3e213c1d45ad8484f3a49d"
+    },
+    {
+      "path": "src/sensei/research/legacy_yahoo.py",
+      "sha256": "b73d6cec2f5ee217338c66c279a16ea48f6817f5b4d8db72b0228572f772ba57"
+    },
+    {
+      "path": "src/sensei/research/local_artifacts.py",
+      "sha256": "5e8d3d3142e7d4699e76a7a3cbf3f6289614bd73715a0f925700e57357727a06"
+    },
+    {
+      "path": "src/sensei/research/market_attribution.py",
+      "sha256": "ff3000df97c18a250ebe407dcf66d44b4ccd0527771ac439c74f24941f39162e"
+    },
+    {
+      "path": "src/sensei/research/market_data.py",
+      "sha256": "024db7de0a10753562fe77e1c264237d7b918129f663c4fc232c7fc9da98a941"
+    },
+    {
+      "path": "src/sensei/research/market_gate.py",
+      "sha256": "2cd0e7d3fc2ba98ac764be344202fc312c27770529c891da8f652d279ab955aa"
+    },
+    {
+      "path": "src/sensei/research/membership_notices.py",
+      "sha256": "32f684aa04b332416ed9be352c3f1b51605e66e489b1690ec0e6d0dcb7efbc79"
+    },
+    {
+      "path": "src/sensei/research/models.py",
+      "sha256": "3a833f1601cea1b7a0ce6db647b59aad591280a7aaf3f8aa27f4c792d37ee243"
+    },
+    {
+      "path": "src/sensei/research/observed_tradability.py",
+      "sha256": "fd2a80799331a46fac10f148963cc5a389ed0ee3a9f451f42eefccf1f07d14f8"
+    },
+    {
+      "path": "src/sensei/research/pit_signal_pipeline.py",
+      "sha256": "ec4de9b4c2d0fa26fd1b0e31e308cc4cc0d4ac843ff24a481255c982f7112d5b"
+    },
+    {
+      "path": "src/sensei/research/preceding_metadata.py",
+      "sha256": "0ab8f52a42fa9b54cb066f50387e6b159f0d2acd46e7fb0be39950bed0432a11"
+    },
+    {
+      "path": "src/sensei/research/preliminary_audit.py",
+      "sha256": "25b0977845da2f32055eb45d8a232890fc2820416f5f687d68e8ada1926a0867"
+    },
+    {
+      "path": "src/sensei/research/quantity_sizing_reproduction.py",
+      "sha256": "03d091bfba5c92dad8616533fc4b368a4f5c9f9bb6cf959aad825ccc04bebeb5"
+    },
+    {
+      "path": "src/sensei/research/raw_execution_replay.py",
+      "sha256": "204b7474153c54c3a61edd2cc51c1ec3cc0ef2b737d7d7439f2857e16adff34f"
+    },
+    {
+      "path": "src/sensei/research/raw_portfolio.py",
+      "sha256": "aecbe47e61268061d03053ec1c14ee42ebebaad4818180c736484cded33bca49"
+    },
+    {
+      "path": "src/sensei/research/registry.py",
+      "sha256": "fe10b97431ba0e28caa9c088234d48761b906f57116f8999249356807118ee17"
+    },
+    {
+      "path": "src/sensei/research/security_master_batch.py",
+      "sha256": "a1b9263eec6b096e3b0d891a161806230c52aa520bf9cc068b2368070f2aea4e"
+    },
+    {
+      "path": "src/sensei/research/security_master_daily.py",
+      "sha256": "b6d3313a2c388ef8d2fc151a981a0becb52701cfa2faddb9dab40b7086d02657"
+    },
+    {
+      "path": "src/sensei/research/security_master_sample.py",
+      "sha256": "36b66bfaf20eb00f1713ba4888bd6d910b1c98ca3e6e7fe75e76e64253683306"
+    },
+    {
+      "path": "src/sensei/research/share_unit_audit.py",
+      "sha256": "8e02ce46f95f235acde89eed317a361f6c58099616b790cad43d6b74518c8ec9"
+    },
+    {
+      "path": "src/sensei/research/signal_causality.py",
+      "sha256": "5f3276b3d8e27e8788c1dc39ef32d1220b81780985680486f678c97df8be8f52"
+    },
+    {
+      "path": "src/sensei/research/simulation.py",
+      "sha256": "e803bff325d3c7787c4c2aaecfad2ee2bf0aaad0f08c3c1abac8bb559d989b96"
+    },
+    {
+      "path": "src/sensei/research/split_portfolio_reproduction.py",
+      "sha256": "5303fb301d51ad8760743890167ff30c5f95335f9984b6d90fdd644cfb274a71"
+    },
+    {
+      "path": "src/sensei/research/split_reproduction.py",
+      "sha256": "1198d7127c3286f5b2c46d37ae8dbe5e9916c31c4fc9ec0e45792827b0c8c5b0"
+    },
+    {
+      "path": "src/sensei/research/stock_attribution.py",
+      "sha256": "06252c55079504af27d56536b9631b9231a85a0b9aab5fb7713c04e14c4cad86"
+    },
+    {
+      "path": "src/sensei/research/stock_closure.py",
+      "sha256": "a6528af164b650f976c2c864c7bba0b57f2372ac08028a3332ccf707ceaa7cbd"
+    },
+    {
+      "path": "src/sensei/research/stock_evaluation.py",
+      "sha256": "7a25d13f2b7c1ae334d66de4a8fede4ce461be54ed8d7a001b5e7c668ad4b540"
+    },
+    {
+      "path": "src/sensei/research/stock_run.py",
+      "sha256": "abd71826f23ef4f3c953afe847a338a72152d75900b232f04c2ecc3ecac99546"
+    },
+    {
+      "path": "src/sensei/research/tradingview_local_screen.py",
+      "sha256": "6a25b19edab4fd13296f280612c995064045a3c06336f956ddee7669d2636f7e"
+    },
+    {
+      "path": "src/sensei/research/tradingview_report.py",
+      "sha256": "da79de03808aee531c8e62613061f951ca317f571185ecb00e0fb8e8d80303d2"
+    },
+    {
+      "path": "src/sensei/strategy/__init__.py",
+      "sha256": "bc470202b93c2e984023a8b81055564808e71517e8afc6ea51116b315914fe54"
+    },
+    {
+      "path": "src/sensei/strategy/attestation.py",
+      "sha256": "2c2e6a6fa488172f075329ffed68a5f06d66c6e49c9da8a54969fdd4e2f34af4"
+    },
+    {
+      "path": "src/sensei/strategy/catalog.py",
+      "sha256": "95e1477996d3e49a9849de7065ff0a551d2ca9186c6398a87a6efa164334f496"
+    },
+    {
+      "path": "src/sensei/strategy/conformance.py",
+      "sha256": "40f246157836497bdd188a1b9aa267312551dae14587f3ea171a2cfe3d5cd4d3"
+    },
+    {
+      "path": "src/sensei/strategy/conversion.py",
+      "sha256": "6978935dc624a11f4182be6e4c53026a46affa166d9d1fc36f82b6c07e57b962"
+    },
+    {
+      "path": "src/sensei/strategy/engine.py",
+      "sha256": "498236544ca485c1da73cfc46e7310a2741910164207851ae6a6d8efb7dc72b3"
+    },
+    {
+      "path": "src/sensei/strategy/models.py",
+      "sha256": "1c5ad94627a2c94e868157271dd0c34b908821bbd0eb34b6f5f066d263de603b"
+    },
+    {
+      "path": "src/sensei/strategy/selection.py",
+      "sha256": "714944558fdda8b8161b0144f3ccdf44aac810ef84e1f8ff1bce2b4ca6845061"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "data/research/ahl-afsl-identity/20260907/CML67269.pdf",
+      "sha256": "31f405ed7543c569fd8ae75635539eaf451724827ae5637bcae04bdde0b13299"
+    },
+    {
+      "path": "data/research/ahl-afsl-identity/20260907/manifest.json",
+      "sha256": "1c2762a6a185fae8f4a387f704e6215c354edf5a2164abafccf7df6d937f8b20"
+    },
+    {
+      "path": "data/research/ahl-afsl-identity/20260907/observations.json",
+      "sha256": "4a8fd0a713b0a50ff01eb4146848b3bc451d3457ac0abf1cd1ab3fe9bddcb217"
+    },
+    {
+      "path": "data/research/benchmarks/nifty500-tri-20260906.manifest.json",
+      "sha256": "a07aaee33db54a696746d0491d4b219e96bfd14539a5057719b9a65598e24d49"
+    },
+    {
+      "path": "data/research/mii-execution-tick/20260907/NSE-Masters-Data-v1.6.pdf",
+      "sha256": "a1e45b6de312ebf05298fac8a1c4fbe337b8339b7eb110ac75705925bd05487e"
+    },
+    {
+      "path": "data/research/mii-execution-tick/20260907/capture.json",
+      "sha256": "821783d50026c183704e333f18353597fae3ef1b4d1a1b9405c0df522e0f8b3e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-03/capture.json",
+      "sha256": "e0a23164964a7445b228c7c57f5e99fa55efcef62e60f435caafce7702b6cda0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-03/response.bin",
+      "sha256": "43961837a525137ac78df1a06948b0868b8f3e78ddaed06d7e62405a28f1d3dd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-06/capture.json",
+      "sha256": "03487aacc4f308bd8ce10efac2a9b66e794fbcc28b726077cba1db0cbbe26e41"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-06/response.bin",
+      "sha256": "ac2945ad785cb705a880e253e311a460fc57983b9d64444396d6d88f1795e2bc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-07/capture.json",
+      "sha256": "b8dc422a06e4dd7a82aba033210f73ec14dca0e6e4063502a04051cf701922ea"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-07/response.bin",
+      "sha256": "e18bab334685011ff22c6f830da1267ff82d2050be0d92b5e06c81c2f15c7646"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-08/capture.json",
+      "sha256": "ad5ec3f6fccc3a4a75e810180017a00866251064f3c3620150c51e6b3401974d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-08/response.bin",
+      "sha256": "6b02d8a48a9342c67fbecbbedca0e9e17b9a5c7ee2cf82a343b1f8ce4c4b6567"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-09/capture.json",
+      "sha256": "d539a63e25e00d6e1c4e8d310aa27df30f04fe77dd2151730330524bf16bca6c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-09/response.bin",
+      "sha256": "565af47ce7afcccd8a3e0f016da443799cca2c8cd8e0c000a954427b8f59d177"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-10/capture.json",
+      "sha256": "7c17d8ee29266505d8c6c83f947aa4d00e0815eac3992231518cee138300235c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-10/response.bin",
+      "sha256": "4545130d5d56824162d7642652c19da415b82db603679e15be3341bfbffff0a1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-13/capture.json",
+      "sha256": "a2960081427f4a898373c20458459668e6ee55f631f6cbfed2224f651fec5bfc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-13/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-14/capture.json",
+      "sha256": "995144e15a29648d07b99208402e7a8ed25ea6a804df3949187a1480806ce8e6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-14/response.bin",
+      "sha256": "380120cb51da2d7b8d3159477db16b8899510281328aade4778c71f2764e14bd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-15/capture.json",
+      "sha256": "0f71f362ec486a09b9857507f132e9980c643ec6e04e3665d4a940ca2fdec70e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-15/response.bin",
+      "sha256": "0eaa242db30cd7ba5d6b2f44266a02de20d2eb4e7cc72a54f02c68afc3d4409d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-16/capture.json",
+      "sha256": "af771fce7908d947bdb8b4bc22140614573225b76125b507c757fe591189e97a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-16/response.bin",
+      "sha256": "6c95802bc4bf3462670768a16160ab7a2ee1107c5625c3642695eae7dcf553b6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-17/capture.json",
+      "sha256": "f2127abb3255f0435269aa84f4041d695c3f0d3db4317ccc934dd4e771676fb8"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-17/response.bin",
+      "sha256": "d39ab4664e51d5c8f414c875eff68e8a20ec8c1b815f0e9eb103b7111e23d26c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-20/capture.json",
+      "sha256": "da2bd6d212265b8f058b3d1322745158a66d6d6e0c9cc8e9189fa4a955fffac9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-20/response.bin",
+      "sha256": "6053831ab8cf08571b341a5b24aa2c50d330aae845379c1408b8f1ac55853630"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-21/capture.json",
+      "sha256": "01235c64bee7485050412fe68d8914f018a35076d658ef8517991af28468896d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-21/response.bin",
+      "sha256": "ea81e680acb4e6979d8ebaace33480326e430e6226e39ee6862a35ec8c72d313"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-22/capture.json",
+      "sha256": "1496b0ea295f465e3fc3621a2ca6d79254a56b896ba19063f7732757d2aa9de9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-22/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-23/capture.json",
+      "sha256": "f6843e8f2f98236b2798567fe596abe3ba3a1178c1d9815d6660439ae1bffc4e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-23/response.bin",
+      "sha256": "a5d80f643a0a6fc9eddce72eb6d6b6db9568a797be943cf214e76fd9ace20bdd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-24/capture.json",
+      "sha256": "0d8faa7baa0ff6d381ce58834e5db3f2b0cd39326976d58a823e5303726ba5d2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-24/response.bin",
+      "sha256": "a6dab5e4dace10501fb25de8e0c3498238029b066ca0e21615221438842d1ac4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-27/capture.json",
+      "sha256": "acbcdd7c5b2644189a615148c2e1fb59601a63abada2e7ed0a18dc460f24a481"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-27/response.bin",
+      "sha256": "981a4cfb9053e4f5cb32b2b12ee31ff35419ca9f5090cc40cbfc10aac6b9a457"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-28/capture.json",
+      "sha256": "3aab9656f18144077b32c02a8a5e0c1ac833da6739f4043d1ae0ea835bd22733"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-28/response.bin",
+      "sha256": "24f7241d1729f8edc8d213e1c78e925e97161fe763848564f6916cb1df51059f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-29/capture.json",
+      "sha256": "eb3ffe5b806762965812efd3aa4798c2cd4703f37cd8a072221113150ada62a6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-29/response.bin",
+      "sha256": "6040d8a4b20da5dadc94b51488a03965064439c8a85f3907691ba36d32a6759f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-30/capture.json",
+      "sha256": "009a2ed85284f88e9ed9ad03cf5f84749cad7d8ebf3ab7b5b6b27ecc09153372"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-30/response.bin",
+      "sha256": "eb25162cb33735b4850786ec82b934d7021fd08c2fcb388fb9ee2d1575dbe04b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-31/capture.json",
+      "sha256": "3994064c625275fbd857e115aa766886502601669b2827fd2ae050c15703d24a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-01-31/response.bin",
+      "sha256": "8d109d2942bd0a41f4c59fd25d77c62ca15184fdfef6c622bf60d57aba9c04c4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-01/capture.json",
+      "sha256": "043adb0ef3e3b94e1c631da13d8dd7f1c401ec1526f551e2fe9909e8064c846e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-01/response.bin",
+      "sha256": "7ede37668710923f907ed7fff733e3cdc61a6cffe989da4322a882d77ee551d7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-03/capture.json",
+      "sha256": "9d223c6fff75092db0f1f1af3baf6e92d22023c1cdaa414d705d19eebed7db58"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-03/response.bin",
+      "sha256": "0c6b90e43d34e370a60cf0ec11d89bac3d633c8da47ed42455d990560892f401"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-04/capture.json",
+      "sha256": "175fb5a44240f313b4bae536d59afbc3549cad88dc0574476f2d29db68111317"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-04/response.bin",
+      "sha256": "2b38952d6ec7fb6faaa8759de8adf9a7022b6f2d4c1af2a73303046a66792745"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-05/capture.json",
+      "sha256": "be3a485fb0fa693fe31f5928d45b949f93b086e90141d13a9c2def49b72d6e77"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-05/response.bin",
+      "sha256": "9732b2590706ef39ec224105cba3f40007fa04312c3da40cd4e5f61132dec3f4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-06/capture.json",
+      "sha256": "998029926cd8f87ad35320ae91a3cda92c7e2213746b48b5c09bc2f3497d45cb"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-06/response.bin",
+      "sha256": "7281c335f7ca906b6c6f3d3f4b4511ebb7cdf956ff01ff781f9fa42e2e2437a8"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-07/capture.json",
+      "sha256": "15477582cb666f6e181b878f1aeb5e7c6ff61174fec93ec997981898a5140842"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-07/response.bin",
+      "sha256": "7396ede3a6e88eeb84cad5d363c5ce1c29084f80a6280d5053d5fc4db53b634d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-10/capture.json",
+      "sha256": "0559d17173ffd7ede8c34364a9ccd3d28b65ebe3c4e758bef52bd356292f2aa7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-10/response.bin",
+      "sha256": "99d61fe8568304990f9cc0aeea16dd38acd036f4dcb8bfc8afec191b54127455"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-11/capture.json",
+      "sha256": "6d9b8fef30dbb491241290eab4f2a013a5584a9059f40c48fc97031e09b121ff"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-11/response.bin",
+      "sha256": "deb2e0af5233308ab2e7b7e4c38d04486a6e55ee6ea69e6ec6f0a606ab4a2796"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-12/capture.json",
+      "sha256": "da192d992e58fd235f732b0ff444ad42a2465342c71848a5eed72809b801708f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-12/response.bin",
+      "sha256": "33042402e8911e7f87494ebf3a6bca0fe62deeaf31bccdbafcb9399f09853e7b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-13/capture.json",
+      "sha256": "f5a0307d84c6d7086a9f85c1e87138999aa1d63b538895a1fe5a9babf6cb5f33"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-13/response.bin",
+      "sha256": "87f9c4cf3d2b3a65a20d325cc91853af679ec250130c0703af0055e72c4db6b7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-14/capture.json",
+      "sha256": "aa138650b4bfeb725623e1e1d0cc8c3f7d1cc69f3f21a650fad281d29d0872a7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-14/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-17/capture.json",
+      "sha256": "135d27e33665638210d012420733b64ca9fb450d4e8f53e100b1cdf0db05d207"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-17/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-18/capture.json",
+      "sha256": "47c9f76ba4a4a582543cc2ddc60285924150063087aa1daebd990b5547b29982"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-18/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-19/capture.json",
+      "sha256": "ef77a6716d3b92b10079eee7988859074b6eb7b12da7c4900f3817b56b6c6e87"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-19/response.bin",
+      "sha256": "68a314ca3cdfc083720c59b8698d5c569dc8e5355ca9a244b84e252b7634d57d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-20/capture.json",
+      "sha256": "9f2ad07dd3714e94c1953a51e5dddc587791efe6024e4e3e8a1668ea9ad71593"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-20/response.bin",
+      "sha256": "81a95b4e0443e20eee7a027181c7b188ee622995d195d35cb52c82dbca2a0524"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-21/capture.json",
+      "sha256": "11288cac19ee009f3adc42981f1dbc83cbd44f748be86a6219b4cf1126f4e938"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-21/response.bin",
+      "sha256": "56965461ebf4b660fb967b3b4e24c38df5880187db7bee122607f0c6c61a68ba"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-24/capture.json",
+      "sha256": "987a9cb9ed5dec0a65e6f96a90110e5adf92012fcf0c15200becc1d5043e8549"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-24/response.bin",
+      "sha256": "23ad65c2c7ac96fd0cc0f99582d36d11e527dd27a800558a4f81af1d89d302e5"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-25/capture.json",
+      "sha256": "ba7732c6252de14202767c84df5c1a7cd0137b9b8921f66daa5b1d76593f1715"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-25/response.bin",
+      "sha256": "e255b1d1391f1d4598fe387e6482b5e1dcbd37e34e6dea8e9d91d156eb934457"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-27/capture.json",
+      "sha256": "07b51b77ebadf5f9a0d9ece6f6e976df99c91a2d4398a2402be93066c61bf0f8"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-27/response.bin",
+      "sha256": "58d03992b3595740f40b9667ebbb4a9943aa6aed7c71786fe755a88ed0120cb0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-28/capture.json",
+      "sha256": "2010f8b27ce94124248a4e8699ac24c4f535f157fb803e9b3a7db6be9dc07d64"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-02-28/response.bin",
+      "sha256": "79cb43eabc7f6e897fb52a6e7b527c46b3abc6af772ce2a81a823f4e0a735ec9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-03/capture.json",
+      "sha256": "ef48e806a2971e5fe5485b7be7eaed350092ce0d89d24d2ac00855043dae2ec7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-03/response.bin",
+      "sha256": "75011a5aebc1a457ad8f7651797965ade8785fad7d7f1b6dd3c06073cf92f786"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-04/capture.json",
+      "sha256": "5c1f122db9de6afab74886b411bcc6d7b13fd0dbf199699b753231051f8f83de"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-04/response.bin",
+      "sha256": "24f91606510b01fef9da8333103b76023ab59c8c089cd47f505c84c02b5d053d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-05/capture.json",
+      "sha256": "3fe0d20ffb432ac3f2e3f963b1b6802f5ef480ad85ee3de88be7a80ebb7f7d0c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-05/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-06/capture.json",
+      "sha256": "23f3f49f2f0ebdccefad0321c3dfdfb8a747c0a744caa836bed5bfe7932898af"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-06/response.bin",
+      "sha256": "fcf7316b41db5c9312fd2c8139366e78cb9efbe2e57e8a40c3f4eed421e41d4e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-07/capture.json",
+      "sha256": "d8cc19e832c1b77ce3e6618bd4929c89082a015aadbe0c09f76ea1e46b15cb8f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-07/response.bin",
+      "sha256": "b862b24a5ea5b21c5a66342ad680c83b7a02edabaddb50ca65bb15383077e751"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-10/capture.json",
+      "sha256": "e3fedb83f804e4e93b23be861736e31efef5ee42ee8ab9d3e4600ca3dfea1f09"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-10/response.bin",
+      "sha256": "b8edb4aa6fbfe468dd962bf7d1c3d259c9d05faba9794c7b479d4cea75754573"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-11/capture.json",
+      "sha256": "28ba8aa0a1bd689f6f61f1f53b7b7270038e03777b50b163c0b4ecd828b78946"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-11/response.bin",
+      "sha256": "bd742d271cbbb24abbc053d2702f3dd710e77ecb4ab369a34675a385e68ae501"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-12/capture.json",
+      "sha256": "17f447ce4dca1d2ef62f932fc2181c51cf3af6ce1202be9c410556b58c898c9f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-12/response.bin",
+      "sha256": "bedfe9019ee509f56911e5c2f78b91fbc3a63b5dc2e5018e4570ee63f891d7b2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-13/capture.json",
+      "sha256": "e7bf4c4bd7a5bb398115b9f9670d52e7d86c021f67df511c8b1b600b9b1c8f07"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-13/response.bin",
+      "sha256": "4e574e602dfe025e736cf659d9a6fa4de7e53f12cf138123102db1189e920756"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-17/capture.json",
+      "sha256": "abc880cb9e92bac706db07e328fb971df30afd031130abba086d3b9c5782e8f9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-17/response.bin",
+      "sha256": "1a582411490c2b25d0bf74a3205402cd1639d9eccaf92e9e8c714b2462a58d6d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-18/capture.json",
+      "sha256": "7f5f7fc2bb8a626c983fdec0532b53a9ed76cf4cee3b478b88a16d813a4784ad"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-18/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-19/capture.json",
+      "sha256": "cc6380c79d0589e624d387252cdc72ebb9750d6a51ed99f83939d9c5fab98cad"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-19/response.bin",
+      "sha256": "099f324c4e8213a5654a95e6ca12cd4429d45479bcaccb84bc301dccaccaf312"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-20/capture.json",
+      "sha256": "3ae6fff302b5a171b7849ad9a20d2860b8cf7340917c8c9383e396daf329a3e9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-20/response.bin",
+      "sha256": "de72afd97a4f813a5dabc942bfc3d6120fd03d1cd1960f0a49a05af6e72a4428"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-21/capture.json",
+      "sha256": "669559e71f9d7094d7f7c63a6f963180f2193442083843af93eabb34e75b7487"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-21/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-24/capture.json",
+      "sha256": "08ea8817a2e62a1da00311fb76d88b10662910cd7622e0b2c028fadb0b77f54d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-24/response.bin",
+      "sha256": "950323d92f0fb65d2810b8f46098f024c1f13599e96aaec4a7246164ba5b6dc0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-25/capture.json",
+      "sha256": "04c2d740af1c866dc36b206e3eedf0da9ccb9dbab657ae2e037b0c17d83d3c2f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-25/response.bin",
+      "sha256": "937b4c1d32058d36bbc96c7305da7da43ea6283cf17706e1f94e4eb935c642db"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-26/capture.json",
+      "sha256": "73f03fa6d06f229a6a99f852b1f1a01ba68591c1c870fdf645a41a7021bd67e6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-26/response.bin",
+      "sha256": "95d222cde8aaa4079f1a43c49d8e54946f806f569d680bbb2551a2cc029a6c13"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-27/capture.json",
+      "sha256": "6e6d5f5ad21bac52451434750777f2fec0d3a2156f38bc2c445b5a25b4e80b56"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-27/response.bin",
+      "sha256": "aafe6230a32446ff5801d22652cadc0c7d59bf47e169704167ba6f76083aa632"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-28/capture.json",
+      "sha256": "8376db9b0b81ff68aadd76dc6fe272d96afe51838893b88e7c8f72a953b88130"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-03-28/response.bin",
+      "sha256": "3a8575d68a6f141a4b3046dbe02a60afea7560509f25024fe61632e094361487"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-01/capture.json",
+      "sha256": "78ed0700a1f8e2a9a8af162dbf59ea8db60db1174c774ba8a93c669a901eef9b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-01/response.bin",
+      "sha256": "00d3dccf5dea1b10be7ba43a07db911685a0c6f026f1f0ebe5f85aac712cc214"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-02/capture.json",
+      "sha256": "bb9c6843b897d377c9774a718b4c50d2b35006f4b204cd664d63bd1a04cc4015"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-02/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-03/capture.json",
+      "sha256": "2763ae1b21da78985fdf4f544a8ba98377ec819c30ee5e4256c5c163c27a4ef0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-03/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-04/capture.json",
+      "sha256": "b50b08c2df64cbff3c06418e1511da1487efdec10c545e135e0b6c7016f4fdd7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-04/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-07/capture.json",
+      "sha256": "79eaf6eab6ea2cceff220c03837a8d2db06073d56f37ea20657afbef423ba8ed"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-07/response.bin",
+      "sha256": "291a9421ac972f397d86e4b01d7f26df4557b68875be98d0aa51d0bc9650fc3d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-08/capture.json",
+      "sha256": "28fed636d0e39894025c854fda11640c1709b8b91d984c85a12a1f8a2bfac7bf"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-08/response.bin",
+      "sha256": "b1710ba122871f86a4973827c9f665d6e3c6b5eb61bee9a5c0da536dc808c561"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-09/capture.json",
+      "sha256": "805c656a31a5a1e0384a2a141e5ea1a2da8f00b2dac369122f024de35db18bd6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-09/response.bin",
+      "sha256": "acc2c5f650b3acc768f0f15eb21bd9afde942c5a38ba40abc641d8b896ec720c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-11/capture.json",
+      "sha256": "0ce8bad14f9d810d2d2b2924356800d45dc76feb2f66f9b850c951624cde709a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-11/response.bin",
+      "sha256": "ede79fc0a4cf638779e8ad1d7e333033a5668df2baa93f7083402d7dfc9b40dd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-15/capture.json",
+      "sha256": "cac9ba1f535c54a7c9cd192fcd88789e78eb867b9ab105d49fd677b960b8f5d5"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-15/response.bin",
+      "sha256": "85196613001ddb341d326b644c5ef787c2bed0d98c8a65f880e7622d93a2a9f1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-16/capture.json",
+      "sha256": "aeb9e11b1e769f25575ca0adcee43d0907025d2fa85c0ebb336e599bf7e8b7fd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-16/response.bin",
+      "sha256": "875a8b625b2cde065fada9c183b6ab0017b19e363d497377e2eec29dbdd5e578"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-17/capture.json",
+      "sha256": "4980030926680370ebf51f9c449ced4608c8421ee80b94da743106dd22959f68"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-17/response.bin",
+      "sha256": "b6749adda542db24d2d47a3714ca6264e251134324377825c9e366006ec23503"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-21/capture.json",
+      "sha256": "3bd804cce3ed6fa33011b1f04dfcb0ea3f4ade569620de748c08fcb7c7892c29"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-21/response.bin",
+      "sha256": "275043a04dafb1ec76f432140362c90be4b1f0301e4da662af165581bb4efd70"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-22/capture.json",
+      "sha256": "79b52c5c0d4139d33cdc71601ddaea950d15fd429305316fe66206ad2639fd54"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-22/response.bin",
+      "sha256": "f660e810ced9357dcaf52c40d58462c370ebb8d3e1176f9300e2a1e4058f42fc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-23/capture.json",
+      "sha256": "c1d4dcb7192c238b1d58e0f5e46c6be9a123772626b1675ef6046ab52a0ce9ae"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-23/response.bin",
+      "sha256": "1b0324a0dcc9f495db1e1e12100bfc14cac543dcc4cbe22a7ad51101cf148e22"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-24/capture.json",
+      "sha256": "2dd31cca8e42fc49004ea4ff788ab1aeccd01c1b220c36c836aa25a0da2dce22"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-24/response.bin",
+      "sha256": "4938140a7ca960674fceea6ada7bd4e1080174c18dd245d733db6d753c96e1b9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-25/capture.json",
+      "sha256": "14106509c445fabf5c451a05bc7eb0ffbabd8389685f8c9be61de0e11dabbdf7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-25/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-28/capture.json",
+      "sha256": "74012d45dda6d010496a4377e21a58cafd4f9b576ff909cc4a51bdbea87e807c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-28/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-29/capture.json",
+      "sha256": "61d0d7153340a26eb7980dff01023dcf3ecda58c4ee8506aa6c529742bffc094"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-29/response.bin",
+      "sha256": "dff4a9d5bb02156485f545206f0cf1e9c41fd452a9c9e5debb5e92ce5798c398"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-30/capture.json",
+      "sha256": "c9693a46751d0b0ba68ae5bd08d4634b81ed790650bc123d740dd42bf5232524"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-04-30/response.bin",
+      "sha256": "08766f540976dce9b3c5703a6735fbbac56f1326b189aa36b0aef30cdc625cee"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-02/capture.json",
+      "sha256": "c703332a95f3b2a03b483b5129b480e457c432bc6078f756924118085f1fe1f9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-02/response.bin",
+      "sha256": "0223b4eab5c0d62ec40ff92a1a8030123a79f56f2b0a70ce4015232971905178"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-05/capture.json",
+      "sha256": "8509de80ab7f649d9850f8f1425045b3291d857cd37d6ad183a4e6d9ff07670c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-05/response.bin",
+      "sha256": "577d4ddcc0a2788cdeadb694766219c707e690faed21391f768ece2cfab21a35"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-06/capture.json",
+      "sha256": "4bc4e20a2ff105a1b8c94f27a898d55871aa80ad31036809e6e2bd0889c925c9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-06/response.bin",
+      "sha256": "49152da132c3141c78cce1185611213d37c78eb7507db5b0a0380e4e8bf85516"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-07/capture.json",
+      "sha256": "532bc6696f97398dd9ef8c77330c967e914260fffe85690ef7e4bfd0e86de3ae"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-07/response.bin",
+      "sha256": "a1fd69caa4efd307a21fa107aaa78f43a9e88b2f14337b706737d571c797a236"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-08/capture.json",
+      "sha256": "5d2d86e14f8a2ad748976096a002bc1678842571c6c60f020312d31384e7e27a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-08/response.bin",
+      "sha256": "f18b332b15892a353608187becc8d0d540ee4c2c86c0a38d51e51f99e75b0604"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-09/capture.json",
+      "sha256": "220fc57c35a0e8229bc31bf558f9ca4ce49e4f4726e656894a31678f7eb02ef2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-09/response.bin",
+      "sha256": "a04442a15cf4a934a7718532f68cbb81f12019841c8b00a3863a5ee3f4b8b24a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-12/capture.json",
+      "sha256": "f6ee17c7707cbb94185ba5e2050d8fdee06c29c263a63d0ac9fb4d8f5875c7fa"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-12/response.bin",
+      "sha256": "3faaf28674099d9da85cce115f6412f120634b6e8f6ccae940e511aa88f90e09"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-13/capture.json",
+      "sha256": "8296f3a62f68fa225a7e1d0dd823ea75100cda7ae5a5af2e04e13ebe37063a7d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-13/response.bin",
+      "sha256": "064d792d30839169165c89ded7418be617ad6aa72d4c4f5ef3fb19e1b227fb49"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-14/capture.json",
+      "sha256": "20f4dd328e8443cb38e68fef6089a5af05b6ae8fe6ab3ed0de8c21968acb4430"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-14/response.bin",
+      "sha256": "817ed4fa9cf37284d96f0ff5e9cf1adb1f248745458f469dccef7048fd8e4947"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-15/capture.json",
+      "sha256": "0709b9961bd97d62c7c6b04de5977b4a39afeba0f25412a2b082ce5e20c92778"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-15/response.bin",
+      "sha256": "c2ab3f06ce2b82c481e3d919836990c049f923bab02ae0d82572bb4366d15ce2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-16/capture.json",
+      "sha256": "cc3c535b5555cba9b60ac85fb8dc22a3454bfa9bc39e8fbbe23e64d5d8bfbd16"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-16/response.bin",
+      "sha256": "7959ab7fb018106a4e02884271d0fce7c67e6102fdc57d2cf06fd81f14819353"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-19/capture.json",
+      "sha256": "1916c82101bf40a75f84737332762bdeed85d1baf65c4ec8e5b1881e84d07188"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-19/response.bin",
+      "sha256": "f4d688eca07db5b8ad6b55477343d9a2d2fcb08956d9218477b35436adce1037"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-20/capture.json",
+      "sha256": "8892e01bef7b02cae98d2466f7e70d26e66694dd1a67a652da3d637139035e72"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-20/response.bin",
+      "sha256": "5c91d350aaa604867c8797463252c1d90928d65b0ba7c46caca8d1f42a23b51f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-21/capture.json",
+      "sha256": "60062fd578b1602c8275d1bb43c2b77e711b5f7b4920aaffc5e458ba34378019"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-21/response.bin",
+      "sha256": "e380c5001f32407dba05ce1792c39b507316725d2de468a606447dd8b6094e06"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-22/capture.json",
+      "sha256": "0d0a71a14fd26ea2f4cd9de8f636f4630e46de95ff482140e339e542553b7fa9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-22/response.bin",
+      "sha256": "0d004be081de5ca82ae3c1ec15f482fe5bc0fd9bb3170cda559c6a42dacaacef"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-23/capture.json",
+      "sha256": "27063b37cd616a9645655e0300eed180b03581556464779291c4a7e12ce83909"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-23/response.bin",
+      "sha256": "026b95fe03835c993080c36a7a43bffebcb29e2ad6361b231968cbf16dd0e022"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-26/capture.json",
+      "sha256": "c102c1365c02383532a334fc29eb3e3a2d7eaac05398e250a8dc80e23191acac"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-26/response.bin",
+      "sha256": "f817b1c9b333ca942c42f494407a1b3a186359beb59f0de7d3d26af1d4c5542b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-27/capture.json",
+      "sha256": "3f5dc0b09bcdfa5966d0633033f6ec9d583bbdc4cdef64e6bac7077ea9a25b74"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-27/response.bin",
+      "sha256": "10e6c7d3231692feb67cf8b619cc02bcc44904415507d005d2d4c70085d0d0f9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-28/capture.json",
+      "sha256": "a178fde3941f1fb645fa43400f8c5cb516d97d8682450d0970816d886ef131a3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-28/response.bin",
+      "sha256": "e5cf7c9fd94d3cc8beda0b8fc845e651089854bdda072a29e77071d1384289f8"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-29/capture.json",
+      "sha256": "10b9a074f22e8ad94ebed5439c7323b1cc3655970b28bf5b639aead3ca62bf20"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-29/response.bin",
+      "sha256": "e9eeb47646962cc005b3ff4b60bd274e5c7613a6fb6f41560e5c9210d3ad052a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-30/capture.json",
+      "sha256": "519e925785e4d41e1003b1f1a20d0bf6c3ed5666e46d962fa3601f4313171a68"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-05-30/response.bin",
+      "sha256": "8bca54887622f4f90117174510c7dcebbbcd6b382b0a878966d86674fa5b343b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-02/capture.json",
+      "sha256": "f4aee47fa3308c31b1004a691405a86e390d58a448b02df19ce1f8dab2fb86fe"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-02/response.bin",
+      "sha256": "81df2d34cc07118b60b100a654c79441f467bfcb916a56588b7a99e9353abda4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-03/capture.json",
+      "sha256": "d5cde03593d0419008f41b6d78ec2b9dd1a207c0fca4a9f689d4994654392908"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-03/response.bin",
+      "sha256": "582c0a159e25771108c54f26f66a0c8ac0caede4d8bef4936514fc993676dff3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-04/capture.json",
+      "sha256": "dac4eba8f857c783c8fafa5a23e182ddd1f46763f0f18befbd3ede9307b0dc3e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-04/response.bin",
+      "sha256": "c1793869cb195bfebe6b5b54eaf938d1ccc345645ff1388fae6c68315f44184a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-05/capture.json",
+      "sha256": "c92be4871f9cadbc5dd7cb8da195c3a18e31e94893f8912679496c5f917de3a1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-05/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-06/capture.json",
+      "sha256": "9c1aad2a5a213baf891365ef18d2c8fb49e4aad238f8a791c0f826449582df35"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-06/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-09/capture.json",
+      "sha256": "0a1ac16b06e883c4fe0d7b74c55829f6bba5a5e5eb9ade7cac44077a77c95f91"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-09/response.bin",
+      "sha256": "5ffe38ec698cfc46b537658fef13df3bafb0ad731caf72f8e5ee7cc1d062031d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-10/capture.json",
+      "sha256": "a6380315d1b8a9c3f87a2a1e5bf8980c334d3df70c300e25b100e62366b40e98"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-10/response.bin",
+      "sha256": "8199b1a316f4d6bd3d6d930bab5fdab870de153e239c61613540322815822990"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-11/capture.json",
+      "sha256": "eb5345d8074f450dac3fd6808c3f03a6b54febb9ec4ea603f38afcdc72eda959"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-11/response.bin",
+      "sha256": "f94a09e3e458c23424f6b829d07ea82301269866cd808e03b1b8e57c1dcb29de"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-12/capture.json",
+      "sha256": "f61480b57b902ab635249d0da3d9e12f55de114403c399df0df9a4ab909bbbc3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-12/response.bin",
+      "sha256": "c735e2ee2123b0df008f9c0a48e7303dd2e96a880e78be0a7d15ba497bf861d0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-13/capture.json",
+      "sha256": "da22656cc357849dc412f2c7e71be728325b89f9d5ed1fcc13c1ef9b56544994"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-13/response.bin",
+      "sha256": "62de7aaa70feff1b8c5f5d90b063339bb55b569b4c3a199354a0539546592484"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-16/capture.json",
+      "sha256": "b4d7ad12695ad3f646d9a7308e2f7795def1bc734919181fcf160b5287925e10"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-16/response.bin",
+      "sha256": "9be4f1195c11ecfc9335410270044d0bcde662b982ddd69e8f3a1bf5848bf386"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-17/capture.json",
+      "sha256": "171e87b8a804c34df5620e8ee85a8b160cbbae78370542f0d87ba665c9646950"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-17/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-18/capture.json",
+      "sha256": "efd880c4258c8801d9d4b3fa65308dcb37e193c2ec0f7462615256e363ef947e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-18/response.bin",
+      "sha256": "7581baae152dc352a785767fcb797f8b1621563ecf477915abf7c820cb630501"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-19/capture.json",
+      "sha256": "57b1d813f2870c1be318952c37d5be9a29b48b9119b4dd395868c50405059033"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-19/response.bin",
+      "sha256": "3cee6b0efa8f7baa107eeda184721cad40529fdddc16e6ff36d7621e0f191842"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-20/capture.json",
+      "sha256": "28d0e455ed4c0bf2b9e980fa16a35515d5b366732ae31e1612b6df3047c9a39c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-20/response.bin",
+      "sha256": "cc1e3b270843b2a5d5f38ab64b051ab346af399b007a07b6989fcc51c9ba3d0b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-23/capture.json",
+      "sha256": "d2539bbd0e8e3f8a8ea13c20817bd252ab216e9938cf04275f9a82e4129ff122"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-23/response.bin",
+      "sha256": "df0294e849c066999a314098deda7d88a4df73525c9ef58d8a73e17d72f316c0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-24/capture.json",
+      "sha256": "e72bd7a690ba00c56c4cf451a63631c6840af3c60f8ad86dfc4ebd462bcfe862"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-24/response.bin",
+      "sha256": "f5276d380156469aaad5591b20d75a6482590ea08bc3796b22e5168462d3d4df"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-25/capture.json",
+      "sha256": "c9036d96b3718cfa36d8869b16d10a958f9d6ca19383c9eae55ac0a0966c1f62"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-25/response.bin",
+      "sha256": "7711717fd9ee3b99d01a6c4dc2aff6f47d7251a080fac4d713ecdc996dfeb105"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-26/capture.json",
+      "sha256": "a40e24c65358b5fa04a4034dfb254a939213af72c6b73295f9050ee7c446a801"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-26/response.bin",
+      "sha256": "d51c6a12a1a1f768e3b309f2ed6d935a6c7f86b282b0d550bc4e28adc670af6f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-27/capture.json",
+      "sha256": "35494d5c2d15baba3abd3a9f7a49669389117c46ae6dca2db107ae4697ddcc1f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-27/response.bin",
+      "sha256": "ad24672a5766780a15004be768313b52a49dea1d2246d6de658cdf7497f0f04b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-30/capture.json",
+      "sha256": "6b421ee577131cd536ec4b74bc1c391f1c8196637d246aaee20f55779c11ed00"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-06-30/response.bin",
+      "sha256": "b9b80307116c78e1fee0c4456767afebed533e093b63583da1f5fe4fef1b9fb1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-01/capture.json",
+      "sha256": "4bcf64a28431fb18817cc48a09acdb562f0feec2450b2e1578a10ddad1d38478"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-01/response.bin",
+      "sha256": "f8e84ba7185ac970421ba64a2fd99faf92c58a60945e0f2310bfa3f9cd27f770"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-02/capture.json",
+      "sha256": "e7a68b2c57c4b8455764adc9874c993d66a0b499a387e9d9c9123c53cb3f3f29"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-02/response.bin",
+      "sha256": "d9a96b34db57bb110cfd3e2cc935a36e75eeda9f5b4bfbc38dbd7d4034f8891b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-03/capture.json",
+      "sha256": "dfb3c1a7257fdadfbc37bf46cc99d3329ab41bb71c052064b9513ce981f713b2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-03/response.bin",
+      "sha256": "5c5d782e3ba9b2474c8f0cfce90c105911685b8663ed08c7cd2c47b42911cb36"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-04/capture.json",
+      "sha256": "1085d46a54d3712466943a135b82d5350c88aa96f091e831598aaf006beed4c6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-04/response.bin",
+      "sha256": "f492302db2af530d02d3cb7f143d95fd976c755cdc1fb740bffd6afb4d7066a2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-07/capture.json",
+      "sha256": "13906a66600fede788daa71caa6770613f035a7e038cd2241c2a1f7658b92e41"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-07/response.bin",
+      "sha256": "620c9b522a6f6ee0a4c1685de87a5389baa00d41fe99a0c123b5a29be184c4b2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-08/capture.json",
+      "sha256": "52d56bdb19f28890a710d26187dd0d2527ab732816875ea1a4e9e14ddee1917c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-08/response.bin",
+      "sha256": "f8d661e0daf0a35f470dd3478e3a80f0cd9a82e3504af66c726d5858f08d2613"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-09/capture.json",
+      "sha256": "db2c180d57cbd0044bdba8525bcbbc91e94a5b5e89bb6e9977eab92b53f95533"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-09/response.bin",
+      "sha256": "84437438e5f2fa3bb694400a6ab7480b170cd2c414047888fda8ea4a94f79e64"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-10/capture.json",
+      "sha256": "bd591d5e10a80c12a7d1266af2becc811c9044532d6379e9a3fda8267f78329e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-10/response.bin",
+      "sha256": "0bce3c3117b6c56da69119c5f8757f4e530bb692ac93d22dcb092e588f4a8592"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-11/capture.json",
+      "sha256": "b28d51852f0bb851791c5df82ce0bd771b5e8dcc594f7f2aeff76105f930d581"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-11/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-14/capture.json",
+      "sha256": "7c6cdd5a7642d0495f18d80eb1481c56496229851a36017b97ed9a4cfd63f947"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-14/response.bin",
+      "sha256": "ba62ac73da458113510c94624cdf814488ee8a9f18f434e9a8a6c778a62cc8ba"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-15/capture.json",
+      "sha256": "cab28f66b46397713084d140d353161b81722007bacb4df5f6706e95b5269964"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-15/response.bin",
+      "sha256": "ba50dd08e41f6dd1924c4a9dcaee5bddedf9e45b9375eab187e6227a15fa3594"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-16/capture.json",
+      "sha256": "96c0abdbf9348ffc43c05368b2db0c633b04d64884fa555ab81fa78a7f35ff1a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-16/response.bin",
+      "sha256": "a359b0196ed5def7cde16a882f2d88ce64013040a64db69f566c86aa46c8766b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-17/capture.json",
+      "sha256": "97988f8c4bb881840723ec2ab4b513f5127045d78faf5915799bee2152472df3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-17/response.bin",
+      "sha256": "a8f695b8a191342b0a2110fb5e815ecb25c8ba7439af5f9ca98ee16886a2a41c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-18/capture.json",
+      "sha256": "020253e969d5c63f7d040bc65ac118f66b0e2bc4bde551ddcb9d4d93793dd2f6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-18/response.bin",
+      "sha256": "7bcf1ba654f6cad241f3459d737de41a35743c00a45cc9e805893559532520a0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-21/capture.json",
+      "sha256": "b7a8989b449d8dbd788957435b3b4825a0b4366dff6be930066743d850f0edb7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-21/response.bin",
+      "sha256": "6536597f69065a819a78ffae31fc4a052ec00e107603383389b7c539988eea76"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-22/capture.json",
+      "sha256": "5607d8c3499074dede7317634a943d3ba1191669da32b75a157caad08a7fbe04"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-22/response.bin",
+      "sha256": "6f31ea09bc94a237478a22f01e40f88fbf04a1e6175fff49acc01fa346cf3ffe"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-23/capture.json",
+      "sha256": "5f34728c1890c9e3d26c69926d256adfe914f494aaf8496dc3af328546452966"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-23/response.bin",
+      "sha256": "5b6deb4995190647eb41ab4bf152bfbbb5cf94d01f6fe19c65c46bc0b7bcfaa6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-24/capture.json",
+      "sha256": "c047ed48bf409a174e00a0a3a71ba0d4435cd11f384480237641090e085fd1ac"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-24/response.bin",
+      "sha256": "94448bb71cda9042a3bd3bb4a6f6f2a6484dc4ff457d198602be27cbc8fd86cd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-25/capture.json",
+      "sha256": "5073825e0293435b2dec1468a92f8010abcc4a04b1a29cc8d046682c41123acf"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-25/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-28/capture.json",
+      "sha256": "a2314f05dc2abc44c6160da4ecb565199ed79c8eeecbfe105adc4ce95d56cf59"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-28/response.bin",
+      "sha256": "18f7b087f138d02714406165766c71800b52fd0d9f9faaf1710727f07db8b84b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-29/capture.json",
+      "sha256": "533dbe46c39bfe46c7378fe5798b929e9c262295fb7c816b094837d9afdf99bf"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-29/response.bin",
+      "sha256": "9a9bd5a39da4a32b29b7b6c3d8df9955e8fc6ac2dab71fc884f55729deada3b3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-30/capture.json",
+      "sha256": "66c06a000aec2181177f89007668c4d5f29aa8b9ee7ac192b6eabdeb9bddb59c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-30/response.bin",
+      "sha256": "1dba2a5b0cedc623e9c413517fb5369e02c7519007f4575140152eacec2d7b27"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-31/capture.json",
+      "sha256": "fde621ae71c890e5b8d92a5610f182ec4a8de52d5f669757e1f084c55edee362"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-07-31/response.bin",
+      "sha256": "9cb5249b130acd0c25b9e48d744236d84935b569f8d2af9702ebe669e658a395"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-01/capture.json",
+      "sha256": "3806e18122752d881b48f7424bd4fd6b30f5770ecace6f6d24f7cd8a00ca88c3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-01/response.bin",
+      "sha256": "ec15ba15052dad90908e951273877f2563a53e3b626ba34d10e6e45d89780339"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-04/capture.json",
+      "sha256": "8906c1d9ea99d7368ab63bc85a368a21f110b9663ca92eef428fbcd98623c11e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-04/response.bin",
+      "sha256": "5cccc3257b4c629415dde11b65e88a29032e311aacb5dd03252cfe471090a512"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-05/capture.json",
+      "sha256": "8846dd83403105c09d28e10dedabb2228ab19a7074974272af8d60e238f320d4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-05/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-06/capture.json",
+      "sha256": "239de78647aeb2f74cbbe66ee93fc1ed589c0db5eef498986f65ebae2c99d809"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-06/response.bin",
+      "sha256": "e01d3bbade083a4eefb69a105d6a705e7c993cfa63b7f77373cb98d5418aa628"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-07/capture.json",
+      "sha256": "6c81a48488fb80bdaa4470ac4e625be5c889425d82e3a856446048d8e8c75cf4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-07/response.bin",
+      "sha256": "901993f8671931299dd814a98552e4d0fe45377ee40f2ecd79c8ce8661f7561a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-08/capture.json",
+      "sha256": "3ccd84ad371a0cef1dfc2f36c1936b81a41139c2c7176dbdf4b29c323175c7a7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-08/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-11/capture.json",
+      "sha256": "ea0c81e6e58d526913a9ebb2ce79b47da4de88c0e34de86f16936fde752a8923"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-11/response.bin",
+      "sha256": "b5b0939c5d99376635ca5cef8265f2225a1275fa1f21079207e4b03175d1ab19"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-12/capture.json",
+      "sha256": "dbfcd22759d113f0ca7fc753b547f9eea51c64996de2e2bc888733cf393700ad"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-12/response.bin",
+      "sha256": "45610e9ea0f1bf4424d38423ad045027a4e4ee209565c7fdaa7850395fa2736d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-13/capture.json",
+      "sha256": "4172b5d16bf046f7d5094b5f41c5e8ab7ec2bebe830703612c80ef59616dd316"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-13/response.bin",
+      "sha256": "953cae3276f5987383097badb93d04653230eabcb18d4256bf5e7973ac71eb42"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-14/capture.json",
+      "sha256": "d80060b9f51edb254b94e9040a7337e7b93cec740d2488c996eb2868ba8516d7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-14/response.bin",
+      "sha256": "0d56f68592ca92fad13ba6c5a8cf6ce47c5c63c357de9f78ae88f9db30773599"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-18/capture.json",
+      "sha256": "5c24f9d0004f9e90160f31b5c858a41f4f364a4abe9aab94534a9d07a4b52f0b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-18/response.bin",
+      "sha256": "3c63b850a4594a4598aedf6cad993a0c80caa07a870f65f810c563789daddbdd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-19/capture.json",
+      "sha256": "77692b3268250a2aac60af98da9c8f55c360203ba6f061075fd63df89bc80688"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-19/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-20/capture.json",
+      "sha256": "93a309869857236ffba9c0dc37b03e8b3336478857c702dc0964ce530defe172"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-20/response.bin",
+      "sha256": "eadca04f4cf8e8ca8e833f7ac1ef8584da9f99603df84e728e7bf62fea6022ae"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-21/capture.json",
+      "sha256": "c07b582d8fa6525c32c13d860fe6ab36ce96839244646c8f93f51cbc15f27759"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-21/response.bin",
+      "sha256": "986420592be84af81c1d8f77b565fe0dc291b01b121345beb762e83b926b5ca4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-22/capture.json",
+      "sha256": "c8cceb8a9d4be9e0b17b207d8590c290535b39eacad4b997ebdc5747c38eac26"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-22/response.bin",
+      "sha256": "b507f92226e3e1844aeee43d791f9c163e78deb12ffbc993f2657acd877fac05"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-25/capture.json",
+      "sha256": "6eb1b3c2b9078b0870b8728b1bbaf2408c6d78413c182c46fd29e8203faa86c4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-25/response.bin",
+      "sha256": "b3b76b86ba05a459cc254cd8e13a5956ec932563d02fb57e11871c0ef7538e62"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-26/capture.json",
+      "sha256": "19a1dc6908088a929d94ea487022bfd9a7f829e11a703a61adbe73f576b04bb8"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-26/response.bin",
+      "sha256": "11d534fcb228c4e748e260674817d73385967f06cf5f7be86b6b7888b4eeaf5b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-28/capture.json",
+      "sha256": "5e94c2dcad9c924035748026e5f0944a7f9e2415ed13c48b384215a991939d68"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-28/response.bin",
+      "sha256": "964709361b9ff95dc9d82a56b0f3fc7cb3fef059e168fbb2496d2600c6a98c1f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-29/capture.json",
+      "sha256": "274599e1f0bd0642b9a582297f16c778d6aeb7c57b98e221684ab0bdd1e647a5"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-08-29/response.bin",
+      "sha256": "a3c4f69a52fabc839a29c4ca3316c17baee089383e94dce288e4d82eb9edd477"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-01/capture.json",
+      "sha256": "d8708c1b78e983dbd8d205e86bfa669414955191b5f86ab04d9a5902500fcb83"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-01/response.bin",
+      "sha256": "983c9e116ebc59fda15a76a5aa579e4f950aaed3397ffa0a70c9e4697e776967"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-02/capture.json",
+      "sha256": "536994ad39e9f558feee6c38757b226165fa753478d824a2bf11a5c45105c085"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-02/response.bin",
+      "sha256": "e8712cb4e94161438ccd63702874f31a412431107d11e987a0cb988725363d4f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-03/capture.json",
+      "sha256": "9a98ee4d5843d9a0f01ce92d17d113f0e0912c7efd28f0c78111e10d41900187"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-03/response.bin",
+      "sha256": "9eae0466fd9fc4c1ef10a1c8114168e7af31131c8f27577edd4fa4a06024b8c3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-04/capture.json",
+      "sha256": "b1ec29a436e4b6b862303633d8d7159a7e06d2d16e1cecb8a5c1472444f37262"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-04/response.bin",
+      "sha256": "4b6a384c1b8961bfc61f577d0844328921df4ac8f3d9ac7a0164edfcf239f111"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-05/capture.json",
+      "sha256": "0d8020270c997e36474fd11ac3c57e571ec271f735b2670957251a69da30d4a6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-05/response.bin",
+      "sha256": "25522f9d26493c4f313c481b9806608c6c7d760615827211319a91fb4cc49d21"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-08/capture.json",
+      "sha256": "160940bc91b47d9cef705f9727c956f67b1acc07546f03061d1c6d42d107b0c3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-08/response.bin",
+      "sha256": "bc4e6158f6e9a17a11b068070ee5177d363f5fa9a2aba1d458eeb372719ec644"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-09/capture.json",
+      "sha256": "d0b08d04fb3d33756723afc9aaaa758ef0d78e877f2e50bee327ae37a42e3916"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-09/response.bin",
+      "sha256": "4c0249e983b4506b7e210c916d9fef8eee7436ddbb780e3cd0ca7f544b84ad11"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-10/capture.json",
+      "sha256": "904aa5d047856e6814d129ef6b0f6992d490ced7821ec05cbd30faeba583aa53"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-10/response.bin",
+      "sha256": "84dc8e78a6e178329956022decfa7b218be0e8143ed66fed96ed22b2b6e90313"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-11/capture.json",
+      "sha256": "4957ea79fd165e949a6a5dddc0217d9be65bedda7bbc63285ac1241234f43f09"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-11/response.bin",
+      "sha256": "74c447f30e0825fdb5384501f39c2922fa8442b2a01c01dc00386a64f4359505"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-12/capture.json",
+      "sha256": "019deb0a8be5b18bca1d0011002ab9bebc9d0bdd9165330787a8cc873c5aedac"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-12/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-15/capture.json",
+      "sha256": "f5dc8733c1f92a9aadef367c3c93ba762997120085ae43a7f525391715985653"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-15/response.bin",
+      "sha256": "57f047ac511a824afbd06945bfc468f4854285d7dbacc6f2657a81fb732fc4dd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-16/capture.json",
+      "sha256": "240bf6ed272209d98626390ae20ea3d25e2fadd0ff826c7c3c2bb2576ea0f97b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-16/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-17/capture.json",
+      "sha256": "3067092f472afe6a297d88291467ea3049a33ecfd1c23f677831fdecf9b20ac0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-17/response.bin",
+      "sha256": "db64cbab527f0eb91adff47179aa02f8681fd872387a663deb971c6f53f081ff"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-18/capture.json",
+      "sha256": "54e02d98f1c07313d0c58075500fedb155410288573f577ca71541b98c440612"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-18/response.bin",
+      "sha256": "cab90bb774b1b4f049afe29403ad2486f9abb5de56114dab298d279254ba5830"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-19/capture.json",
+      "sha256": "eb64fc7e2354ea6f0fc54a22942d1764234d0a8c940c2ecbac3d4bf80836e226"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-19/response.bin",
+      "sha256": "7ac4c07abdff4818c6efa5a3eadb69cf2e4fb1ceaf8e30a585670ac5f8c9a8de"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-22/capture.json",
+      "sha256": "33060305775fc530892b3f40ef375da5846d3524cd21629004d5bb1781d4e00d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-22/response.bin",
+      "sha256": "919b6aaa2752672a52ba3f7ff51fe50485e4aadc5e06703f768d22afa05e11bb"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-23/capture.json",
+      "sha256": "0456ecd63554f6c35de2699890a5b657c311dec68793a6ec6288065ecb01b1b2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-23/response.bin",
+      "sha256": "00629c761449049caa8d7058ebac5fcaf8eac2af1ef19763b5c2448107428b55"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-24/capture.json",
+      "sha256": "bc1564da56384a08107b4ef2496241c11121245622ef2920d77296ae0128a176"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-24/response.bin",
+      "sha256": "68718eb5935c59a1f6be0ab1434a02c94bfb0d095ac41e75b0a4b96bcd528807"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-25/capture.json",
+      "sha256": "d40a3ecdaba053b2dd101718424185bf168b382de9d282f5e6ae9c8d03ee17c7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-25/response.bin",
+      "sha256": "d1b39bffd0daabdbed1bdf972177a8b61c1cfcf73268472818505eb3e53a859a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-26/capture.json",
+      "sha256": "898ef1b15c42ebc60db8c00be3d887a9ad2ede5e48b545f5c2e41c8303aeaf22"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-26/response.bin",
+      "sha256": "c73ccceeb1c26b9e8e6864d3316f4f874b0a24038e9ca414fc2948610e24b080"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-29/capture.json",
+      "sha256": "ac3cbd0cfdab918a9970f7ef8b5121373afbc470815414fd99ab6348d4ae2d7b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-29/response.bin",
+      "sha256": "b0b0cd25b781b72b2a1f8567bfa4f359a4c139583fb81516f6b50f5e9d55a6af"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-30/capture.json",
+      "sha256": "63ce807aecff95c4401eb20436e3eb5de0d0eb7383840fefdeb49ee2dac5b5e5"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-09-30/response.bin",
+      "sha256": "ccadc8d02c9771dc567795605278593362ee87ed6bf10bc5ad0cabadeaaf622f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-01/capture.json",
+      "sha256": "e87d26e9ed2d016e4fe1c36dc8e3c495d988f05fe94287f5c202e9d0126b6247"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-01/response.bin",
+      "sha256": "e1c3846a9c8fb353777272c39a05e615ef235cc817031a311c0581c70715dfc6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-03/capture.json",
+      "sha256": "fc037c5f81c7041c2a9069ddb62b61ac5672df3d4bf96cdb17d85178155f611c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-03/response.bin",
+      "sha256": "7f37be117b04146b22567c66035200bdb154d1c8bc2a0e9e13be06ebb8e7f002"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-06/capture.json",
+      "sha256": "74cf0a649800380952d840e25ade215f578eddd69c84c83f90ce740d8f78e6fc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-06/response.bin",
+      "sha256": "01d9e5afb551a6b437df9df60c23335526a3f2f797163326a08b497c7f75ad44"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-07/capture.json",
+      "sha256": "12c31a900f7b049186401b16862544dbd3e389850140dab9f29f9a72da5ab30e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-07/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-08/capture.json",
+      "sha256": "8e815c30a4ef3c5fe0eb991b0159bdf6fa42930a0c578cbfc5b56bef63d271c1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-08/response.bin",
+      "sha256": "f64b0e69be7fd8304777ed41efff5ae2f665d9d26a07bb7a75f6792a830b3d05"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-09/capture.json",
+      "sha256": "12971944689b95a8445ecc0753ddcd9c132c3796e57fbc987389c2b15b411bca"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-09/response.bin",
+      "sha256": "b633059e5244bf69a6c97381518e5a42e8d9707fd1278101ae7af63fdc61c129"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-10/capture.json",
+      "sha256": "a08b9fc6ef0a7138583f75ca2ccdc447d89aa9d25e49e94f501cf193383cb835"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-10/response.bin",
+      "sha256": "d63a599f49e487e2a5271ca6d540443bf5fd1d40f7a333983f54caa135ade9eb"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-13/capture.json",
+      "sha256": "25ea29d2a918e3fa0cf4ca79d3c8328c3e78716b90cff2adb8b49404cd42ac3d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-13/response.bin",
+      "sha256": "9656fb91f4c02e11bff1772fa12415416e9ac80f1d2aaf1b0c24931138108c4e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-14/capture.json",
+      "sha256": "a6c19b29f9adc00f81ff83334673792e92c2a6aa01d8cf88f499c83760bc68f2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-14/response.bin",
+      "sha256": "6909ce2e46b4fd0d99c9f886953d2ef6580b5ab01ef7c11b0a661cc81bdb4981"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-15/capture.json",
+      "sha256": "85d4d2afd0d8f5aa822b7889022eba64217adbea552f6f7f7cfb6758632dec55"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-15/response.bin",
+      "sha256": "c55cc5594949d56dd0d8914e83b7ff4334942121971ba94465acfef0e53567a4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-16/capture.json",
+      "sha256": "131e9b651a8a39e109ac2e196344ff9f3e042f92f010905cf83e4b3f78a3c623"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-16/response.bin",
+      "sha256": "7d711c36de407a360e4342aeaa0d3023c4ae953f8c8eeafcc900da7b73ee7b73"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-17/capture.json",
+      "sha256": "ea6898ab0716300454b0857cc3f2bdf4e829c8d81903cfc748e15e0ee6226b48"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-17/response.bin",
+      "sha256": "5d286f103525c04d3f1fd4cfffb42d0c62888453d58fe01e26eb3bdef56b646b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-20/capture.json",
+      "sha256": "e2fd6f1d104161d8bdecfe08faea28add4e2e251f6285ae9a7fb4fabb140b623"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-20/response.bin",
+      "sha256": "17ab306337af6e5ffd28a43e26a2c33420b32ff181d0adc7190d2d693bb86bde"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-21/capture.json",
+      "sha256": "f30df9647d50037f95370d746e75197576d055e98025d06b4796980af86188bc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-21/response.bin",
+      "sha256": "c9ad6496399d36da0de8bb47cd6b5bea04b30634fa931dc2475bf94ae5eb17ee"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-23/capture.json",
+      "sha256": "c80e2f2b842f4242739202d8af9b83439b9042bdc8f9be3cf66ea79b518a1f11"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-23/response.bin",
+      "sha256": "989a8b0dfdf12283295afb275fbdee6813d8fdbfafef6dce615e410f49d43d23"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-24/capture.json",
+      "sha256": "011da935c25bf873a3cc3d9a5389f4873c2a6fd7ea84ac1aa886392bcc0ba3fc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-24/response.bin",
+      "sha256": "fc441d6266ddbec2cd62034f021f5c5ba60847e993f2dc548831d5cf3da5ead8"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-27/capture.json",
+      "sha256": "c9c64d66095308c1a5b218ca320e5b265962789de882d220a4f71e48932e469e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-27/response.bin",
+      "sha256": "77f8cb703c139543266ecc03a726b4e1e12b2cac1b75dbac96794f59a986d109"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-28/capture.json",
+      "sha256": "33c98d93affe793c01ef4506e452a007dd2f376b89227b961ced5e8ab2a6028f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-28/response.bin",
+      "sha256": "7d11cd749e453781abe70386bc81b0de24e598b0fdd2f01cafc44897500ae291"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-29/capture.json",
+      "sha256": "ab1900fe7c24120932906c27043e7572549a621ea236b756c16c1ae8b8c1058b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-29/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-30/capture.json",
+      "sha256": "8f5d7fcbc39bc432670c6f5c0200ca008d23fbab5fd186c0359fdade0b3b102d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-30/response.bin",
+      "sha256": "e10b069fa25e87036228632f3532fd08a43ba200c3c054870539eeba4e470fb0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-31/capture.json",
+      "sha256": "6f109aff3d9cd5e736e951043f0afedf861dc296af4bdb7e3d73a77eb4df7f80"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-10-31/response.bin",
+      "sha256": "2fc29017d7e0fbc97452611df1e7662169458d83995285645b472ae0ead87e20"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-03/capture.json",
+      "sha256": "9bfc1d44448302ad58199677a5d3ad94b5566b7c0f6447137e35995e35572155"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-03/response.bin",
+      "sha256": "a2ebd7e0702cd9f5ea9778b27b36753c967e2853743a769446d5cd9a451330aa"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-04/capture.json",
+      "sha256": "5d6e9408c552e40c789319877cedd8bfade82bfd83008869112d84fa28de70e8"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-04/response.bin",
+      "sha256": "41cb39d33245c9e9bc753de796bb61ee58ab1e8ee2dd685c7d66d59b533526ee"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-06/capture.json",
+      "sha256": "026bcbbd77fff75e3c9d546c5c1ddba17381d31189e54a3d81e4021fa5550c23"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-06/response.bin",
+      "sha256": "a1c6077de44395164beb154226d53775a0c8a1e93ebe199fd97a672e55f916d1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-07/capture.json",
+      "sha256": "1077e1bc101701875a85aa88c87c24efef24c6da065261c414af0a058a89e9cc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-07/response.bin",
+      "sha256": "bdd07b265945e89749954965663493eb014bb2ac1932ad1fbec2b3f2963f7ca1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-10/capture.json",
+      "sha256": "04aa08f9bda73e67c4a3504995f21ec1a68bf96ace2ec3e005f72bb1513191a6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-10/response.bin",
+      "sha256": "cd11419585cc1282f1ffd5b761237528fe2a369ae50154b04bfadf70d4ed57cd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-11/capture.json",
+      "sha256": "50538d863faedfd04b535dedb97d7d5119e9234485f256d57ef170261ea543d4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-11/response.bin",
+      "sha256": "5c7a2871798044fa9f9e72e327f34aebb3bfd1430dcd829dab538623bd28dae7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-12/capture.json",
+      "sha256": "d90a492578e307351f57267d3aee195c62740226263817952b6be2521cc28970"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-12/response.bin",
+      "sha256": "6751630c25aeaa7fbe670d212b54c554be1c3870c8e739e15beb8f8d1bd2e8d6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-13/capture.json",
+      "sha256": "f84518885d22673a9d1535616e073d5424c4ee75e82dfb539b406990592738cd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-13/response.bin",
+      "sha256": "6a6ebe7389443521ac88fd450f76c0cfbb104ca79562558f0eca3d59babe7ba1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-14/capture.json",
+      "sha256": "2564c0c7ba9dcbb79af8b44cf70397dcbf7846fc82a7f4be86fa687993c26b23"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-14/response.bin",
+      "sha256": "dc32528ac532a69e34e15798e6a78de54457c8a15cf1376534f6ca02a1fc65b5"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-17/capture.json",
+      "sha256": "e875a195edfd58b5b76e34a68d46463a7ed2c39b956bbc13f50bf001f9bdfaec"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-17/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-18/capture.json",
+      "sha256": "fbeae0cba3ed72f278b703d60bdf5e642ad3ab1db100955c9a214d1e1eb65be5"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-18/response.bin",
+      "sha256": "0e7220369ee75496ea35b37a0d05548c3f2be72fc6a89832b179e54b8f12c2ec"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-19/capture.json",
+      "sha256": "ebbff717be11760445d3949dd7a9168ed3d6027eb24e3c0178c9b9dcd83a3385"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-19/response.bin",
+      "sha256": "df1af27da4da4e3530f4039550260ae1f3c28d6580401dd4ae5dfba0277c378d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-20/capture.json",
+      "sha256": "45dda4ec8a77f7ac64721b586d1bae1e502a56bde074f608e33ac6b6011cd306"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-20/response.bin",
+      "sha256": "13c825dc9f32f1da24a8bb9ffd99e17e076209e767b28e38e5f8189ee1c35ebc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-21/capture.json",
+      "sha256": "7f09cdc940765c362d74cc237c4da820326f6a8637b6f51abba579507ae1241b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-21/response.bin",
+      "sha256": "7e018bd9589d5223593b33e56c481ad9792182e5ac2067548929024b9f1470a5"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-24/capture.json",
+      "sha256": "66a47a57a2d683717a9b381182315a8b89965415b9016a167f5a3181a774e62f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-24/response.bin",
+      "sha256": "8474fa71c6248951793bd5c26bd4928dc00f701ca39eebabbbf2d82214ed10c4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-25/capture.json",
+      "sha256": "e0f7185fb9618dd901c9ea1c452819ebc12acf300793d3e4a78d47b578162c96"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-25/response.bin",
+      "sha256": "6db67fd5dfbbf8ccb7d0bfe65fc781d334c532e6ebc6a925dc08782d307cdac6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-26/capture.json",
+      "sha256": "164ef3731e647bf421b20aa34eb051d3388d27a9f3f5a9109156ea3778d4793f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-26/response.bin",
+      "sha256": "55397ec17e7b879c6176d11c93fdd8fff547cb6fb6f7c87b3fb8de2449eb28fe"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-27/capture.json",
+      "sha256": "6854b337076ffb947d2c2edc87e89d094cc8efbe3d9f77642d15cbe5322016c7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-27/response.bin",
+      "sha256": "356db80a04445e0b0421c8d807272a787f6a35fe9a56ffebd826f47e8332835f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-28/capture.json",
+      "sha256": "77ed1d36c8cf0d605a9808296c8f506476f5eeb17a831c26495c46c384c05abc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-11-28/response.bin",
+      "sha256": "6c7aef956bb9821b33042f43559f1b83cd1addc29ffccc8c4387f60de535d52e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-01/capture.json",
+      "sha256": "c017a22fb4e521c8a1e1307b808aa09a93d41d271191a19365e86970f31342eb"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-01/response.bin",
+      "sha256": "8ae614278b9ccba6c925e460b1f3323f8be3814773d6d6bf0d03f25cb8a80af2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-02/capture.json",
+      "sha256": "2a99375a611fc4e46ff542cde9d7e048b2549e9465e59437e00f120b80ce1ee8"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-02/response.bin",
+      "sha256": "39507e17965940293111d52016567dfa9b9961671a933657870b957bcdd4bfa5"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-03/capture.json",
+      "sha256": "fa82c479a9912b3919f22fe2eafad9cb52f5ebe64497a9af29fded31908cd556"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-03/response.bin",
+      "sha256": "a2f59922b430edfe0a3a4d1f31c42e7337d71cf776912d8f82454810aa1bc247"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-04/capture.json",
+      "sha256": "fbbb20c0ebb0a01f2269436a2a22b0c37a62bfc97207626640209e733ad17df4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-04/response.bin",
+      "sha256": "7cea87ef967fe9963829c3d1fd9d4c53cc38bbc397f6960bb835e7bed18fefe0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-05/capture.json",
+      "sha256": "d22cddf22f6500c7735e7adff6e5aa3724810f705acec72c52f8679dc0ea1fd8"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-05/response.bin",
+      "sha256": "64508889590495e4ba42136befee2c9b156c31ce214e69df0dc357d949059dde"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-08/capture.json",
+      "sha256": "463fbc0db373e34cfb11535a10b995094a7de421af2868f17b39533e1bb557cb"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-08/response.bin",
+      "sha256": "ef067751335c21554548135070ab1a1629a5aa2f8b204ae35fc5fde5e9bd64c5"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-09/capture.json",
+      "sha256": "aaac9aa6dbdb7ccbc9152334bbb9a972317a5b82e07f8dd9fe76e019cd4756d0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-09/response.bin",
+      "sha256": "d149651b6cf5301a77956668838a259c01a239ecc8019f7a6646b0fe80100ba1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-10/capture.json",
+      "sha256": "bf7694c41610a233f1451e03f93ecaba4f5893375bc7b8d1472e883aee12ada7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-10/response.bin",
+      "sha256": "b5caf3b59f862191d6a4e08151b5eb0fb7e6266543db27a90d6940e76f1077c4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-11/capture.json",
+      "sha256": "8cf0a5d2071cdf3bf3f175441e4191c17936572a4580dc04bd6dd1fab6f7f853"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-11/response.bin",
+      "sha256": "bbf6e371b9e981914c90205543084a4cb94117e53bdd340b1fec693dd9c24d0b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-12/capture.json",
+      "sha256": "441fcd73bc2d7c820a3b66d84dc4e0132e751da0580e74d6fcc6441a26f5509d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-12/response.bin",
+      "sha256": "d0b36947b47a68c57aeb8469c1a49dcd5bba797cd1aa0f2230e2e885fb215324"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-15/capture.json",
+      "sha256": "58aa1d62a046dc898479c51537dedf3d4bef99227df6ffba0a885ca80ba05ff2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-15/response.bin",
+      "sha256": "255f675a72cece743dca2c2b9eaec5875a61d216132f12ee49ae1b3676122e88"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-16/capture.json",
+      "sha256": "9501bebcedfdce32a8f5e4d76385a0e32c2c994232e521a7097a390152d53a94"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-16/response.bin",
+      "sha256": "6abd63f3fc065201b683d57107396858c28b0a2cc2cf4268e07779f907b4ac29"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-17/capture.json",
+      "sha256": "74a89e710d4fa325ce75958b7df80270ae44c194873e13c4a0a1b27f07971f7e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-17/response.bin",
+      "sha256": "9b530dd1d027384be3d688419774ddcad7fac8cd73f7b230f4687dfb9f82fd3d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-18/capture.json",
+      "sha256": "21b5d12cae0d109a6a87da441bd107873e1d47666f005abc7eb4ab77272d4885"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-18/response.bin",
+      "sha256": "4e877925ca814405daff191368ff641f6c2fa450c9167ebabb2d2e8b48110b23"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-19/capture.json",
+      "sha256": "37f627350a8f70c570611aa1d471d5d6fa42f8eb0d5f394ff7b7de85cdc528e9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-19/response.bin",
+      "sha256": "d7e36ae023554a45ffdbbe983c4b49a0fd220995ebddc175d30d01b85192059a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-22/capture.json",
+      "sha256": "e04d098716bf887e8cb2f2d541a911d1314d6efa3d6cfaf2f65fedb0c4fa04c0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-22/response.bin",
+      "sha256": "c1b4aac84d76b7d75ac00fc0eab5d403101da3a79b420ce026325b3675f9fb85"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-23/capture.json",
+      "sha256": "59802d87d2e0299782f9936a6c911f64ff1ba1f4bf1070536eca777b6d1e7c38"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-23/response.bin",
+      "sha256": "05f722b7a8d133924b2438daffe9d4cb038977b99b7472776f2a788df441e86d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-24/capture.json",
+      "sha256": "e9356f36836b9fb0f480a90c720596c1460ea21e9ae3fe9e00c3fda85d943b94"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-24/response.bin",
+      "sha256": "97f8a3d8c1d8e3f7db07e747f069fd631c9a37527d8b354578836f82f1825d0f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-26/capture.json",
+      "sha256": "2d167af387faf679003a07e90425bfc60122396357c7e30e6121a5d467da65b3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-26/response.bin",
+      "sha256": "5eb751631aa6a97705b0c415975eff3eaba5b22d02b466dbf937033fb90b274b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-29/capture.json",
+      "sha256": "b09a6013837612f355ef7e27d51cf2683249a42324f37afbe0daa571c883ef8a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-29/response.bin",
+      "sha256": "2d63cd2c786f0f883db9199ebbd0319f8efd0bc2acf5f470e030ba3c4d5bdd0b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-30/capture.json",
+      "sha256": "079ad6e36e883682cf1d72a998945838e349a027416fb612adaa0c7766948e89"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-30/response.bin",
+      "sha256": "7050558316a63913f574344b60f6f4b7592ea51343d26a9e5ed44f06ef948e72"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-31/capture.json",
+      "sha256": "7a89c713361fb0fbf29fbaa41b82f6e0e415d540ccc78b26d36e4c789c345757"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2025-12-31/response.bin",
+      "sha256": "813282ae636def4d3d9130165b2fa7e05e2dc74f757fd9eb34f14455d4504bc1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-01/capture.json",
+      "sha256": "642a6dadd084ba2f408cfdfdcc06f371d087e1803d01105b45cb3a3c0c4bff65"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-01/response.bin",
+      "sha256": "02dc1ae340b8658347d03d2d54e54c8f65ae32fd4a3be7220dc475a75e5657b0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-02/capture.json",
+      "sha256": "7715faa5d06deee0604200172431db2aaf738355a1ab56689f4b214d2413341b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-02/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-05/capture.json",
+      "sha256": "5c237e4c38ab22cf725e975ff29e9757afa1e8c09876aa1503d45339cabe56bf"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-05/response.bin",
+      "sha256": "c0d6963d7177fb44a199700d2c6e1d9504155ef30134a86c44f79eb2cb58753f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-06/capture.json",
+      "sha256": "3433f454f84e399eddb8ca5769d56319c247815b198e996eec9607eaaea5fe58"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-06/response.bin",
+      "sha256": "f762182dd35c7952d277308155997cdc70115d205832e47438e86ac10513642a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-07/capture.json",
+      "sha256": "eaf4205f43b2adaeded8d86c48018716a93f2189f497d2ec97c4a943ff4a7028"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-07/response.bin",
+      "sha256": "259f81d1d847afd5215741eb9382088fdd7df4c97bd3a43bd8811ce4be0df6f1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-08/capture.json",
+      "sha256": "9c39cc14a422c3579d97167198c51ccd3f7caf4ca2f94c88505de420f10ac684"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-08/response.bin",
+      "sha256": "a2942c6efee1f27845e283f571c821d178d0d0ff91ddecaaea0a9032d3599cd4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-09/capture.json",
+      "sha256": "2269f663ecbf8748d947280ce6bf568564537b1e2fc51de3593933829359f445"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-09/response.bin",
+      "sha256": "6292b0eae83af042939f41c4daf27383a7b32e2c491591f2d3a611611dfabb48"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-12/capture.json",
+      "sha256": "050fe93b634c12319825b09cf05bfb65ba6add9b283cd35b9198a8cff4aa99d1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-12/response.bin",
+      "sha256": "4129fa46bf7cbb247a1f831dcaa0fbc15f640ac8174208feff677d834259830b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-13/capture.json",
+      "sha256": "d7a30e17f368829080a0a6ea777ae41f604834c262c5866270ded4bd069be14f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-13/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-14/capture.json",
+      "sha256": "3a5427dcf77b3df6c7466277efb8b3cf233bfab8bd7cfdd7eef7d0fc0d0dc65a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-14/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-16/capture.json",
+      "sha256": "e4607cc37c80ad1a74bf2271799cbd0f85415cbd07159254d032f68c1115313e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-16/response.bin",
+      "sha256": "ef95d927023081172231bc5ad2225fbdedfa11ba891eefe9eb372789c59b84df"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-19/capture.json",
+      "sha256": "abe68e9e1e0e228980ec9c4583a90f79409ca53d4bd0bcca7d85d98ffd61170d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-19/response.bin",
+      "sha256": "b6e8dea7c5d1ed81f0269fcd5e770f06872851b5b9b88393f2aa686e47f2bc70"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-20/capture.json",
+      "sha256": "066abec1635bb4386cfa9a1cc62ae01994f2e47988e6807ca7707f95cdd0c27b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-20/response.bin",
+      "sha256": "11e0b9c0d529e8267fb9ed64a97ef5fc34ffbc8283585f27a95865180791d87f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-21/capture.json",
+      "sha256": "e1aa27e1a79c779709c46a384c455fbf60218253a7da29298f9a11f898f086ae"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-21/response.bin",
+      "sha256": "3468425b62ca3065a8ce50217cfd72645466d7cb7cf20789baadbe72abe70995"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-22/capture.json",
+      "sha256": "d41d924ca0081aebc0412193ab057c38b7b0585f40dc9ac862abd1dd1c1c4e27"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-22/response.bin",
+      "sha256": "51f52d86a87d0d064b409d61d313c34760a19cc89f897d8ec88cfba7f139e324"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-23/capture.json",
+      "sha256": "4b6747f6a08202c53c01aac92f8c15d6d09a56bd14ede4f00b1491fdb8d32362"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-23/response.bin",
+      "sha256": "7ae6be53537a9a1a3e9d127d6c006c7fa5717a1a7d8964ea94a806af04347bc8"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-27/capture.json",
+      "sha256": "ee08a38f5397093f9bfeccc744941f88d19b8401d19c229a2d82228da58e5195"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-27/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-28/capture.json",
+      "sha256": "be02569e52662269d66d30a5e638366567161a4a080fc15b595e2580092a4295"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-28/response.bin",
+      "sha256": "860c21d2a46033909b51b17dd29d42cf73354bdcd4bee103aa8f9639eadf0e95"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-29/capture.json",
+      "sha256": "4af5e7cd4efb4c20ff0ef3b51c97e6b0fced621df21f2cbb98380c6540c74fb4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-29/response.bin",
+      "sha256": "be749142ae0a08c35ca6315fc6fae9b81dad94f7d353ab154ad0adff2cc656dd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-30/capture.json",
+      "sha256": "97a4782b981fc241b62e95703ae3e11826a1b8b1d666087f6f1048b8f41afea6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-01-30/response.bin",
+      "sha256": "97d2067ba87551d9b25b6a473daa8d4123857b87aaf4cef15c0d13019be81e14"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-01/capture.json",
+      "sha256": "593c0fc3153c28d14b804267a4126fc0bdb79e4aad6665b74cada205033ddfcf"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-01/response.bin",
+      "sha256": "1d4b3cd021a11e071d65caf76093d58ab429068f1da7ca29f0701e7e6d7a8993"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-02/capture.json",
+      "sha256": "9f13d0347b4f5fcb6bd87c0e3de494b23f9e552c81e71149de0a1b874e2421db"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-02/response.bin",
+      "sha256": "bbf53b9294ec012606d31631c4e3e3d1dfcaaa5c5888cecd1ed6408f44c7292f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-03/capture.json",
+      "sha256": "5c00ea83960f62ee4ac62243b06463bcfb39b338effaad9206381151bdcd1421"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-03/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-04/capture.json",
+      "sha256": "000deb609e316a78d07dc5bfb8e4f7a41c9c78b6448d1970617597280b23e1d1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-04/response.bin",
+      "sha256": "96042e892d4f3bf6a333756f9ce7145aa9597a7e398100b3af8de1daa6561b1f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-05/capture.json",
+      "sha256": "0863b24d220542317b2b584075e4303d2f7cd20fdac20f200b0576eb1c192480"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-05/response.bin",
+      "sha256": "75f1665481b0e1ee4025bc07a91de1beda29e62d383103c7aad8fd1536037bbc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-06/capture.json",
+      "sha256": "6fe3b814359bb832a9bbac681c8865158e5e5472b113c05428242093ddc54746"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-06/response.bin",
+      "sha256": "9f55c727b7636c80b7739585d4fb93c8caf8e8b221f9c71626cdd615d5284330"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-09/capture.json",
+      "sha256": "aabf2759017c3d305d8b7dc3b4335ecc2359cf17ec292d91634c7dc59247871d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-09/response.bin",
+      "sha256": "ffe0805bdc2e047e7ddc1a150a2c3fc74dfb00b7c208d859cd7fcd3c39c05747"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-10/capture.json",
+      "sha256": "184baeac634c6d9c7867c9b304ad0b06b582923bf1f81da571bad7870c74e318"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-10/response.bin",
+      "sha256": "f472fea91f5e236bc39e27eaa8e5ea36381ec581cdea1861453de364cc113715"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-11/capture.json",
+      "sha256": "a438887f72c25dfc43c613118dcd363fd67017e09805a663d63d1825975f9d97"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-11/response.bin",
+      "sha256": "ee769aa3cd00495371c030a91cecc08f3b7d9cca1fe4b9d2d6a22220c839b944"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-12/capture.json",
+      "sha256": "d3206e737c018d03483dca3c46935c7f8fb1daf68d9e4114175c042c75a9d64e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-12/response.bin",
+      "sha256": "acc6a65dc0f554f19285df5b4af79d57ea31d55b87e9e62f8fdf8be1032ce4c9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-13/capture.json",
+      "sha256": "bf49738883251ab1fcddf5a8c1024c1693dda35cde42af172074bc41e6cfb7c3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-13/response.bin",
+      "sha256": "6244c49bf81d19eff86d657fac377e0a02b5bb6c700752317e1b943384aa36d3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-16/capture.json",
+      "sha256": "88062415ac436f151a97e5980bbd16bb82528bc80d7fafe850a40eaea237f71c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-16/response.bin",
+      "sha256": "dc754a49ce8f31f87a456931bee548137bff845a1f586b44775c7a0faec88a31"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-17/capture.json",
+      "sha256": "392944c2aaab0f333332ee9f2cac1caf5990af4ae0b723bbf24175c1b5a0f74d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-17/response.bin",
+      "sha256": "b6889039d62e72180d659a127012619b0bdb7d2dec93c01516b4fe7b4a7d21bd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-18/capture.json",
+      "sha256": "448e1e9bbe018178dd1c388a71f7a75c391afd9c5f35ecd68771b5f73c455743"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-18/response.bin",
+      "sha256": "4132e2b0a624097bf9a5999119dc43d4e39a09f4266ef581914c210f01eb2f66"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-19/capture.json",
+      "sha256": "454c881355d27bf5df5ee0773d4a7689be717f0c5077b800a2ccda8b8c1842eb"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-19/response.bin",
+      "sha256": "6e9bd637d23d5183132e5ca298523846daae2733bbcfea7f3fefcc216bd52c89"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-20/capture.json",
+      "sha256": "045e493da5db2183746b03589f9eea68191d55968166a20318648fa4ba330758"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-20/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-23/capture.json",
+      "sha256": "c9b51fd6a2fbc7c5aea21f628fe1d3cb639930e28a970e5b780a8d099220cf5f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-23/response.bin",
+      "sha256": "6cab63ba869c28b728f2bd4421dd28ca2b0dae89b867659841eac9dbfd8e2122"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-24/capture.json",
+      "sha256": "48952206596cab91b369ae61e464b3b6c7b899b01885f8910ca7e2b2699bf7d0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-24/response.bin",
+      "sha256": "416e112ec2edb3b9c4caf59c55570aab47d940e70e4ae3d373a345f84fa69296"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-25/capture.json",
+      "sha256": "92c8defbdf067de80ebf5cf643c17e5abff1d9dc32ed4824c52cf875d2a2209f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-25/response.bin",
+      "sha256": "5c813837fb26d41484928b4a7a2b4b40ddcb53c0f81bfe39d9671ffcc992eb59"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-26/capture.json",
+      "sha256": "6c46ac1d750051534267b8b7eef39319c42a0b5db38ad7618c3e664ad0d4e8a2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-26/response.bin",
+      "sha256": "65e623384a0d9b580881b1a35f281d0b6591377353175bab140e3bab58032e2f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-27/capture.json",
+      "sha256": "9f290ec391a53c9e34157c9b7c550e5e7059fe1ad8d1468dd9bab9eaccb5788e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-02-27/response.bin",
+      "sha256": "db134086ba4e4d7585b3393e07e47b8688ff3d7abb2b3c5ab8423d1bec7b15b3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-02/capture.json",
+      "sha256": "2729489a60639ca44758d99bcd8595a819e5c135d353792c351969f548972610"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-02/response.bin",
+      "sha256": "d5579f8d08ef244ac6ab53b2271e63edcc2778ad075b2748a4b1420244f06ffc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-04/capture.json",
+      "sha256": "b1d6de8c0decef1cddb9730901a9ab1494831836119bd74c280647f5099fb361"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-04/response.bin",
+      "sha256": "ee5f0bcdc759dbaefbe6a3a2a040271fb7a1b71ed34e30a201585d62f80b6cf8"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-05/capture.json",
+      "sha256": "c030a55027ed45a6b1fb508db5ae21d2ed77bb87f7062e04c30f3f895bf61ae4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-05/response.bin",
+      "sha256": "943db7555e4ba55a944d6bee191b6a3b6c2a67013e6b20310929248f3ab63370"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-06/capture.json",
+      "sha256": "bec319b209bb56315b7b70a313300796736e1467b06987de2aaec8f1c9524469"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-06/response.bin",
+      "sha256": "72670bade13cff82221dfe7d0708530c4d177f8dd5ac9d9b2174bf1f5cd6ab9d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-09/capture.json",
+      "sha256": "577eda62fc178c73d8e4ae7fea51aa41d702802049b8363d292de1da5d4e6a6b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-09/response.bin",
+      "sha256": "85d836a9116be3d3435cf259d3818d223b6b6ec52aad3d3c40b001c206c7beca"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-10/capture.json",
+      "sha256": "39a8a0805996597960882afabc0cd14c2a225da990dd4c4c5c4f72431a40e973"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-10/response.bin",
+      "sha256": "771f92584e0a581894b4c893038713055f2827c2552a4af74d23fdc4758a8e81"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-11/capture.json",
+      "sha256": "ff4d2ca694c4db7ca6ec1e2847e40a910518cd67fd26c66af27a474d40ed9ba7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-11/response.bin",
+      "sha256": "6a1434948beab5b3c4614f9598467a89d7c6cd06942e918d4d336ecdb5c483a2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-12/capture.json",
+      "sha256": "8a25f6c37b966de7b6bb64ccd43f9e71b368e04b291c7e0aaf6c7dc23de0e860"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-12/response.bin",
+      "sha256": "a924f7f54191cfa1955f8204f6825628faf73ede43a4195c15df0e6f45b709a6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-13/capture.json",
+      "sha256": "e1e7073c32595bca959955a51fe5015e985e4cc8cf7f4dae7f24f96a7a74ea3e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-13/response.bin",
+      "sha256": "7067613340bd97802f411aeae5c8c069689522b9c6da4b778ddc0452e7dfec89"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-16/capture.json",
+      "sha256": "c95c6da6b3cab31d82f0d3242305d7a4c41a6f1e6aafe58670ead6b4fc9f8d86"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-16/response.bin",
+      "sha256": "ef7a7334be0ca979369b5afe532476f47db5a0fa3502735d5bbac01126999ce6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-17/capture.json",
+      "sha256": "afc7911783c5546cef39964abc0bf11a5bd1e85ed556fa2a56aa19470fd555e0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-17/response.bin",
+      "sha256": "7684eabbfbee4f8fd960dfd2d4487dd7727e447e281dc365f52ab45f2815ac24"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-18/capture.json",
+      "sha256": "52c6c5d9d2d3fb8c8323397bdfe0e251bbefcc69b09ec3a4d487801477b640c7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-18/response.bin",
+      "sha256": "e9440e2796771c235ecc88f2957dd19cbc636853d331d66671e2fa65a6a9ba54"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-19/capture.json",
+      "sha256": "2c39eab02910fdd3201e03160991df0bc15e8e82cdbd9dff9cffec0aa61c342e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-19/response.bin",
+      "sha256": "5bdfb8285dfdb3648d25b225b8ea4beb32634a8cf59594d162596592e02a41b2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-20/capture.json",
+      "sha256": "7dc34c971bd46a3d80d538ab27af95ad37ccca8e115390be0c97c680a0d9015f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-20/response.bin",
+      "sha256": "5044ae364dffdd05f94aeda64e326507163cbcb3674cf155e0b5ce8403dc53b6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-23/capture.json",
+      "sha256": "7e8ac01976df3e55f642104f012a5a167aaac6780c4f34bd73abcaff511168e4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-23/response.bin",
+      "sha256": "14bcc80b12e172d42b9bb99b62903fef53c1299246eeaba01a292e6407141d2b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-24/capture.json",
+      "sha256": "e3e00cafb28b33940db26b53a0292ebbf1d3c53e1a20ab773919fa681583ac0b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-24/response.bin",
+      "sha256": "8cbd42d5cd5754665b529c3b821ae0cff887d484d22abb4d73870ac3ffe20525"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-25/capture.json",
+      "sha256": "2b2dd8e17ee04ffc417ffcf2e6bc71399bb6f2fbb423c3cf42d8b0eef0d79ce7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-25/response.bin",
+      "sha256": "92f9b05b9eeb380a387ba5333e93018bb22176115155234ea3b43bad820cab50"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-27/capture.json",
+      "sha256": "dac9d712598c4c72a46093550d08a14a989d2110bd9b594807f67c6a24e53a84"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-27/response.bin",
+      "sha256": "96af1e51791d7b353c1c52bef518336b5ae6e8cb38264cb3db6671e64b32902e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-30/capture.json",
+      "sha256": "23a3be4f4ce25bca2159c1667c5708c2af11008a19daf2c2d6437128da381401"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-03-30/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-01/capture.json",
+      "sha256": "bd54b97b9869bbd97ff693cd19a6ad3e53372d8b65576c1e4fce4655bb21a321"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-01/response.bin",
+      "sha256": "c05a91485a1698e9d4b73403f2dfceed70913e49839468f3c602d0d6942989be"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-02/capture.json",
+      "sha256": "0920f37f1cdd87b448de5e3ec4d6ba81fac7cb677966a921600c097bd245db25"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-02/response.bin",
+      "sha256": "9fb96e1204e39adfb824d8a91b48a18acccc09fdde3a922049d8d57b59a58080"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-06/capture.json",
+      "sha256": "789c399e3a736daf0b3616b60c55edd493d94083e3e6427e2f2251f5c1d83966"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-06/response.bin",
+      "sha256": "76bbaa1bed844d9ee94373ae73be55ad50b8ac759080105604afac370da55443"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-07/capture.json",
+      "sha256": "5fcc7972a3cb67877286b7c080e7c18a8a0d6e543b5a5003fe841a751cb320f0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-07/response.bin",
+      "sha256": "887cc7001f755639a6918d44b1e5026a9aa96bc77fce19b657f0e43beb92b42e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-08/capture.json",
+      "sha256": "2200f59cc278224f6c0f4f721fe20e16a56c2bf67373f3d68baa75e167f16bc6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-08/response.bin",
+      "sha256": "cb39f82ec6a18aeab6b0c180925e4b3e7fa9f6c06ae0112e2449a88fee62332c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-09/capture.json",
+      "sha256": "732c809b29fa27d55e3b2138a90c69a3ff8d06336cb86a83508e86c60232ea6e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-09/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-10/capture.json",
+      "sha256": "1bbb7b2b49049c33cd7ed79bac8778328507f0979bb050ae1d9055d72eebffed"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-10/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-13/capture.json",
+      "sha256": "eb6f5a803aa8b0c202b394f221ef109ae075ec6bf7d66030e35da399929167fc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-13/response.bin",
+      "sha256": "47d153eef8197312df7f76907136b36c6519bdb145f4d44b8f8d8170b1bfbe68"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-15/capture.json",
+      "sha256": "3ea6042ae31ffcad8d4664d16a91832d7ba45944c63366d7466a238878615247"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-15/response.bin",
+      "sha256": "898fd0446f273d62189f5d9412bd61e5b233a0c4bae8619675c86c39f8b1d5c7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-16/capture.json",
+      "sha256": "9e408f44e53d194507e1a8c6567c72d3c9a3e3c7865e365fdbc63c79eee7d418"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-16/response.bin",
+      "sha256": "de115b1a864805dc731a62d931312a3f1002ccb527ffec6937981c97475482ea"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-17/capture.json",
+      "sha256": "1556a4c8974a10fb058f21ced33802451aa10149f30d59088aeb7b23e65d4a51"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-17/response.bin",
+      "sha256": "bc31a4c7a174c7ee2864a95f2a1ceb6da3890b01b6eaa23bd7fda085445571cf"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-20/capture.json",
+      "sha256": "7a3d9e80f30dc25065a26dae1c41efcb181dd2fa97237dea23196e2642021dc6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-20/response.bin",
+      "sha256": "180c4ee7e1613f67492272c7564b3b6d67f13a6b8cf4115f0b45f71bcd4e080a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-21/capture.json",
+      "sha256": "52baeb01a4bda7e606e8a1a3f3bfddbbd55e6eebc64d7eb9474a989fc6d16f6c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-21/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-22/capture.json",
+      "sha256": "e68cd15ae959ed31c7099fb948532a95d9634a846c8bdc479285e119db3b206a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-22/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-23/capture.json",
+      "sha256": "818a2961d6bc57bccf6bad1cc988398553240b9da2a0c4bb9904965463be30b3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-23/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-24/capture.json",
+      "sha256": "11fe32eeceaa2409aa84dcb9df3aa13d94d47f108bc778df9190eb705dc96a46"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-24/response.bin",
+      "sha256": "c4a4b4a8fcebb696bc1ef554f469480a932272d02fc6681af4b2db65ffe35a69"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-27/capture.json",
+      "sha256": "18a8592b95fcc4063cde110797c2631aa34d54e67e915ec6af5bdf16a2a2974e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-27/response.bin",
+      "sha256": "93c053b0bcb7530087321fbd8e4b47eb2050cd09a9e65776fe54ed5fbf8709b3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-28/capture.json",
+      "sha256": "94a3651b2bfbf9a8e8b089c02f2746ca0ec5fab6ccc847a371c7c20514b5300e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-28/response.bin",
+      "sha256": "52a89478f4349808173c36fef41ab855eb91bf354593a1c05aa52d155d1b7def"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-29/capture.json",
+      "sha256": "20fbe42ab99cb5dd563e43c562dbf9a474495a74a5c876c0ed9c10da4f9089bb"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-29/response.bin",
+      "sha256": "fc30a8140ef37d7e56398ed4d6d27b19d891a96d9aff5489cf1fc28686dd3413"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-30/capture.json",
+      "sha256": "ab5f1fad5f1e18fe996a6f0969a69bcbbf874edc9319cc5eeb1d39b6e7780985"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-04-30/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-04/capture.json",
+      "sha256": "1b45ef23d9b5b0214b80bae66fb790c8cf50fdecfaf9f3baa84f02454b1a2a41"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-04/response.bin",
+      "sha256": "1d16f17dc1323193d69203dec607fb7cf3fc19b7449b4e216556c8de5e17d670"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-05/capture.json",
+      "sha256": "8709d08a6b15fd38888efbaf2a465659517bbcb0fbcb4046076f8e047f174522"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-05/response.bin",
+      "sha256": "e47be73ebe25d900f80895884aa6075ec5106b6ebc7d233417259dd4015be2cf"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-06/capture.json",
+      "sha256": "be3c08222d54e06f129e75a8e86f62fe5d86bb33454e098baa31d77c05e0a6c2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-06/response.bin",
+      "sha256": "38664dc6f11cfe8b7f7bb3ead98c09a9e7d0876f143e6977d60240dc5238a31e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-07/capture.json",
+      "sha256": "3779b85e1a1ff2a170e3e6f603494724ee6daca17e84ac59575fa471041a0f8b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-07/response.bin",
+      "sha256": "8c0c879452e89c3645b0040773f901b57f4b558f008af57229ba06824ade9143"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-08/capture.json",
+      "sha256": "ce55d0977160aac8b85ccd7b998a83829be28ee8d5bedb0ca6f5d2d3b8611e0f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-08/response.bin",
+      "sha256": "45a01aa1344a40828d3d5640cd726cf085995918c261ecc9e8a0eadbc8d9f14a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-11/capture.json",
+      "sha256": "8679e10f8107638e6709a71826cd1691ee20d539190bcaad9d258ea1c34ea6ae"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-11/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-12/capture.json",
+      "sha256": "8696057d9051d6fa15c788f61cb233d1a089050ca93355fe1e5b04c992852a43"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-12/response.bin",
+      "sha256": "e25d48bc64f3da9dde0198c59e97e5d3ef188a8a089ac0d19e43eedd870316cc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-13/capture.json",
+      "sha256": "5855451f5f8afbb85062e89e12f22fc4cede8fd90ec11777649b0c5c9796a197"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-13/response.bin",
+      "sha256": "12463f3ae520c5d1970d830d866dbe8d7e2e7b5dc9ea17bbde3f8cb2645ae953"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-14/capture.json",
+      "sha256": "14de2cd2791b3c75a9c4e06d044b917bb86bd46c84ec44d03a0d285e6f3347a3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-14/response.bin",
+      "sha256": "bd43252ed95cd3f800b06ff11ac49dd927987474ea32d311e90ed9a752debd2d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-15/capture.json",
+      "sha256": "239f24b466fbbb861d9a999e59e70114cfe0ec29835b718296131d4d0c6afdb6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-15/response.bin",
+      "sha256": "54a4040c3d87498bfb860197ac7df5aed22ef9182eeafceee03df36930df510d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-18/capture.json",
+      "sha256": "90a0d1a12e769ad3113327783ffe70093baac304e19dac6bff5abb9511593d7b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-18/response.bin",
+      "sha256": "c2712fd2796128418b8a6fbd83328dc01adca10680fc2e06983d5a2353891980"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-19/capture.json",
+      "sha256": "a2e21f6c65a63fd033542c5411d474a1a5fd36073ee139c97e9410e5dca9cd7a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-19/response.bin",
+      "sha256": "bcc0f977f83f9100e5aa51b16ae8a0ac63c7132650153f968fe27b352b5629f8"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-20/capture.json",
+      "sha256": "898c096182291eba5d3869e1a960dc9e7c4c5499f56effd221fc289a8dc628df"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-20/response.bin",
+      "sha256": "8263c9ab157dc5cda0424cf8740824f6f0a43197b655db38b3e0a4376aecda06"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-21/capture.json",
+      "sha256": "c52f1ab02ae872bfacbef97616f78350972f15c05295b3e33768fd6790f3b11d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-21/response.bin",
+      "sha256": "8c33e17a8cc0b84d1d59d8aec49ef368ce171eb438cc764285246d1ce9363378"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-22/capture.json",
+      "sha256": "91698e24d3cb854f567cb490abd89af927d359c2a5a7a6c9982996ec3576f539"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-22/response.bin",
+      "sha256": "0e8a435bf51718c612aab18a685a49193c06f63296ffba4c4bb6731d9dc56ca1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-25/capture.json",
+      "sha256": "5e1b2915488278172c818dfd6358c0c86e261f37d4d241576d5eee10c7e2b243"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-25/response.bin",
+      "sha256": "9e6a33bae4f95bd704f2b6c100a53e33ff48e0d3f9687d1b84f7ecc63ba00c66"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-26/capture.json",
+      "sha256": "5cf0feca1adb4b30a266dac4b2ff20c84e2603d59db6b665b4fcc6b0ea3e8673"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-26/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-27/capture.json",
+      "sha256": "b044fa619f627670c5acb24bab2087f19c18face5bca53b2e9d84f9d561dba2c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-27/response.bin",
+      "sha256": "cb307883575895434afacc35b6e2c7d20e94f6a837df224c4d3c7cd641842a0a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-29/capture.json",
+      "sha256": "e97af8bba68437eea36e1bbb97972340340ed41de7d0eccf3a90fb7ac00b4434"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-05-29/response.bin",
+      "sha256": "ac8ea8099122a961b7e4b2b20a0a507cd1ff0e694e2692640e35a05a51665e93"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-01/capture.json",
+      "sha256": "fdcb1247bfb8b313cf76a44b980cb438e6484bfb27cb828e72b44dc915ba7474"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-01/response.bin",
+      "sha256": "b932d876d9911938dec21bad5d2b72c67e788437fc7c8fc6c2d926e0476786dc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-02/capture.json",
+      "sha256": "15ee5ba5a95826501e0e56e184141dfe994f95cbd5f2e90030b0787eb74d2dbd"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-02/response.bin",
+      "sha256": "0ea032aa0a9bdcbd3a5c60c33fcbc711a7d41cece576b2110f0e575be342ea86"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-03/capture.json",
+      "sha256": "36918a1f1cc4e75968d0fc7d12564cebd5ef296acbfba94f9ea9e20b8beda3bf"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-03/response.bin",
+      "sha256": "7825dc7d25e9a56b04782cb45edee28f8a92f666da7ee149d1859c92300cb726"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-04/capture.json",
+      "sha256": "a1332906213e863579add317382d4e79b9adfc1a2eeaf64820a3dcd442cb9736"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-04/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-05/capture.json",
+      "sha256": "e11b897b7acd768d71732049d77d23cf7404189a348b306fface300325005782"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-05/response.bin",
+      "sha256": "82f6c73e9698a4183d87de8923c7c794395b5e0000d3b94b21b23b9e24680aef"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-08/capture.json",
+      "sha256": "f6bad6e8ea81db247bc25ba692fcde945a67fc636c0e2e8a23a1b4bc42ec4495"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-08/response.bin",
+      "sha256": "cb045b057ad740fb0db2f8c3f880ec103a9a01bd86b6dd7d176d23c3c8f5d703"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-09/capture.json",
+      "sha256": "80cc5bf6e8fbb62d0f918f20ff98c7e0975b265c83ff2487b6c547a2b9c3499c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-09/response.bin",
+      "sha256": "cda5188a5ac26bffcf5be369a755aa0327ae34ffddd7abef96445f7b78986357"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-10/capture.json",
+      "sha256": "19428f10408d3d33e713842fa3f91e59c2c30485ed5c95b17098b3810527cab6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-10/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-11/capture.json",
+      "sha256": "049974d81120b72d837d9fc640a6c0adc8e16215b54600e5287394e62a8d296b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-11/response.bin",
+      "sha256": "29c201d581cbd2ef729e8352305fe4529f078bc08b0b77b4bb1080ef1018c55d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-12/capture.json",
+      "sha256": "785c16f08fe42dba64da44ad389cbb9c1f96f592b2ee8fe10bd3c1e53e26baca"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-12/response.bin",
+      "sha256": "996ef642b4a07aaf3d4beac1aba0763956982a542448a8a66392efcc0696490c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-15/capture.json",
+      "sha256": "bb8fe1cc6556490ae628a4157eec5734e857d09ec8c66e74aa6bd895e1819320"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-15/response.bin",
+      "sha256": "9578b68632686302acac319c3d300f81163e3868f2216db6edc90d4e1a3e4023"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-16/capture.json",
+      "sha256": "1f1f2a0cd5274b0011ed85275940e04cb2ec5a547c14ab32c566addcd5b69ef6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-16/response.bin",
+      "sha256": "efe055ec175a3095e366b0a0573acd70ca89c2831012851997b79ae18c1c0fac"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-17/capture.json",
+      "sha256": "89a3f4871cc8853a02f0ed449e867147517cf906e54677aa3816816020e5a205"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-17/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-18/capture.json",
+      "sha256": "2638f374bde9d1a595d6bf2bd5562897bc3ee09bc7db516d08799a50486e7a1e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-18/response.bin",
+      "sha256": "a3f3b3e32841ddd6c050a13caa9758362e3365c78fc7c45adb1d68a04e03c48e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-19/capture.json",
+      "sha256": "cfe6b12d1ad92a41d0619b568296d3e272f0f3a3df9519b51941169daa6d68d3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-19/response.bin",
+      "sha256": "ac94d7a7c1316243a3c0027f1bfe8ff6066e1d80df56ac177aa594fe4dad05a0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-22/capture.json",
+      "sha256": "ba11e887744184f7ca1e37ac9738b8bb15d4989f1b16a17aea761ce8de0dbd1e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-22/response.bin",
+      "sha256": "41b5b2c9bcea732115016249090e554cd48e2b68aac81531391ce06db2132d25"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-23/capture.json",
+      "sha256": "498860f37719189f9d4d78ae97a2d8c471962aa67247d34b67a2c9acf6c030dc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-23/response.bin",
+      "sha256": "493d17add7ec0d386f43065497f29a97a731d95a8d30939fcf661d41028956ab"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-24/capture.json",
+      "sha256": "04ed801d40d88623282a125e8d5abd02633a789c02efa89e57fb5c3f84382b4c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-24/response.bin",
+      "sha256": "a2d1824f6af6281fb5014cd2776dafac1e64cb526e29b9b855b67f0f9202444d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-25/capture.json",
+      "sha256": "e8f931df13e0d7eb2c6426d8e13888f204f3564da4910e3d58bbc59b64272159"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-25/response.bin",
+      "sha256": "fe8108a0a6e6c12b88f1fe0d9808ce11cebf20e22e2237a6921a8c8f73fe3cf6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-29/capture.json",
+      "sha256": "e1a709e1fbddf2fb7063397f7fcec1f4df21adadceff98391a7f22ecd053d99d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-29/response.bin",
+      "sha256": "71a1f43a8e248de81ec3ce4dbf84f8d2bf0a92a8f95aa3f070bbd86eeb17538c"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-30/capture.json",
+      "sha256": "f4303c23d20fed1e4c4ada3824fe98290de56979ee29d1e4898fac53efa09895"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-06-30/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-01/capture.json",
+      "sha256": "66b43f23f55866c47d2231232ccba1cc623d2b7a01de6ffff092b65bcf68b08a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-01/response.bin",
+      "sha256": "36b7d38246aed57c9574409d6bf5d69526d2e695faab4bf122295e49dec63904"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-02/capture.json",
+      "sha256": "ae21b01e5dba6be28998abc6338a36525aa3ebab5e8e01f3f75a350e5a422c92"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-02/response.bin",
+      "sha256": "a719bfdf9df9b8da7bf6d8d0965db4bcc3b75e37f6582b3f7e54966bbf777248"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-03/capture.json",
+      "sha256": "472bfc0821be0b5ea84ece88f9dd36909fff684d1264ba568f7f01a68c64e788"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-03/response.bin",
+      "sha256": "046bacb504b94b1fd2b048910018feefabc95b6c6a9854907a77f4ac89b550f1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-06/capture.json",
+      "sha256": "9025ce974dec5a5ad819a58f83efbd3b4ea234929619eacb0fb27ef07845ca81"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-06/response.bin",
+      "sha256": "3c7b65bf53b3d34951520c200f0b17562e20ad9d057669510d759a2bd9bab776"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-07/capture.json",
+      "sha256": "5926bc3a5a97f513ac02b6356b466a0f6875961ec79304613d3ddbaaaf74e1af"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-07/response.bin",
+      "sha256": "740e37656838bc400f71b3c73988fcce3a0c7527dd9ec915154bdfb4ab6d494f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-08/capture.json",
+      "sha256": "cb081bca7b0bcd029a097e757162ce38a67a558869e7b06bb48ce1e2358c2d55"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-08/response.bin",
+      "sha256": "444dcba1050625816a5c8e756469464b062295c94482733ac2566bceae5513a1"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-09/capture.json",
+      "sha256": "06c505ed39affdfe58bdcaca4af73c3910fccfaf4c806a4a69763ba44a69c8c2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-09/response.bin",
+      "sha256": "d8411d1b7b1e7b1f05c1b4fc03ec42f7ce8fc78037f5fb85a9b86701a643e4c3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-10/capture.json",
+      "sha256": "420817f08da37bbf95cef5f0a30c4600af6dcab90d82b2c7329313bd6338619a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-10/response.bin",
+      "sha256": "6ecf15860aab5638c293e4afd48de570103dc78ea95b5416eff8d3ae187f050e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-13/capture.json",
+      "sha256": "41f369ae395e32281eb8d407e391c544cf3a88f4e4acbe1d5963b63c1749460e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-13/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-14/capture.json",
+      "sha256": "7b2dae9f30959daa3155ce4c2412b210734bbf25e05a4eab2cf47a0273a5e036"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-14/response.bin",
+      "sha256": "23141435527f144af27942e61185b74d0eba9f56b574c38969bd560e1a87c384"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-15/capture.json",
+      "sha256": "67cdb2c5d3ab96b810bf8b39cb269776d3c719b7e3c491b8574599b998439934"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-15/response.bin",
+      "sha256": "0245e441bc4ecfdb2bea19cd90efd7c64f254ce3b718be7714c92236f491a411"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-16/capture.json",
+      "sha256": "eb484a7e43b80501841dfba7dbda3c480e3bcfb8403cedbfbb3f2a7bb10bd78e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-16/response.bin",
+      "sha256": "665ed136378a1b564f9503dbd15afada7cf66f3fcdb1f07a1357322b0ac4ecb4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-17/capture.json",
+      "sha256": "ac2fded7ae02f500f36b81a03ae046625d8142e59aaca8fbb61510f90250ce66"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-17/response.bin",
+      "sha256": "cbdad5df9e05f518b630a8f89535310ceb49635e376c895511e8666974c22f24"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-20/capture.json",
+      "sha256": "648ec3d6070875011a0bddb414f7722b7840c7f22f5a64c7d7a76778234a4aaa"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-20/response.bin",
+      "sha256": "8a3ac805cf14f3d415ae3126da2a7a266548f31daa9a0855c383957b995bcb2b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-21/capture.json",
+      "sha256": "041fc242e7c71cda598cf9fecb9878284546dfae214e99ecd0f6094595793a92"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-21/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-22/capture.json",
+      "sha256": "06097450132174e6b459448d71e49c493da44070b2410ddd2a20b78ace843515"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-22/response.bin",
+      "sha256": "e9b25637c8080830947d32a1916008478ce789756b555db09efaf742a4afb43f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-23/capture.json",
+      "sha256": "2e89315fedcd381c7be393e0d8f89ed267ab614bb83bcd97b5bc64d2c8140861"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-23/response.bin",
+      "sha256": "0d066ca713f52d1e2903d9ca9132319a0e8fb3e128c35771b09c145c330e30ea"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-24/capture.json",
+      "sha256": "aaadbf9a3d62046607498efdedadfd503a7aaea3331b634d72b1eecfbb9fdea3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-24/response.bin",
+      "sha256": "2300009084e6930435702d521e6be54cbdc6b22509d4e66536faaf2b03662b0b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-27/capture.json",
+      "sha256": "b0588e51a0b2d1b41a75718947e999114e7c6f60b7da58b3daeb8073b7aa5326"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-27/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-28/capture.json",
+      "sha256": "451339af838f576072248a0fa3d57c6fb8d7576e1197186ea8a34093099fb414"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-28/response.bin",
+      "sha256": "2abbd60162d3ed73fbd53526ac4198bbc67dc68e5034208e47d0671bc09496d2"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-29/capture.json",
+      "sha256": "ac5f0d092c1b21788e601d93324cb313862fb0f825a3199a7be1c0bb26fea1a3"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-29/response.bin",
+      "sha256": "eafefbea16b6878b5ad257fe924c8ce416e13221958ea18b6804cc3c0e84463a"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-30/capture.json",
+      "sha256": "5a14530cfd4882abf90d14d3b5226356beac14f9e55042b0671aae1522a5f6d0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-30/response.bin",
+      "sha256": "e991c7bec6bbd1d7a51aabaeeb0359632eec5de00f3bf6f4e0aee8de60590001"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-31/capture.json",
+      "sha256": "24202da8b18d475a867aa151ea0296aa952ac7867861b3d156fe3b2642b1fa38"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-07-31/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-03/capture.json",
+      "sha256": "554d010646c4b8609786ffc7943e14b3d4428aaa01f070d801b9f9c3ac9cc6a0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-03/response.bin",
+      "sha256": "c61c505973befcf041acd8900339b6c3b595aae18283726b4725661c29be8359"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-04/capture.json",
+      "sha256": "0664e656faf977985239d6e88c61aff4eb23c6771474a3553145b9d24b1f748b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-04/response.bin",
+      "sha256": "a733d8566880c42cd0742b7f52592037fac4e94cbec09f99e50784e80022d2f6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-05/capture.json",
+      "sha256": "c876f958550b9c566fcf8ddb628743c057277e773f41e6234b4d910a0d49afd0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-05/response.bin",
+      "sha256": "c2ec4672ba080e33a889a29fc78320e318d85a99c193155c1f7cfd41af5c0d8d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-06/capture.json",
+      "sha256": "986352d558ad3f8582259b832ea93eabea9ddaae425e3e5e980aa31c44959f65"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-06/response.bin",
+      "sha256": "24dcf48fc8bccb6d87c6c8797be91a50f5ea244866c45358aa01a24aed12b579"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-07/capture.json",
+      "sha256": "8d8cda902f0ec8594536e3412595f30df28ab5cfefe61786b1a7fd21723bd5c0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-07/response.bin",
+      "sha256": "091bbde81933c3583f0d8e64c2061470103a3501d8a84375a653f9934833cc37"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-10/capture.json",
+      "sha256": "2b300bedd9c7c75238a82ccfc28d033267c3669b8b9716d7e456746c12f12749"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-10/response.bin",
+      "sha256": "164474fbcf2d90c854679428f4d3a052075939b7f4198be27c59f6b2e9b7aaf7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-11/capture.json",
+      "sha256": "c7bb11a99005e441b62529c5856d69cc24484f386a90e09fa36965b3b84c83bc"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-11/response.bin",
+      "sha256": "3575488e66635aa8b081ec421e1557ee3ae58369b209d5de26ecd2c30e254995"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-12/capture.json",
+      "sha256": "7ae46d278c5da72a92f462bb41457707f3c84cab2b68351177fccfe76548b06d"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-12/response.bin",
+      "sha256": "03da38dfa7a0d8e5104464d4df466a2541a6b1a8982388550180e9321460bdab"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-13/capture.json",
+      "sha256": "010b6834f0b5014405e41c75f000601e1f9b75a2e541a44970aacd45a0abebbb"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-13/response.bin",
+      "sha256": "296555b292bbad0877646abf0326cb88ba682587d5fbd7df95f0bc7b75fe1b4b"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-14/capture.json",
+      "sha256": "f685857b9cb29fc0e761c22347cff7c943707016f9f0fa94d553748fdb151e95"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-14/response.bin",
+      "sha256": "8f57b6caa7f061b589d3a15a943323575effff8cab0a285a987ced54eba6ef06"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-17/capture.json",
+      "sha256": "605652bc0147a3ad8dcb5b76b29886703ec028188e9e97a96b54e15d7650f80e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-17/response.bin",
+      "sha256": "54405572ab8ff7443ed193fa1f7bc3498dcc5b8a13bebb2e80f2369204cc141f"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-18/capture.json",
+      "sha256": "11041b03f5cb08e035bb9e1040f0b780857081c91568b899acee018c8e30c855"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-18/response.bin",
+      "sha256": "c620dd52c79b19164f190ed999b8e8085c383c91d5d7b7647d667287151f0afa"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-19/capture.json",
+      "sha256": "38a98d7c143df31532c3aeb21dc8f27473266b3a1b076742a952cba3b81bc09e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-19/response.bin",
+      "sha256": "87024191b048847874ef627d76b489ee2ca69d13f8657d6d03a434c21a59cbfa"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-20/capture.json",
+      "sha256": "7f9b23f6161a7c6f621538c5e4dbce3ca8e96d518b6ae90079fc9963297832c0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-20/response.bin",
+      "sha256": "608de375ee23efb0a721fbfb67983fb83b394f0618b4955eadbe70f1460cb838"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-21/capture.json",
+      "sha256": "b779a357f996caaa06ed32b00bbeeeb5c942eae061b9c233eea5cb760adb95df"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-21/response.bin",
+      "sha256": "5c5edcfa278d743ee03ccee208bed1abae70d96e61051127cc8094b8f7a54451"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-24/capture.json",
+      "sha256": "4a285d8f9236e7c67c6e1cd0bae27cb5e4bb9b4c59b7be6db7c7894202ec5ba6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-24/response.bin",
+      "sha256": "b73f46ace50f000423bb52004a27a4e08e98eabeff00d666489e96e6d52153a7"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-25/capture.json",
+      "sha256": "cb4269b67614dbb1810e0179ffee6062753b0c413fcb7f2b9b37d3070e94a4d9"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-25/response.bin",
+      "sha256": "ee98d282388bf6925d20f9d06e39a31b036a4936d7851451b742a51947572c22"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-26/capture.json",
+      "sha256": "e4097629b69abe79f22ad1841bcaa002d8f8aac9efd006fde73b921007c22324"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-26/response.bin",
+      "sha256": "d619d43120c650579492a2a2d15bb9b9395f3a3a87cc81ee2ea3be3ddc8fa868"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-27/capture.json",
+      "sha256": "581187a61443e89d94d30ad1d5f350784377d581b6a436543e9967fd7e3e0542"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-27/response.bin",
+      "sha256": "723ee3002eb9b57749fc31d380e1599f2cc430584d4e87c46d2bb9539a362794"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-28/capture.json",
+      "sha256": "6c022f1c0c6ddb667776f7519e7b199cda80459e27f62bccb259537d5b71da60"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-28/response.bin",
+      "sha256": "f5f03e11e36bf0b529c1c44aa6033af48eef1b05642d157230fc50fbb406baf4"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-31/capture.json",
+      "sha256": "6c3d3586b088f12ef2a707e09cb7c3686a8b67f4e9aa79472861c23382e88a44"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-08-31/response.bin",
+      "sha256": "6677f611c573155ebd30dd9bc78cf9bb569753fe9c72280d0fe82e8bff9015d0"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-09-01/capture.json",
+      "sha256": "9beee91e86a3719870836e52869ee89f9a14adf3fd64d4285bb89a84322a092e"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-09-01/response.bin",
+      "sha256": "b0f2f9c8c97fb15bc8f5300b851cf878945bbb7e7657637d87158d410ff42e94"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-09-02/capture.json",
+      "sha256": "bacc5d12c0a54191f3a4d092925c2a8f709737e63188c9eaeae910dc572179e6"
+    },
+    {
+      "path": "data/research/nse-master-batch/v1/2026-09-02/response.bin",
+      "sha256": "bc085da2a69e4e97df3fc85c4caefc66f12b99759d204ab3b22c47f9f9a0c2bd"
+    },
+    {
+      "path": "data/research/nse-master-rules/20260907/MSD67344.pdf",
+      "sha256": "8cff554cd21720ada13a9837f47e33f000f43974e1b8da480e49f200204c1786"
+    },
+    {
+      "path": "data/research/nse-master-rules/20260907/legend-of-series.html",
+      "sha256": "57309990d7e4418d3f3293a7a11a94116bc99afdf15a5e2b7267b28ce153bba7"
+    },
+    {
+      "path": "data/research/nse-master-rules/20260907/legend.capture.json",
+      "sha256": "5879000474b8762a0c68794876eb0489817e24a7001610b38729afc17f9b4321"
+    },
+    {
+      "path": "data/research/nse-master-rules/20260907/manifest.json",
+      "sha256": "27503448d981f1e0d39c245daf2036e501c96bb8acb11099ca3baae5229dcc28"
+    },
+    {
+      "path": "data/research/nse-master-schema-change/20260907/investigation.json",
+      "sha256": "5bb4f764b844d7f574230adf4bf8949f387763555708bc708162cd45f10ff03d"
+    },
+    {
+      "path": "data/research/nse-master-schema-vintage/20260907/CMTR73845.zip",
+      "sha256": "94f9288a24e815265feb03023f997ecc3a4993cbc1445b0b20383beb7c4c7239"
+    },
+    {
+      "path": "data/research/nse-master-schema-vintage/20260907/CMTR73845_Annexure A.xlsx",
+      "sha256": "da1dad1077b0fe70c14a068a1c4f6a665a80f35af81b6d454ba7271d2969efae"
+    },
+    {
+      "path": "data/research/nse-master-schema-vintage/20260907/CMTR73845_CMTR73845.pdf",
+      "sha256": "aef6e11c636ce079ec105307a55772a79d3c1be3218147f8b3fd97970312e65d"
+    },
+    {
+      "path": "data/research/nse-master-schema-vintage/20260907/CMTR73927.zip",
+      "sha256": "11988491ecb0088222614ae240995b6ef8881628757c903a959dd79c910a7479"
+    },
+    {
+      "path": "data/research/nse-master-schema-vintage/20260907/CMTR73927_PART-D.xlsx",
+      "sha256": "30a4e37956ba5ab1acdda177411beca0146ebab0bcb155f1cd4f12576d195798"
+    },
+    {
+      "path": "data/research/nse-master-schema-vintage/20260907/manifest.json",
+      "sha256": "efa6f93a57962ff247dd77e46cfaa9e9175d0030b4d1a29bfb8f760ba7814497"
+    },
+    {
+      "path": "data/research/nse-master-schema-vintage/20260907/schema-comparison.json",
+      "sha256": "45186da631946580fa6ff449833a527909b4f8cdbe32c615fbbe4b1793d2b52b"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/Annexure-A_CM.xlsx",
+      "sha256": "05443f4d0b14163f2398ba3b6bdf133b633291780b65cfea58a2084d51b21a6d"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/CMTR61813.pdf",
+      "sha256": "9c956956c9c4e57f31bce4e6195bf58f1acbadeb3b45a6c28e533f1c88a21211"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/CMTR61813.zip",
+      "sha256": "d58c836cc1ce5504b328118b7887c91bc75189d13a806c5b3c83f343584a8c90"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/MSD55276.pdf",
+      "sha256": "2d9abce78153e299c9162e394cf7fdd33e065ae1f769092462c7e32971c2f2da"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/MSD55276.zip",
+      "sha256": "b221d3ede7f7e6e8ba3e5da7377f147ce0535e22b7df8904c14d063797fd7c8e"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/PART-D.xlsx",
+      "sha256": "936082c7f2308d84e5865022dff0bf803738745dc38cbc5ae00695d28bd3be82"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/manifest.json",
+      "sha256": "2e2416707287596e6adc4f6283801c0f0cdb93be16bcd1e3be7c66b32f15f9b4"
+    },
+    {
+      "path": "data/research/stock-closure/20260907/acquisition-result.json",
+      "sha256": "6ff54052b63c5cff4b7dc18f2bdf9859b0da80fcb69d6a1c7bd6539f61f617ef"
+    },
+    {
+      "path": "data/research/stock-universe-closure/20260907/CMTR68176.pdf",
+      "sha256": "043f5999fd5990c6d8017d647381a442aab486752854af82c62392b51b61da57"
+    },
+    {
+      "path": "data/research/stock-universe-closure/20260907/MSD60315.pdf",
+      "sha256": "02d851cec85512d10440d47bf5c253545510711504cf53b35f67f3b134b02a35"
+    },
+    {
+      "path": "data/research/stock-universe-closure/20260907/manifest.json",
+      "sha256": "50124f4c6656349ab6ed5b92bed96006f71f5744d7702448317643f91667e8e7"
+    },
+    {
+      "path": "data/research/stock-universe-closure/20260907/simulated-environment-faqs.html",
+      "sha256": "c0f3fefb86d8c32020931fa49e5b0e5013f9d29c66beb1f47cb21bb4bb6b9a0a"
+    },
+    {
+      "path": "docs/research/ahl-afsl-identity-2026-09-07.md",
+      "sha256": "3cb9e0a96d59db6384f8231376ced593db8f3f0411ff8ddabb5d1fd8face4c05"
+    },
+    {
+      "path": "docs/research/mii-execution-tick-evidence-2026-09-07.md",
+      "sha256": "0e7b7228d570013805b438f458fe3100d28dd2fda23960b31d0e22a5dd8bf46b"
+    },
+    {
+      "path": "docs/research/nse-master-schema-change-2026-09-07.md",
+      "sha256": "a86ebd79d346db7d90637e465743fd7a2b2a13ead23b31fe6a49f13918bc04bc"
+    },
+    {
+      "path": "docs/research/nse-master-schema-vintage-2026-09-07.md",
+      "sha256": "97974a8dd959a03610587cae33c20a7d63206b6afad14104b309c5e300e13c52"
+    },
+    {
+      "path": "docs/research/nse-master-universe-rules-2026-09-07.md",
+      "sha256": "5fa348a0e9c40937dfa51f03b3f0ff2360dd039aceb5cb3056c11e898329c413"
+    },
+    {
+      "path": "docs/research/nse-mii-classification-schema-2026-09-07.md",
+      "sha256": "0a688ef4c941c95df2ffeeb5f3eaec3d13b9bb0f671a1917281178e0819dad63"
+    },
+    {
+      "path": "docs/research/stock-universe-closure-evidence-2026-09-07.md",
+      "sha256": "dcc2821f7cb06340370f4026ca8e06969ac2f01f1bb8a2057c1927be12ba8b4c"
+    },
+    {
+      "path": "data/research/stock-closure/20260907/raw-panel.json",
+      "sha256": "4fd8938ac99a576c9921c980e08442fc128124db9bd55d7c65af2515d7f88b4d"
+    },
+    {
+      "path": "data/research/stock-closure/20260907/raw-panel.parquet",
+      "sha256": "b6564c244ad3fb31e407146b9ea3fcf49ffb36a1bed74739387d1c2e5d821b29"
+    }
+  ],
+  "acquisition_scope": {
+    "path": "data/research/stock-closure/20260907/acquisition-scope.json",
+    "sha256": "e292eb348c14d44fd9ec7742ff7acee201bce4545aa30286a768eb74d262158c"
+  },
+  "sample_plan": {
+    "path": "config/security-master-sample-v1.json",
+    "sha256": "c2ecf9587a7b6004a0f7b454ded8941ea2ec88932124d3990f904e81a6e4c3c5"
+  },
+  "action_manifest": {
+    "path": "data/reports/portfolio-action-evidence/manifest.json",
+    "sha256": "579c006e24b9e61f87c251ee6601b654123d7b1acc2ceb87548e39b2ed127d03"
+  },
+  "event_risk": {
+    "path": "config/stock-demerger-risk.json",
+    "sha256": "31c6acca62a296f1fc1b1c425c4fbb0691e163d573e211430d22228ba6f44996"
+  },
+  "benchmark": {
+    "path": "data/research/benchmarks/nifty500-tri-20260906.parquet",
+    "sha256": "7982e13fe0fab59877028bbd3de0077902b1531b285cf799ca2fde9fef2ea96c"
+  },
+  "start": "2025-01-06",
+  "end": "2026-09-03",
+  "portfolio": {
+    "capital": 300000,
+    "max_position_pct": 20,
+    "max_risk_per_trade_pct": 2,
+    "max_open_positions": 5,
+    "max_positions_per_strategy": 5,
+    "liquidate_at_end": true,
+    "cost_model": "current_delivery_schedule",
+    "dp_charge_inr": 15.34,
+    "entry_slippage_bps": 10
+  },
+  "evaluation": {
+    "maximum_drawdown_pct": 100,
+    "minimum_sessions": 252,
+    "minimum_trades": 30,
+    "bootstrap_block_sessions": 20,
+    "bootstrap_samples": 2000,
+    "confidence": 0.9,
+    "random_seed": 20260906
+  },
+  "experiments": [
+    {
+      "name": "momentum_raw_hold30",
+      "strategy": "momentum_breakout_55",
+      "parameters": {
+        "stop_pct": 5,
+        "target_pct": 12,
+        "max_hold_days": 30
+      }
+    },
+    {
+      "name": "momentum_raw_hold60",
+      "strategy": "momentum_breakout_55",
+      "parameters": {
+        "stop_pct": 5,
+        "target_pct": 12,
+        "max_hold_days": 60
+      }
+    },
+    {
+      "name": "pullback_raw",
+      "strategy": "pullback_to_50dma",
+      "parameters": {
+        "stop_pct": 4,
+        "target_pct": 10,
+        "max_hold_days": 25
+      }
+    },
+    {
+      "name": "rsi2_raw",
+      "strategy": "mean_reversion_rsi",
+      "parameters": {
+        "stop_pct": 4,
+        "target_pct": 6,
+        "max_hold_days": 10
+      }
+    }
+  ],
+  "revision_note": "Before any strategy result, pin the freshly built raw panel and receipt to prevent replacement of a self-consistent cache. Economics and all hypotheses unchanged."
+}
