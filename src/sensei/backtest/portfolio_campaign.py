@@ -8,6 +8,7 @@ import inspect
 import json
 import re
 from dataclasses import asdict, dataclass
+from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
 from numbers import Integral
 from typing import Mapping
 
@@ -37,6 +38,7 @@ class PortfolioCampaignConfig:
     cost_model: str = "flat_round_trip"
     dp_charge_inr: float = 15.34
     entry_slippage_bps: float = 0.0
+    execution_tick_paise: int | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +86,8 @@ class PortfolioCampaignReport:
     def to_dict(self):
         return {
             "execution_policy": DAILY_EXECUTION_POLICY,
+            "price_rounding_policy": ("continuous-model-prices-v1" if self.config.execution_tick_paise is None
+                else "constant-tick-buy-fill-up-stop-down-target-up-v1"),
             "selection_policy": asdict(SELECTION_POLICY),
             "experiment_id": self.experiment_id,
             "preceding_session": self.preceding_session,
@@ -154,6 +158,9 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
         raise ValueError("unknown cost model")
     if any(not math.isfinite(v) or v < 0 for v in (config.dp_charge_inr, config.entry_slippage_bps)):
         raise ValueError("DP charges and slippage must be finite and nonnegative")
+    if config.execution_tick_paise is not None and (
+            type(config.execution_tick_paise) is not int or config.execution_tick_paise <= 0):
+        raise ValueError("execution tick must be a positive integer number of paise")
     if not frames or not strategies:
         raise ValueError("frames and strategies are required")
     for spec in strategies.values():
@@ -266,8 +273,9 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                     lookback=SELECTION_POLICY.correlation_lookback_sessions,
                 ) >= SELECTION_POLICY.maximum_pairwise_correlation for p in positions):
                     continue
-                entry = float(normalized[symbol].loc[session, "open"]) * (1 + config.entry_slippage_bps / 10_000)
-                stop = entry * (1 - float(spec["stop_pct"]) / 100)
+                entry, stop, target = _entry_bracket(
+                    float(normalized[symbol].loc[session, "open"]), config.entry_slippage_bps,
+                    float(spec["stop_pct"]), float(spec["target_pct"]), config.execution_tick_paise)
                 fee_rate = config.cost_pct / 100
                 by_risk = config.capital * config.max_risk_per_trade_pct / 100 / (
                     entry - stop + entry * fee_rate
@@ -295,7 +303,7 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                 cash -= entry * quantity + round_trip_cost
                 turnover += entry * quantity
                 positions.append(_Position(name, symbol, session, entry, quantity, stop,
-                    entry * (1 + float(spec["target_pct"]) / 100),
+                    target,
                     int(spec["max_hold_days"]), round_trip_cost,
                     cost_model=config.cost_model, dp_charge_inr=config.dp_charge_inr))
         # Intraday/close phase, including positions opened today; stop first.
@@ -373,6 +381,23 @@ def _validated_quantity_steps(frames, steps, evidence_sha256):
     return normalized
 
 
+def _entry_bracket(open_price, slippage_bps, stop_pct, target_pct, tick_paise):
+    if tick_paise is None:
+        entry = open_price * (1 + slippage_bps / 10_000)
+        return entry, entry * (1 - stop_pct / 100), entry * (1 + target_pct / 100)
+    tick = Decimal(tick_paise) / 100
+
+    def rounded(value, direction):
+        return (value / tick).to_integral_value(rounding=direction) * tick
+
+    entry = rounded(Decimal(str(open_price)) * (1 + Decimal(str(slippage_bps)) / 10000), ROUND_CEILING)
+    stop = rounded(entry * (1 - Decimal(str(stop_pct)) / 100), ROUND_FLOOR)
+    target = rounded(entry * (1 + Decimal(str(target_pct)) / 100), ROUND_CEILING)
+    if not 0 < stop < entry < target:
+        raise ValueError("rounded bracket must have positive stop below entry below target")
+    return float(entry), float(stop), float(target)
+
+
 def _close(position, session, price, reason, cash, turnover, trades):
     gross = (price - position.entry_price) * position.quantity
     exit_cost = (delivery_charge(price * position.quantity, "SELL", dp_charge_inr=position.dp_charge_inr)
@@ -412,7 +437,8 @@ def _experiment_identity(frames, signals, strategies, config, eligibility, sessi
         "selection_policy": asdict(SELECTION_POLICY),
         "implementation": hashlib.sha256((inspect.getsource(run_portfolio_campaign)
             + inspect.getsource(daily_execution) + inspect.getsource(selection) + inspect.getsource(costs)
-            + inspect.getsource(_close) + inspect.getsource(_mark)).encode()).hexdigest(),
+            + inspect.getsource(_close) + inspect.getsource(_mark)
+            + inspect.getsource(_entry_bracket)).encode()).hexdigest(),
         "quantity_implementation": hashlib.sha256(inspect.getsource(_validated_quantity_steps).encode()).hexdigest(),
         "frames": {key: digest(frame) for key, frame in sorted(frames.items())},
         "signals": {str(key): digest(value) for key, value in sorted(signals.items())},

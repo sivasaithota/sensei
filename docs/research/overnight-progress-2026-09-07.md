@@ -246,3 +246,30 @@ price differences. Prepare a bounded raw-execution reproduction of selected
 pre-action trades using verified raw-session receipts, adjusted data only for
 signals, and physical whole-share quantities. Keep unmodeled event intervals
 blocked. Do not widen diagnostic tolerances or claim a corrected full portfolio.
+
+## Pass 9 — selected raw execution replay
+
+Resumed from `361dc58` around 06:56 IST after the owner's “what's next?” request.
+Implemented optional constant-tick brackets using decimal arithmetic, preserving
+the old mode. Built a source-pinned raw replay of four selected pre-action trades
+(eight records across both controls), using whole physical shares and 28 verified
+NSE raw-session receipts. Monthly reference closes establish the scoped 2024
+₹0.05 tick assignment; no general historical security-master certification.
+
+The initial rights/demerger coverage gap was resolved by full calendar-2024 NSE
+action API responses: two HEG and three MAZDOCK records, no interval overlaps.
+Exact bodies and manifest are retained; no conditional replay was run. Every
+case passed scoped checks with matching exit dates/reasons and no horizon censoring.
+Physical quantities: HEG 24; MAZDOCK 17, 15, 10. Results are isolated, not a revised
+portfolio return. Overall DATA_BLOCKED/can_trade=false remains.
+
+Full suite: **978 passed**. Standards and Spec reviews clear. Both legacy controls
+reran with exact trade, equity-curve and economic parity. Baseline remains
+₹294,661.96; hold60 ₹329,853.50. No Kite requests/spending/live orders; only public
+NSE history retrieval for the specific coverage gap. [Detailed evidence, outcomes and IDs](selected-raw-replay-results-2026-09-07.md).
+
+Next pass: measure raw-session and action-history coverage across the remaining
+saved holdings; reuse existing captures and fetch only needed missing NSE sessions.
+Intervals crossing actions need explicit entitlements, not forced no-action replay.
+Keep dated tick evidence separate. Broaden actual-price cash accounting before
+claiming a corrected portfolio or returning to strategy selection.

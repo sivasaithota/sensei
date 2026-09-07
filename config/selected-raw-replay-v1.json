@@ -1,0 +1,47 @@
+{
+  "authority": "RESEARCH_ONLY",
+  "unit_audit_path": "../data/reports/share-unit-audit/ab1fc239b6c885158f1d874c1b2a25dbbccce0f4928ed565549d0551432f5067/report.json",
+  "unit_audit_sha256": "ab1fc239b6c885158f1d874c1b2a25dbbccce0f4928ed565549d0551432f5067",
+  "action_manifest_path": "../data/reports/raw-replay-action-evidence/manifest.json",
+  "action_manifest_sha256": "488cf83426507a7747ac0548f87e08f17ebb713282edfd4ec05be5bcb0ebc9e9",
+  "notes": {
+    "actions": {
+      "path": "../docs/research/selected-raw-replay-action-coverage-2026-09-07.md",
+      "sha256": "0f7875ddeb6933feb606a832877603599a62500b2911310ccf3f77f64b3b7062"
+    },
+    "ticks": {
+      "path": "../docs/research/nse-equity-tick-rules-2026-09-07.md",
+      "sha256": "82c5e95540504dadfabad154ec694ab1af00a071672c7510646d3d687ff0f08e"
+    }
+  },
+  "cases": {
+    "HEG-BE|2024-04-16|2024-05-03": {
+      "action_coverage": "no_action_in_reviewed_interval",
+      "action_scope": "NSE all-purpose symbol-filtered calendar-2024 response plus annual capital/dividend reconciliations",
+      "tick_paise": 5,
+      "tick_reference_date": null,
+      "tick_basis": "Rule-based assignment for a bounded interval; not an archived security-master receipt"
+    },
+    "MAZDOCK|2024-05-30|2024-05-31": {
+      "action_coverage": "no_action_in_reviewed_interval",
+      "action_scope": "NSE all-purpose symbol-filtered calendar-2024 response plus annual capital/dividend reconciliations",
+      "tick_paise": 5,
+      "tick_reference_date": null,
+      "tick_basis": "Rule-based assignment for a bounded interval; not an archived security-master receipt"
+    },
+    "MAZDOCK|2024-06-18|2024-06-27": {
+      "action_coverage": "no_action_in_reviewed_interval",
+      "action_scope": "NSE all-purpose symbol-filtered calendar-2024 response plus annual capital/dividend reconciliations",
+      "tick_paise": 5,
+      "tick_reference_date": "2024-05-31",
+      "tick_basis": "Rule-based assignment for a bounded interval; not an archived security-master receipt"
+    },
+    "MAZDOCK|2024-07-05|2024-07-05": {
+      "action_coverage": "no_action_in_reviewed_interval",
+      "action_scope": "NSE all-purpose symbol-filtered calendar-2024 response plus annual capital/dividend reconciliations",
+      "tick_paise": 5,
+      "tick_reference_date": "2024-06-28",
+      "tick_basis": "Rule-based assignment for a bounded interval; not an archived security-master receipt"
+    }
+  }
+}
