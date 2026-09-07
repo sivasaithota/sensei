@@ -1,0 +1,102 @@
+{
+  "parent_manifest": {
+    "path": "data/reports/raw-portfolio/0b195544a232eb526769ddbb47a74ff25d098070513cc39a59718a37ab351fb2/manifest.json",
+    "sha256": "49d77c27d99d168510ba78b58251dc56b6c43dcf298958557f8fd483768b12fa"
+  },
+  "action_manifest": {
+    "path": "data/reports/portfolio-action-evidence/manifest.json",
+    "sha256": "579c006e24b9e61f87c251ee6601b654123d7b1acc2ceb87548e39b2ed127d03"
+  },
+  "bonus_manifest": {
+    "path": "data/research/dated-bonus-evidence/20260907/manifest.json",
+    "sha256": "2d3f3215258cea1ce60cef8a240ccc19462a54b41be4bac774c180972f4ed366"
+  },
+  "version": 1,
+  "authority": "RESEARCH_ONLY",
+  "can_trade": false,
+  "scope": "Fixed forced BSE holding; planned availability and unknown availability controls; no strategy evaluation",
+  "history_start": "2025-05-20",
+  "entry_session": "2025-05-22",
+  "end": "2025-05-30",
+  "tick_reference_session": "2025-04-30",
+  "assumed_available_from": "2025-05-27",
+  "cases": [
+    "planned_availability_scenario",
+    "unknown_availability"
+  ],
+  "action": {
+    "source_id": "4020cb4803cd7a0b3e0bfafd74945c3a8c25beace3c9e4b72592cdbb7e41f6c8",
+    "symbol": "BSE",
+    "ex_session": "2025-05-23",
+    "subject": "Bonus 2:1",
+    "kind": "bonus",
+    "known_session": "2025-05-15",
+    "new_shares": 3,
+    "old_shares": 1,
+    "additional_shares": 2,
+    "existing_shares": 1,
+    "old_isin": "INE118H01025",
+    "new_isin": "INE118H01025",
+    "support_urls": [
+      "https://nsearchives.nseindia.com/corporate/BSE1_12052025155558_NSEintimation.pdf",
+      "https://nsearchives.nseindia.com/content/circulars/FAOP67987.pdf"
+    ]
+  },
+  "availability_source_url": "https://nsearchives.nseindia.com/corporate/BSE1_12052025155558_NSEintimation.pdf",
+  "availability_source_sha256": "f8409e9b5fa351634e3cb9639dc482d8371dcf433f9d3a31cf0e79efb1021944",
+  "contract": {
+    "path": "docs/specs/bonus-portfolio-entitlements.md",
+    "sha256": "a5cb242da80256e1375629a22918beddca3bcc231351a93c479083ee9a41b357"
+  },
+  "availability_note": {
+    "path": "docs/research/bse-bonus-availability-2026-09-07.md",
+    "sha256": "f8535757e70ec678d69eb93b9f05470d32fb1491870fbd56f7e61d21b70bb1a6"
+  },
+  "tick_note": {
+    "path": "docs/research/nse-equity-tick-rules-2026-09-07.md",
+    "sha256": "82c5e95540504dadfabad154ec694ab1af00a071672c7510646d3d687ff0f08e"
+  },
+  "implementations": [
+    {
+      "path": "src/sensei/backtest/portfolio_campaign.py",
+      "sha256": "fe0359742174a78f30afba84fcc379458a71a4f69448b9dea2272b40592ea146"
+    },
+    {
+      "path": "src/sensei/backtest/raw_accounting.py",
+      "sha256": "d4e2ee3b97294cb3633f7acccecb0149e70586e382fc4c12e04a4ff87b3de388"
+    },
+    {
+      "path": "src/sensei/backtest/costs.py",
+      "sha256": "dfbeaf08aadd628ac4d95c41f5d72e03e99b01c8e5b0daa46a7f7454e275d3f3"
+    },
+    {
+      "path": "src/sensei/backtest/daily_execution.py",
+      "sha256": "fa61f8997570dcfafd6c99dffe8ba10c1560f16306d071bab148ab1904af6e03"
+    },
+    {
+      "path": "src/sensei/research/raw_portfolio.py",
+      "sha256": "aecbe47e61268061d03053ec1c14ee42ebebaad4818180c736484cded33bca49"
+    },
+    {
+      "path": "src/sensei/research/bonus_indicator_replay.py",
+      "sha256": "7cf121fe0ec17a43b1682dd99498ecd8097def4dcce0a9093817725e5402e020"
+    },
+    {
+      "path": "src/sensei/research/split_reproduction.py",
+      "sha256": "1198d7127c3286f5b2c46d37ae8dbe5e9916c31c4fc9ec0e45792827b0c8c5b0"
+    },
+    {
+      "path": "src/sensei/data/bhavcopy.py",
+      "sha256": "9b7cc2acc3cc54fb57d5ad537da1ec5ea36d1ce46aaf55b8ad4f8de5a17c6991"
+    },
+    {
+      "path": "src/sensei/execution/nse.py",
+      "sha256": "4dc9f6a746cefd7939b1f05d62e24869c0bfc2a8a3041fb26a3f12b19e95dc84"
+    },
+    {
+      "path": "src/sensei/strategy/selection.py",
+      "sha256": "d2af6c53848e9aa947db314f9775918c4cf545f58e81cd81163452349b11da5d"
+    }
+  ],
+  "revision_note": "Before final rerun, review added transitive fee and selection implementation pins; scenarios and parameters unchanged. Initial artifact retained."
+}

@@ -10,6 +10,7 @@ import re
 from dataclasses import asdict, dataclass
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
 from numbers import Integral
+from fractions import Fraction
 from typing import Mapping
 
 import pandas as pd
@@ -22,7 +23,7 @@ from sensei.strategy.selection import (
     average_turnover,
 )
 from sensei.backtest.costs import delivery_charge, delivery_quantity
-from sensei.backtest.raw_accounting import RawAccounting, tick_round
+from sensei.backtest.raw_accounting import RawAccounting, RawAction, tick_round
 
 SELECTION_POLICY = SignalRankingPolicy()
 
@@ -65,6 +66,7 @@ class EquityPoint:
     invested: float
     open_positions: int
     dividend_receivables: float = 0.0
+    share_receivables: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -128,6 +130,9 @@ class PortfolioCampaignReport:
         else:
             for point in result["equity_curve"]:
                 point.pop("dividend_receivables")
+        if self.raw_accounting is None or "share_entitlement_policy" not in self.raw_accounting:
+            for point in result["equity_curve"]:
+                point.pop("share_receivables")
         return result
 
 
@@ -146,6 +151,24 @@ class _Position:
     cost_model: str = "flat_round_trip"
     dp_charge_inr: float = 15.34
     dividend_income: float = 0.0
+    pending_quantity: int = 0
+    pending_action: RawAction | None = None
+    deferred_exit_reason: str | None = None
+
+    def accrue_bonus(self, action):
+        if self.pending_quantity:
+            raise ValueError("overlapping pending share entitlements are unsupported")
+        ratio = Fraction(action.new_shares, action.old_shares)
+        total = self.quantity * ratio
+        if total.denominator != 1:
+            raise ValueError("fractional bonus entitlement requires an explicit settlement policy")
+        original = self.quantity
+        self.quantity = int(total)
+        self.pending_quantity = self.quantity - original
+        self.pending_action = action
+        self.entry_price /= float(ratio)
+        self.stop /= float(ratio)
+        self.target /= float(ratio)
 
 
 def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
@@ -230,6 +253,7 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
     execution = normalized if raw_accounting is None else raw_accounting.frames
     dividend_receivables = 0.0
     dividend_ledger = []
+    share_ledger = []
     actions_by_date = {}
     if raw_accounting is not None:
         if quantity_steps is not None or config.execution_tick_paise is not None:
@@ -254,6 +278,18 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                         continue
                     if action.kind == "unsupported":
                         raise ValueError(f"unsupported held corporate action: {position.symbol}:{session.date()}:{action.subject}")
+                    if position.pending_quantity and action.kind != "no_accounting":
+                        raise ValueError("accounting event during pending bonus entitlement is unsupported")
+                    if action.kind == "bonus":
+                        position.accrue_bonus(action)
+                        share_ledger.append({"event": "accrual", "session": str(session.date()),
+                            "symbol": position.symbol, "strategy": position.strategy,
+                            "entry_date": str(position.entry_date.date()), "source_id": action.source_id,
+                            "pending_quantity": position.pending_quantity, "total_quantity": position.quantity,
+                            "available_from": str(action.available_from.date()) if action.available_from is not None else None,
+                            "availability_known_from": str(action.availability_known_from.date()) if action.availability_known_from is not None else None,
+                            "availability_basis": action.availability_basis,
+                            "availability_source_sha256": action.availability_source_sha256})
                     if action.kind == "dividend":
                         amount = position.quantity * action.amount
                         position.dividend_income += amount
@@ -262,6 +298,15 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                             "entry_date": str(position.entry_date.date()), "ex_date": str(session.date()),
                             "quantity": position.quantity, "per_share": action.amount,
                             "amount": amount, "source_id": action.source_id})
+                pending = position.pending_action
+                if (pending is not None and pending.available_from is not None
+                        and session >= max(pending.available_from, pending.availability_known_from)):
+                    share_ledger.append({"event": "release", "session": str(session.date()),
+                        "symbol": position.symbol, "strategy": position.strategy,
+                        "entry_date": str(position.entry_date.date()), "source_id": pending.source_id,
+                        "quantity": position.pending_quantity, "availability_basis": pending.availability_basis})
+                    position.pending_quantity = 0
+                    position.pending_action = None
                 tick = raw_accounting.tick(position.symbol, session)
                 position.stop = tick_round(position.stop, tick)
                 position.target = tick_round(position.target, tick, buy=True)
@@ -275,10 +320,17 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                 )
             bar = frame.loc[session] if raw_accounting is None else raw_accounting.bar(position.symbol, session)
             outcome = opening_exit(float(bar.open), position.stop, position.target)
-            if outcome is not None:
-                cash, turnover = _close(position, session, outcome.price if raw_accounting is None else tick_round(outcome.price, raw_accounting.tick(position.symbol, session)),
-                    outcome.reason, cash, turnover, trades)
-                blocked_symbols.add(position.symbol); blocked_strategies.add(position.strategy)
+            deferred = position.deferred_exit_reason and position.quantity > position.pending_quantity
+            if outcome is not None or deferred:
+                exit_price = float(bar.open) if deferred else outcome.price
+                exit_reason = "deferred_" + position.deferred_exit_reason if deferred else outcome.reason
+                quantity_before = position.quantity
+                cash, turnover = _close(position, session, exit_price if raw_accounting is None else tick_round(exit_price, raw_accounting.tick(position.symbol, session)),
+                    exit_reason, cash, turnover, trades)
+                if position.quantity < quantity_before:
+                    blocked_symbols.add(position.symbol); blocked_strategies.add(position.strategy)
+                if position.quantity:
+                    survivors.append(position)
             else:
                 position.held += 1; survivors.append(position)
         positions = survivors
@@ -375,6 +427,8 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                     price = tick_round(price, raw_accounting.tick(position.symbol, session))
                 cash, turnover = _close(position, session, price, reason,
                     cash, turnover, trades)
+                if position.quantity:
+                    survivors.append(position)
             else:
                 survivors.append(position)
         positions = survivors
@@ -384,12 +438,13 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                     (float(execution[position.symbol].loc[session, "close"]) if raw_accounting is None
                      else tick_round(raw_accounting.bar(position.symbol, session)["close"], raw_accounting.tick(position.symbol, session))),
                     "final_session", cash, turnover, trades)
-            positions = []
+            positions = [p for p in positions if p.quantity]
         invested = sum(
-            p.quantity * _mark(execution[p.symbol], session) for p in positions
+            (p.quantity - p.pending_quantity) * _mark(execution[p.symbol], session) for p in positions
         )
-        curve.append(EquityPoint(str(session.date()), round(cash + invested + dividend_receivables, 2),
-            round(cash, 2), round(invested, 2), len(positions), round(dividend_receivables, 2)))
+        share_receivables = sum(p.pending_quantity * _mark(execution[p.symbol], session) for p in positions)
+        curve.append(EquityPoint(str(session.date()), round(cash + invested + dividend_receivables + share_receivables, 2),
+            round(cash, 2), round(invested, 2), len(positions), round(dividend_receivables, 2), round(share_receivables, 2)))
     equities = [point.equity for point in curve]
     peak = config.capital; max_dd = 0.0
     for equity in equities:
@@ -400,7 +455,7 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
         + sum((_mark(execution[p.symbol], sessions[-1]) - p.entry_price) * p.quantity
               - p.round_trip_cost + p.dividend_income for p in positions if p.strategy == name), 2)
         for name in strategies}
-    utilization = sum(point.invested / point.equity for point in curve if point.equity) / max(1, len(curve)) * 100
+    utilization = sum((point.invested + point.share_receivables) / point.equity for point in curve if point.equity) / max(1, len(curve)) * 100
     identity = _experiment_identity(normalized, signals, strategies, config, entry_eligibility, sessions,
         quantity_steps, quantity_evidence_sha256)
     raw_summary = None
@@ -415,6 +470,17 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
             "cash_settlement_policy": "same-day sale proceeds reusable as in the frozen research control; no settlement ledger",
             "gross_pnl_definition": "price P&L plus gross dividend entitlements",
             "dividend_receivables": round(dividend_receivables, 2), "dividend_ledger": dividend_ledger}
+        if any(a.kind == "bonus" for a in raw_accounting.actions):
+            raw_summary.update({"share_entitlement_policy": "whole-bonus-receivable-explicit-availability-v1",
+                "share_ledger": share_ledger,
+                "share_receivables": curve[-1].share_receivables if curve else 0,
+                "pending_holdings": [{"symbol": p.symbol, "strategy": p.strategy,
+                    "entry_date": str(p.entry_date.date()), "quantity": p.pending_quantity,
+                    "deferred_exit_reason": p.deferred_exit_reason} for p in positions if p.pending_quantity],
+                "liquidation_complete": not positions,
+                "trade_row_policy": "actual sale legs; partial exits allocate economic basis and reserved costs proportionally",
+                "availability_limitation": "Explicit research inputs; neither scenario nor market admission certifies account credit",
+                "bracket_policy": "dividend brackets unchanged; bonus basis/brackets move to new units before dated tick rounding"})
     return PortfolioCampaignReport(config, tuple(trades), tuple(curve), round(final, 2),
         round(final - config.capital, 2), round((final / config.capital - 1) * 100, 3),
         round(max_dd, 3), round(turnover, 2), round(utilization, 2), attribution, len(positions), identity,
@@ -465,17 +531,28 @@ def _entry_bracket(open_price, slippage_bps, stop_pct, target_pct, tick_paise):
 
 
 def _close(position, session, price, reason, cash, turnover, trades):
-    gross = (price - position.entry_price) * position.quantity + position.dividend_income
-    exit_cost = (delivery_charge(price * position.quantity, "SELL", dp_charge_inr=position.dp_charge_inr)
+    if position.pending_quantity and position.deferred_exit_reason is None:
+        position.deferred_exit_reason = reason
+    quantity = position.quantity - position.pending_quantity
+    if quantity == 0:
+        return cash, turnover
+    fraction = quantity / position.quantity
+    income = position.dividend_income * fraction
+    reserved_cost = position.round_trip_cost * fraction
+    gross = (price - position.entry_price) * quantity + income
+    exit_cost = (delivery_charge(price * quantity, "SELL", dp_charge_inr=position.dp_charge_inr)
                  if position.cost_model == "current_delivery_schedule" else 0)
-    total_cost = position.round_trip_cost + exit_cost
+    total_cost = reserved_cost + exit_cost
     net = gross - total_cost
-    cash += price * position.quantity - exit_cost
-    turnover += price * position.quantity
+    cash += price * quantity - exit_cost
+    turnover += price * quantity
     trades.append(PortfolioTrade(position.strategy, position.symbol,
-        str(position.entry_date.date()), str(session.date()), position.quantity,
+        str(position.entry_date.date()), str(session.date()), quantity,
         position.entry_price, round(price, 2), reason, round(gross, 2),
         round(total_cost, 2), round(net, 2)))
+    position.quantity -= quantity
+    position.round_trip_cost -= reserved_cost
+    position.dividend_income -= income
     return cash, turnover
 
 

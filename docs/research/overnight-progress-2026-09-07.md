@@ -441,3 +441,36 @@ No portfolio return changed and no Kite credits, purchases, live orders or exter
 messages were used. Overnight automation remains paused. Next integration needs
 dated universe/action coverage plus physical entitlement/credit-time handling;
 do not repeat the completed real split/bonus diagnostic or tune the rejected family.
+
+## Owner implementation — bonus share entitlements and availability
+
+The owner's “okay implement” authorized the portfolio integration. Bonus shares
+now accrue as economic holdings separate from available shares and cash. Ex-date
+exits sell original shares; pending bonus shares retain the exit request until
+explicit availability/knowledge dates. Unknown availability remains pending even
+under final liquidation. Whole-share rational entitlements, proportional basis,
+fees, dividend attribution and position/cash constraints are covered.
+
+The real BSE forced holding buys eight at ₹7,305 on May22, sells eight at ₹2,448 on
+May23, and sells sixteen at ₹2,450 on May27 only under the labelled planned-date
+scenario. Unknown availability retains sixteen shares worth ₹42,784 on May30 and
+₹261,038.87 cash. Neither is a strategy test or evidence of actual account credit.
+Ten captured raw receipts, action evidence, primary PDFs and implementation pins
+are checked. [Final artifact and full results](bonus-portfolio-entitlement-results-2026-09-07.md).
+
+Review corrected missing-calendar accrual, zero-sale strategy blocking, a fee-source
+pin and a misleading inherited signal label. Final Standards and Spec reviews are
+clear. **28 focused tests, 12 no-bonus economic/serialization parity fixtures,
+1,111 full-suite tests passed** (29.33 seconds).
+
+The independent universe assessment finds a viable custom lagged-liquidity route
+without an index anchor, but dated stock classification and identities remain
+missing. EQ/STK includes ETFs. The present 252-session raw warmup first supports
+Jan6,2025 entry, rather than the existing Jan2024 start. Do not infer historical
+membership or erase missing evidence through eligibility filtering.
+
+No complete portfolio result, Kite usage, purchase, live activation or automation
+state changed. Next: dated classification/identity evidence and deterministic
+eligibility, remaining mandatory-action accounting, then coherent portfolio
+evaluation against Nifty500 gross TRI. Do not retune the rejected family or repeat
+the completed BSE reproduction without a changed input or new failure.
