@@ -394,3 +394,23 @@ first-known-session mapping and complete raw identity/action coverage, then dail
 ranking/correlation replay. Physical entitlements and complete dated membership
 remain separate unmet requirements. Do not rerun completed diagnostics or tune
 the rejected strategy family. [Consolidated overnight report](overnight-summary-2026-09-07.md).
+
+## Owner follow-up — two real split reproductions
+
+After the 10:00 IST pause, the owner's “what's next?” resumed bounded interactive
+work. The overnight heartbeat remains paused. Preregistered HEG Oct14–25 and
+MAZDOCK Dec23–Jan3 split-history checks, capturing five original contemporary PDFs
+and reusing 19 verified raw sessions. No Kite request or price repair was needed.
+
+Both cases pass 19 daily cutoffs and 500 scalar-oracle cells. Conservative
+all-support knowledge is Oct18 for HEG and Dec27 for MAZDOCK. Normalized prior
+closes are ₹514.08 and ₹2,364.875; genuine ex-session moves remain −3.44888% and
+−2.00751%. Both ex-date files retain previous close in old units, so that field
+must not be an unconditional adjustment-factor oracle.
+
+Fixed a pandas ISIN attribute collision exposed by the first actual run and an
+immutability gap after the rejected late-knowledge control. Thirteen focused tests
+pass; independent reviews clear. No strategy/portfolio return changed. This does
+not certify upload times, revisions, complete actions or historical membership.
+Full suite: **1,070 passed**, 26.91 seconds.
+[Final artifact, source hashes and next bounded scope](real-split-reproduction-results-2026-09-07.md).

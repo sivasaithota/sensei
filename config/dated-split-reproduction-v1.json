@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "authority": "RESEARCH_ONLY",
+  "can_trade": false,
+  "scope": "Two real split-boundary mechanical reproductions; no strategy or portfolio run",
+  "parent_manifest": {
+    "path": "data/reports/raw-portfolio/0b195544a232eb526769ddbb47a74ff25d098070513cc39a59718a37ab351fb2/manifest.json",
+    "sha256": "49d77c27d99d168510ba78b58251dc56b6c43dcf298958557f8fd483768b12fa"
+  },
+  "action_manifest": {
+    "path": "data/reports/portfolio-action-evidence/manifest.json",
+    "sha256": "579c006e24b9e61f87c251ee6601b654123d7b1acc2ceb87548e39b2ed127d03"
+  },
+  "lineage": {
+    "path": "config/stock-split-evidence-v1.json",
+    "sha256": "7ae616053066c16cb2dbfd838e1eaf33ddb43a518aee3fa988ae912dcbd8becd"
+  },
+  "contract": {
+    "path": "docs/specs/dated-action-signal-history.md",
+    "sha256": "da5d98d05098878bb99c9eb2687d2e4cf8ab1128d70fec19e130cc1021884f84"
+  },
+  "transform": {
+    "path": "src/sensei/research/action_history.py",
+    "sha256": "275749bddeecdc0c54b1e81083bef2dbd00ac619cf4b3d953b7f9d0e1c649c47"
+  },
+  "acceptance": {
+    "rtol": 1e-12,
+    "atol": 1e-10,
+    "require_all_expected_sessions": true,
+    "require_single_expected_action_in_window": true,
+    "exchange_previous_close_comparison": "Report discrepancy only; never infer ratio or repair price"
+  },
+  "cases": [
+    {
+      "symbol": "HEG",
+      "start": "2024-10-14",
+      "end": "2024-10-25",
+      "ex_session": "2024-10-18",
+      "all_support_published_by": "2024-10-17",
+      "known_session": "2024-10-18",
+      "new_shares": 5,
+      "old_shares": 1,
+      "action_source_id": "2edfaa65130a8113c30e164bac9e400a4e4439ee1012ff1eabb55b5be9c82286",
+      "support_urls": [
+        "https://nsearchives.nseindia.com/content/circulars/CML64528.pdf",
+        "https://nsearchives.nseindia.com/content/circulars/CMPT64615.pdf"
+      ]
+    },
+    {
+      "symbol": "MAZDOCK",
+      "start": "2024-12-23",
+      "end": "2025-01-03",
+      "ex_session": "2024-12-27",
+      "all_support_published_by": "2024-12-26",
+      "known_session": "2024-12-27",
+      "new_shares": 2,
+      "old_shares": 1,
+      "action_source_id": "072e691808fe56ea2f4619716a11444867a1740e9a8c7d62d860fb0129839b75",
+      "support_urls": [
+        "https://www.mazagondock.in/images/pdf/Intimation%20of%20Record%20date%20for%20split%20of%20shares_02122024.pdf",
+        "https://nsearchives.nseindia.com/content/circulars/CMPT65800.pdf",
+        "https://www.msei.in/SX-Content/Circulars/2024/December/Circular-16513.pdf"
+      ]
+    }
+  ],
+  "capture_manifest": {
+    "path": "data/research/dated-split-evidence/20260907/manifest.json",
+    "sha256": "c0d58e1c2ed39ed8bca3a75588f7f1ec493c36bcdcb8b3e8051159a83613141e"
+  },
+  "publication_note": {
+    "path": "docs/research/dated-split-publication-evidence-2026-09-07.md",
+    "sha256": "bc47b0e156243dffcbf6e9d9f9d83934a8c2e51154f7f2a3b24e87ab9a5f47c7"
+  }
+}
