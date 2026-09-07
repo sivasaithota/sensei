@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "authority": "RESEARCH_ONLY",
+  "can_trade": false,
+  "sessions": [
+    "2024-02-05",
+    "2025-01-06",
+    "2025-03-28",
+    "2025-04-01",
+    "2026-09-03"
+  ],
+  "selection_basis": "Public dissemination start, cached control, permission-code boundary and latest raw session; selected before acquisition.",
+  "contract": {
+    "path": "docs/specs/security-master-batch.md",
+    "sha256": "80e48bdd68fe520b2cd238f6b32f006bd63de74ca030014b1ced030426a40645"
+  },
+  "sample_plan": {
+    "path": "config/security-master-sample-v1.json",
+    "sha256": "c2ecf9587a7b6004a0f7b454ded8941ea2ec88932124d3990f904e81a6e4c3c5"
+  },
+  "seeds": {
+    "2025-01-06": {
+      "path": "data/research/nse-master-sample/20260907/capture.json",
+      "sha256": "9160094eb8173fa70d4cdf79abd17e50920c8d1d949b4ffdd350e680df3ecd4c"
+    }
+  },
+  "implementations": [
+    {
+      "path": "src/sensei/research/security_master_batch.py",
+      "sha256": "d0aa592b06ea831e2af0c4461d6b7c3c6751fdf331fe6b4558f40bed9d1ea1cc"
+    },
+    {
+      "path": "src/sensei/research/security_master_sample.py",
+      "sha256": "36b66bfaf20eb00f1713ba4888bd6d910b1c98ca3e6e7fe75e76e64253683306"
+    },
+    {
+      "path": "src/sensei/research/split_reproduction.py",
+      "sha256": "1198d7127c3286f5b2c46d37ae8dbe5e9916c31c4fc9ec0e45792827b0c8c5b0"
+    },
+    {
+      "path": "src/sensei/data/bhavcopy.py",
+      "sha256": "9b7cc2acc3cc54fb57d5ad537da1ec5ea36d1ce46aaf55b8ad4f8de5a17c6991"
+    }
+  ],
+  "schema_evidence": [
+    {
+      "path": "data/research/nse-mii-schema/20260907/manifest.json",
+      "sha256": "2e2416707287596e6adc4f6283801c0f0cdb93be16bcd1e3be7c66b32f15f9b4"
+    },
+    {
+      "path": "docs/research/nse-mii-classification-schema-2026-09-07.md",
+      "sha256": "0a688ef4c941c95df2ffeeb5f3eaec3d13b9bb0f671a1917281178e0819dad63"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/MSD55276.zip",
+      "sha256": "b221d3ede7f7e6e8ba3e5da7377f147ce0535e22b7df8904c14d063797fd7c8e"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/MSD55276.pdf",
+      "sha256": "2d9abce78153e299c9162e394cf7fdd33e065ae1f769092462c7e32971c2f2da"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/Annexure-A_CM.xlsx",
+      "sha256": "05443f4d0b14163f2398ba3b6bdf133b633291780b65cfea58a2084d51b21a6d"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/CMTR61813.zip",
+      "sha256": "d58c836cc1ce5504b328118b7887c91bc75189d13a806c5b3c83f343584a8c90"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/CMTR61813.pdf",
+      "sha256": "9c956956c9c4e57f31bce4e6195bf58f1acbadeb3b45a6c28e533f1c88a21211"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/PART-D.xlsx",
+      "sha256": "936082c7f2308d84e5865022dff0bf803738745dc38cbc5ae00695d28bd3be82"
+    },
+    {
+      "path": "docs/research/nse-master-universe-rules-2026-09-07.md",
+      "sha256": "5fa348a0e9c40937dfa51f03b3f0ff2360dd039aceb5cb3056c11e898329c413"
+    },
+    {
+      "path": "data/research/nse-master-rules/20260907/manifest.json",
+      "sha256": "27503448d981f1e0d39c245daf2036e501c96bb8acb11099ca3baae5229dcc28"
+    },
+    {
+      "path": "data/research/nse-master-rules/20260907/MSD67344.pdf",
+      "sha256": "8cff554cd21720ada13a9837f47e33f000f43974e1b8da480e49f200204c1786"
+    },
+    {
+      "path": "data/research/nse-master-rules/20260907/legend.capture.json",
+      "sha256": "5879000474b8762a0c68794876eb0489817e24a7001610b38729afc17f9b4321"
+    },
+    {
+      "path": "data/research/nse-master-rules/20260907/legend-of-series.html",
+      "sha256": "57309990d7e4418d3f3293a7a11a94116bc99afdf15a5e2b7267b28ce153bba7"
+    }
+  ]
+}

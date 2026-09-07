@@ -546,3 +546,35 @@ reconciliation and version checks, then documented normalization/availability an
 dated eligibility. This closes sample access, not the entire archive or all
 corporate-action/identity prerequisites. No strategy tuning, Kite usage, purchase,
 order, external message, live activation or automation-state change occurred.
+
+## Owner build next — cross-date acquisition and candidate screen
+
+The five-date sample was frozen before acquisition. The runner makes one bounded
+request per uncached session, saves failures, reuses verified cached bytes and
+rejects corruption. Four NSE master requests plus the existing January capture
+completed the probe; repeating capture made zero requests. No Kite calls or credits.
+
+January 6, 2025 reconciles all 2,976 observations and April 1 all 3,014. March 28 matches
+3,000 of 3,001; its raw AHL identity differs from master AFSL despite shared ISIN and
+token, so the row remains missing rather than being joined by symbol fallback.
+February 5, 2024 returned 404. September 3, 2026 returned a 120-field master with changed
+fields 24 and 59; the old schema rejects it. Bounded source research did not establish
+the two new definitions/effective dates. These are concrete coverage gaps, not
+evidence of archive-wide absence or acceptable silent repairs.
+
+Three validated masters retain 87,835 normalized rows with separate broad type,
+market identifier, status, eligibility and permission. Provisional candidate counts
+among matched observations are 1,760 / 1,858 / 1,863 respectively. All rows retain
+ordinary-share, board, schema and historical-availability blockers. No candidates
+are admitted to a backtest or trading universe. Full daily history is still needed.
+
+Review fixed malformed-DEFLATE batch abortion and missing row-level token-conflict
+annotations. Both Standards and Spec reviews cleared. Focused suite: 33 passed; full
+suite: **1,174 passed in 30.28 seconds**. Final v2 audit pins all responses and receipts,
+including failures, while preserving v1 plan/report/original source bytes.
+
+[Results, hashes and reproduction](security-master-batch-results-2026-09-07.md).
+Next: establish the changed dated schema and AHL/AFSL identity timing, acquire a
+frozen contiguous daily block, then formalize lagged metadata knowledge and stock
+eligibility. No new strategy performance claim, full-portfolio rerun, order,
+purchase, activation, external message or automation change occurred.
