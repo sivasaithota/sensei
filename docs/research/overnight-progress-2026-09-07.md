@@ -219,3 +219,30 @@ not the whole problem: OIL/TRENT are near 1.5, CUB near 4/3, and ABFRL/SIEMENS/T
 show noninteger vendor factors that must not be assumed to represent shares.
 Keep rational bonuses and demerger accounting distinct. Do not auto-build a unit
 map from volume ratios or label the complete universe corrected from two stocks.
+
+## Pass 8 — 27-symbol classification and expanded split audit
+
+Resumed from `6e10a4a` around 06:38 IST after the owner confirmed usage had reset;
+the work had not been blocked on usage and no reset credit was consumed.
+Classified 27 flagged symbols against primary sources: ten pure splits, twelve
+bonuses, one combined split/bonus and four demergers. Their 190 non-unit endpoint
+records remain observations, not a generated share map. All 908 source trades,
+1,770 matched endpoints and 46 missing endpoints are retained.
+
+Added a separate eight-stock pure-split ledger and applied the existing strict
+audit unchanged: nine additional fractional records, two integral, twelve price
+scaling mismatches, seven outside pre-split scope and 878 outside the ledger.
+The mismatches in TATAINVEST/MCX/COFORGE remain unresolved; sampled deviations
+reach ₹0.50 in adjusted units, with mixed signs. No tolerances were loosened.
+
+Demergers' noninteger factors approximately correspond to tax cost allocations,
+not homogeneous parent-share increases. Rational bonus ratios and ten missing
+explicit bonus ex dates also prevent automatic full-universe unit coverage.
+Full suite: **961 passed**; Standards and Spec reviews clear. No portfolio results
+changed, no Kite requests/spending/live orders. [Evidence and artifact IDs](corporate-action-inventory-results-2026-09-07.md).
+
+Next pass: investigate dated NSE equity tick-size rules for the unresolved split
+price differences. Prepare a bounded raw-execution reproduction of selected
+pre-action trades using verified raw-session receipts, adjusted data only for
+signals, and physical whole-share quantities. Keep unmodeled event intervals
+blocked. Do not widen diagnostic tolerances or claim a corrected full portfolio.

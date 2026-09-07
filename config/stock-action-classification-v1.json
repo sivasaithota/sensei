@@ -1,0 +1,186 @@
+{
+  "authority": "RESEARCH_ONLY",
+  "classification_basis": "Identified primary-source action components; not complete vendor transformation or dated executable unit coverage",
+  "notes": {
+    "additional_splits": {
+      "path": "../docs/research/share-action-classification-splits-2026-09-07.md",
+      "sha256": "2cd47042ecaced3c7e67821402039d8b37d52fe53e3860d7778b1827c06e1588"
+    },
+    "bonuses": {
+      "path": "../docs/research/share-action-classification-bonuses-2026-09-07.md",
+      "sha256": "c0259f799137b56f2a6a044f30c93df400f972b286a64c22de70385bdffa988b"
+    },
+    "demergers": {
+      "path": "../docs/research/share-action-classification-demergers-2026-09-07.md",
+      "sha256": "8838a448c6dbf30d0961e574ab4f0b0e969a6bb473796bfcd73c0d443276938f"
+    },
+    "original_splits": {
+      "path": "../docs/research/mazdock-heg-share-lineage-2026-09-07.md",
+      "sha256": "60ac4f281c0a1b9846fbd9804984cdb1ee9b9bcbdee54085b6beb6fc257e8872"
+    }
+  },
+  "symbols": {
+    "ABFRL": {
+      "kind": "demerger",
+      "note_ids": [
+        "demergers"
+      ]
+    },
+    "ADANIPOWER": {
+      "kind": "split",
+      "note_ids": [
+        "additional_splits"
+      ]
+    },
+    "AIIL": {
+      "kind": "bonus",
+      "note_ids": [
+        "bonuses"
+      ]
+    },
+    "BAJFINANCE": {
+      "kind": "split_and_bonus",
+      "note_ids": [
+        "additional_splits"
+      ]
+    },
+    "BSE": {
+      "kind": "bonus",
+      "note_ids": [
+        "bonuses"
+      ]
+    },
+    "CAMS": {
+      "kind": "split",
+      "note_ids": [
+        "additional_splits"
+      ]
+    },
+    "COFORGE": {
+      "kind": "split",
+      "note_ids": [
+        "additional_splits"
+      ]
+    },
+    "CUB": {
+      "kind": "bonus",
+      "note_ids": [
+        "bonuses"
+      ]
+    },
+    "ECLERX": {
+      "kind": "bonus",
+      "note_ids": [
+        "bonuses"
+      ]
+    },
+    "GODFRYPHLP": {
+      "kind": "bonus",
+      "note_ids": [
+        "bonuses"
+      ]
+    },
+    "HEG-BE": {
+      "kind": "split",
+      "note_ids": [
+        "original_splits"
+      ]
+    },
+    "IRB": {
+      "kind": "bonus",
+      "note_ids": [
+        "bonuses"
+      ]
+    },
+    "JBMA": {
+      "kind": "split",
+      "note_ids": [
+        "additional_splits"
+      ]
+    },
+    "LALPATHLAB": {
+      "kind": "bonus",
+      "note_ids": [
+        "bonuses"
+      ]
+    },
+    "MAZDOCK": {
+      "kind": "split",
+      "note_ids": [
+        "original_splits"
+      ]
+    },
+    "MCX": {
+      "kind": "split",
+      "note_ids": [
+        "additional_splits"
+      ]
+    },
+    "MOTILALOFS": {
+      "kind": "bonus",
+      "note_ids": [
+        "bonuses"
+      ]
+    },
+    "NAVA": {
+      "kind": "split",
+      "note_ids": [
+        "additional_splits"
+      ]
+    },
+    "OIL": {
+      "kind": "bonus",
+      "note_ids": [
+        "bonuses"
+      ]
+    },
+    "PERSISTENT": {
+      "kind": "split",
+      "note_ids": [
+        "additional_splits"
+      ]
+    },
+    "PHOENIXLTD": {
+      "kind": "bonus",
+      "note_ids": [
+        "bonuses"
+      ]
+    },
+    "SIEMENS": {
+      "kind": "demerger",
+      "note_ids": [
+        "demergers"
+      ]
+    },
+    "TARIL": {
+      "kind": "bonus",
+      "note_ids": [
+        "bonuses"
+      ]
+    },
+    "TATAINVEST": {
+      "kind": "split",
+      "note_ids": [
+        "additional_splits"
+      ]
+    },
+    "TMPV": {
+      "kind": "demerger",
+      "note_ids": [
+        "demergers"
+      ]
+    },
+    "TRENT": {
+      "kind": "bonus",
+      "note_ids": [
+        "bonuses"
+      ]
+    },
+    "VEDL": {
+      "kind": "demerger",
+      "note_ids": [
+        "demergers"
+      ]
+    }
+  }
+}

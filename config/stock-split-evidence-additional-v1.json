@@ -1,0 +1,96 @@
+{
+  "authority": "RESEARCH_ONLY",
+  "coverage": "Eight identified pure splits only; Bajaj Finance combined action excluded; not a full action ledger",
+  "research_note": "../docs/research/share-action-classification-splits-2026-09-07.md",
+  "research_note_sha256": "2cd47042ecaced3c7e67821402039d8b37d52fe53e3860d7778b1827c06e1588",
+  "events": [
+    {
+      "exchange_symbol": "ADANIPOWER",
+      "effective_date": "2025-09-22",
+      "old_isin": "INE814H01011",
+      "new_isin": "INE814H01029",
+      "new_shares_per_old_share": 5,
+      "sources": [
+        "https://nsearchives.nseindia.com/content/circulars/CML70203.pdf",
+        "https://www.msei.in/SX-Content/Circulars/2025/September/Circular-17802.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "CAMS",
+      "effective_date": "2025-12-05",
+      "old_isin": "INE596I01012",
+      "new_isin": "INE596I01020",
+      "new_shares_per_old_share": 5,
+      "sources": [
+        "https://nsearchives.nseindia.com/content/circulars/CML71534.pdf",
+        "https://www.msei.in/SX-Content/Circulars/2025/December/Circular-18226.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "COFORGE",
+      "effective_date": "2025-06-04",
+      "old_isin": "INE591G01017",
+      "new_isin": "INE591G01025",
+      "new_shares_per_old_share": 5,
+      "sources": [
+        "https://nsearchives.nseindia.com/content/circulars/CML68318.pdf",
+        "https://www.msei.in/SX-Content/Circulars/2025/June/Circular-17281.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "JBMA",
+      "effective_date": "2025-01-31",
+      "old_isin": "INE927D01044",
+      "new_isin": "INE927D01051",
+      "new_shares_per_old_share": 2,
+      "sources": [
+        "https://nsearchives.nseindia.com/content/circulars/CML66300.pdf",
+        "https://www.msei.in/SX-Content/Circulars/2025/January/Circular-16671.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "MCX",
+      "effective_date": "2026-01-02",
+      "old_isin": "INE745G01035",
+      "new_isin": "INE745G01043",
+      "new_shares_per_old_share": 5,
+      "sources": [
+        "https://nsearchives.nseindia.com/content/circulars/CML72091.pdf",
+        "https://www.msei.in/SX-Content/Circulars/2025/December/Circular-18367.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "NAVA",
+      "effective_date": "2025-01-20",
+      "old_isin": "INE725A01022",
+      "new_isin": "INE725A01030",
+      "new_shares_per_old_share": 2,
+      "sources": [
+        "https://www.navalimited.com/wp-content/uploads/2025/01/NSE-circular-ISIN.pdf",
+        "https://www.msei.in/SX-Content/Circulars/2025/January/Circular-16630.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "PERSISTENT",
+      "effective_date": "2024-03-28",
+      "old_isin": "INE262H01013",
+      "new_isin": "INE262H01021",
+      "new_shares_per_old_share": 2,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2024/March/Circular-15096.pdf",
+        "https://nsearchives.nseindia.com/content/circulars/FAOP61344.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "TATAINVEST",
+      "effective_date": "2025-10-14",
+      "old_isin": "INE672A01018",
+      "new_isin": "INE672A01026",
+      "new_shares_per_old_share": 10,
+      "sources": [
+        "https://nsearchives.nseindia.com/content/circulars/CML70644.pdf",
+        "https://www.msei.in/SX-Content/Circulars/2025/October/Circular-17935.pdf"
+      ]
+    }
+  ]
+}
