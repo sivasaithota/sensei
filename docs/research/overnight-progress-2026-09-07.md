@@ -512,3 +512,37 @@ Twelve no-action/dividend and eight bonus economic/serialization parity fixtures
 pass. Independent Standards and Spec reviews are clear. Full suite: **1,141 passed**,
 30.22 seconds. No new full-portfolio comparison or tuning, Kite usage, purchase,
 live activation, external message or automation-state change.
+
+## Owner next step — historical master capture and schema breakthrough
+
+The owner's “next?” continued data acquisition after `1e0cfb8`. The official
+browser selector exposed the exact January 6, 2025 NSE-only report API request.
+Browser downloading failed, but a direct HTTP request to that observed endpoint
+with ordinary headers succeeded: 960,641 gzip bytes, 8,608,619 CSV bytes,
+28,469 records and 120 columns. No guessed archive URL was accepted as evidence.
+
+All 2,976 same-session bhavcopy observations match exact symbol/series/ISIN and
+exchange token. The remaining 25,493 master records are not automatically tradable
+stocks or delistings. The offline auditor retains all reconciliation categories
+and raw codes, checks hashes/date descriptor/filename, and bounds gzip/CSV parsing.
+Its source-date claim stops at request and attachment filename, not historical
+pre-opening publication or immutable vintage.
+
+Official `MSD55276.zip` and `CMTR61813.zip` also downloaded successfully after
+standalone PDF paths failed. Both schema tag arrays match all 120 fields. The
+classification-looking blank columns are documented fillers. Field 8 `SctyTpFlg`
+maps to broad equities, preference shares, debentures, warrants and miscellaneous;
+field 11 identifies SME through value 5. Status, eligibility and permission remain
+distinct. Equities does not alone prove fully paid ordinary main-board shares,
+and miscellaneous is not ETF-only. Publication/version boundaries are documented.
+
+[Final evidence report and hashes](security-master-sample-results-2026-09-07.md).
+Review corrected omitted matched rows/raw tokens; count conservation now tests the
+complete reconciliation. Eleven focused tests pass; final Standards and Spec
+reviews are clear. Full suite: **1,152 passed**, 32.73 seconds.
+
+Next: a bounded cross-date master batch through the verified endpoint, per-date
+reconciliation and version checks, then documented normalization/availability and
+dated eligibility. This closes sample access, not the entire archive or all
+corporate-action/identity prerequisites. No strategy tuning, Kite usage, purchase,
+order, external message, live activation or automation-state change occurred.

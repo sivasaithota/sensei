@@ -1,0 +1,194 @@
+{
+  "version": 1,
+  "authority": "RESEARCH_ONLY",
+  "can_trade": false,
+  "session": "2025-01-06",
+  "capture": {
+    "path": "data/research/nse-master-sample/20260907/capture.json",
+    "sha256": "9160094eb8173fa70d4cdf79abd17e50920c8d1d949b4ffdd350e680df3ecd4c"
+  },
+  "csv_sha256": "afaa6334f67add12d85c677f2eaef227c34620f88e76721c559f90bf7866ebb3",
+  "header": [
+    "FinInstrmId",
+    "TckrSymb",
+    "SctySrs",
+    "FinInstrmNm",
+    "ISIN",
+    "NewBrdLotQty",
+    "ParVal",
+    "SctyTpFlg",
+    "BidIntrvl",
+    "TrckgInd",
+    "CallAuctnInd",
+    "BookClsrStartDt",
+    "BookClsrEndDt",
+    "NoDlvryStartDt",
+    "NoDlvryEndDt",
+    "IssdCptl",
+    "PrtdToTrad",
+    "PricRg",
+    "SctyStsNrmlMkt",
+    "ElgbltyNrmlMkt",
+    "SctyStsOddLotMkt",
+    "ElgbltyOddLotMkt",
+    "SctyStsRETDBTMkt",
+    "ElgbltyRETDBTMkt",
+    "SctyStsAuctnMkt",
+    "ElgbltyAuctnMkt",
+    "SctyStsAddtlMkt1",
+    "ElgbltyAddtlMkt1",
+    "SctyStsAddtlMkt2",
+    "ElgbltyAddtlMkt2",
+    "IsseDt",
+    "FrstPmtDt",
+    "MtrtyDt",
+    "MaxTradQtyPctg",
+    "ListgDt",
+    "RmvlDt",
+    "RadmssnDt",
+    "RcrdDt",
+    "IndxPrtcptnInd",
+    "AllOrNn",
+    "MinFill",
+    "SttlmTp",
+    "Dvdd",
+    "Rghts",
+    "Bns",
+    "Intrst",
+    "AGMtg",
+    "EGMtg",
+    "MktMakrSprd",
+    "MktMakrMinQty",
+    "AddtlInf",
+    "UpdDt",
+    "DelFlg",
+    "SpclExDt",
+    "Xchg",
+    "UnqPdctIdr",
+    "SctyTp",
+    "TickSz",
+    "Rsvd01",
+    "Sts",
+    "ExDvddDt",
+    "ExBnsDt",
+    "ExRghtsDt",
+    "FinInstrmTp",
+    "InstrmTp",
+    "TradgPrtd",
+    "BuyBckInd",
+    "TradToTradInd",
+    "Indx",
+    "IndxInstrm",
+    "FinInstrmAttrbts",
+    "MinLot",
+    "UndrlygInstrmAsstClss",
+    "UndrlygInstrm",
+    "UndrlygFinInstrmId",
+    "BlckDealAllwdFlg",
+    "InstrmNm",
+    "MktTpAndId",
+    "UnitOfMeasr",
+    "PricQtQty",
+    "PricRgTp",
+    "MaxPric",
+    "MinPric",
+    "SttlmMtd",
+    "InitlMrgnTp",
+    "BuyInitlMrgnRate",
+    "IssePric",
+    "MaxSnglTxnQty",
+    "MaxSnglTxnVal",
+    "AsstClss",
+    "PricNmrtr",
+    "Spcfctn",
+    "PricDnmtr",
+    "GnlNmrtr",
+    "GnlDnmtr",
+    "LotNmrtr",
+    "LotDnmtr",
+    "DcmlstnPric",
+    "SrsSttlmTp",
+    "FreeFltCptl",
+    "SellInitlMrgnRate",
+    "RatgDtls",
+    "FinInstrmClssfctn",
+    "SpclMrgnTp",
+    "BuySpclMrgnRat",
+    "SellSpclMrgnRat",
+    "PreOpnAllwdFlg",
+    "ClssfctnTp",
+    "MtchgCrit",
+    "ValMtd",
+    "SLBMElgblty",
+    "Sgmt",
+    "Ccy",
+    "SttlmCcy",
+    "Rsvd02",
+    "Rsvd03",
+    "Rsvd04",
+    "Rsvd05",
+    "Rsvd06",
+    "Rsvd07"
+  ],
+  "parent_manifest": {
+    "path": "data/reports/raw-portfolio/0b195544a232eb526769ddbb47a74ff25d098070513cc39a59718a37ab351fb2/manifest.json",
+    "sha256": "49d77c27d99d168510ba78b58251dc56b6c43dcf298958557f8fd483768b12fa"
+  },
+  "raw_zip": {
+    "path": "data/nse_bhavcopy_raw/2025/BhavCopy_20250106.csv.zip",
+    "sha256": "556ae083551e24d01177bfddf62f02da8bf1c1cb5e422a0b1d78b2aa5cfb0c29"
+  },
+  "contract": {
+    "path": "docs/specs/security-master-sample.md",
+    "sha256": "cded1fcd1a72260699bd2de401842fd7323ffaf81ed5220fead3c79cf7c69e21"
+  },
+  "implementations": [
+    {
+      "path": "src/sensei/research/security_master_sample.py",
+      "sha256": "36b66bfaf20eb00f1713ba4888bd6d910b1c98ca3e6e7fe75e76e64253683306"
+    },
+    {
+      "path": "src/sensei/research/split_reproduction.py",
+      "sha256": "1198d7127c3286f5b2c46d37ae8dbe5e9916c31c4fc9ec0e45792827b0c8c5b0"
+    },
+    {
+      "path": "src/sensei/data/bhavcopy.py",
+      "sha256": "9b7cc2acc3cc54fb57d5ad537da1ec5ea36d1ce46aaf55b8ad4f8de5a17c6991"
+    }
+  ],
+  "schema_evidence": [
+    {
+      "path": "data/research/nse-mii-schema/20260907/manifest.json",
+      "sha256": "2e2416707287596e6adc4f6283801c0f0cdb93be16bcd1e3be7c66b32f15f9b4"
+    },
+    {
+      "path": "docs/research/nse-mii-classification-schema-2026-09-07.md",
+      "sha256": "0a688ef4c941c95df2ffeeb5f3eaec3d13b9bb0f671a1917281178e0819dad63"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/MSD55276.zip",
+      "sha256": "b221d3ede7f7e6e8ba3e5da7377f147ce0535e22b7df8904c14d063797fd7c8e"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/MSD55276.pdf",
+      "sha256": "2d9abce78153e299c9162e394cf7fdd33e065ae1f769092462c7e32971c2f2da"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/Annexure-A_CM.xlsx",
+      "sha256": "05443f4d0b14163f2398ba3b6bdf133b633291780b65cfea58a2084d51b21a6d"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/CMTR61813.zip",
+      "sha256": "d58c836cc1ce5504b328118b7887c91bc75189d13a806c5b3c83f343584a8c90"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/CMTR61813.pdf",
+      "sha256": "9c956956c9c4e57f31bce4e6195bf58f1acbadeb3b45a6c28e533f1c88a21211"
+    },
+    {
+      "path": "data/research/nse-mii-schema/20260907/PART-D.xlsx",
+      "sha256": "936082c7f2308d84e5865022dff0bf803738745dc38cbc5ae00695d28bd3be82"
+    }
+  ],
+  "revision_note": "Final audit retains all reconciliation rows and explicit counts; adds captured official schema sources. Observed sample and acquisition scope unchanged."
+}
