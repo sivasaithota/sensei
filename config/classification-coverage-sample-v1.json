@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "authority": "RESEARCH_ONLY",
+  "can_trade": false,
+  "sessions": [
+    "2024-01-01",
+    "2026-09-03"
+  ],
+  "classification_evidence": [],
+  "parent_manifest": {
+    "path": "data/reports/raw-portfolio/0b195544a232eb526769ddbb47a74ff25d098070513cc39a59718a37ab351fb2/manifest.json",
+    "sha256": "49d77c27d99d168510ba78b58251dc56b6c43dcf298958557f8fd483768b12fa"
+  },
+  "contract": {
+    "path": "docs/specs/dated-classification-coverage.md",
+    "sha256": "846412922bbab53239750f3c65f3ca585e798d032f721c88aad9444655395d07"
+  },
+  "implementations": [
+    {
+      "path": "src/sensei/research/classification_coverage.py",
+      "sha256": "048e6eff37536d1b53bfd539fc26bfc53e19b4518ea61b70f9b114e8c78b921c"
+    },
+    {
+      "path": "src/sensei/data/bhavcopy.py",
+      "sha256": "9b7cc2acc3cc54fb57d5ad537da1ec5ea36d1ce46aaf55b8ad4f8de5a17c6991"
+    },
+    {
+      "path": "src/sensei/research/split_reproduction.py",
+      "sha256": "1198d7127c3286f5b2c46d37ae8dbe5e9916c31c4fc9ec0e45792827b0c8c5b0"
+    }
+  ]
+}

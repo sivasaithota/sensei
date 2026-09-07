@@ -67,7 +67,7 @@ class RawAccounting:
             if action.source_id in ids:
                 raise ValueError("duplicate corporate action")
             ids.add(action.source_id)
-            if action.kind not in {"dividend", "no_accounting", "unsupported", "bonus"}:
+            if action.kind not in {"dividend", "no_accounting", "unsupported", "bonus", "split"}:
                 raise ValueError("unknown action treatment")
             if not math.isfinite(action.amount) or action.amount < 0 or (
                     action.kind != "dividend" and action.amount != 0):
@@ -75,22 +75,22 @@ class RawAccounting:
             share_fields = (action.new_shares, action.old_shares, action.known_from,
                 action.available_from, action.availability_known_from,
                 action.availability_source_sha256, action.availability_basis)
-            if action.kind != "bonus":
+            if action.kind not in {"bonus", "split"}:
                 if any(v is not None for v in share_fields):
-                    raise ValueError("share entitlement metadata requires a bonus")
+                    raise ValueError("share entitlement metadata requires a bonus or split")
                 continue
             if (any(type(v) is not int or v <= 0 for v in (action.new_shares, action.old_shares))
                     or Fraction(action.new_shares, action.old_shares) <= 1):
-                raise ValueError("bonus requires a positive total-share ratio greater than one")
+                raise ValueError(f"{action.kind} requires a positive total-share ratio greater than one")
             dates = (action.ex_date, action.known_from, action.available_from, action.availability_known_from)
             for stamp in dates:
                 if stamp is not None and (not isinstance(stamp, pd.Timestamp) or pd.isna(stamp)
                         or stamp.tz is not None or stamp != stamp.normalize()):
-                    raise ValueError("bonus dates must be valid midnight sessions")
+                    raise ValueError(f"{action.kind} dates must be valid midnight sessions")
             if action.known_from is None or action.known_from > action.ex_date:
-                raise ValueError("bonus must be known by its ex-session")
+                raise ValueError(f"{action.kind} must be known by its ex-session")
             if sessions[0] <= action.ex_date <= sessions[-1] and action.ex_date not in sessions:
-                raise ValueError("bonus ex-session is missing from the evaluation calendar")
+                raise ValueError(f"{action.kind} ex-session is missing from the evaluation calendar")
             availability = (action.available_from, action.availability_known_from,
                 action.availability_source_sha256, action.availability_basis)
             if any(v is not None for v in availability):
@@ -98,9 +98,9 @@ class RawAccounting:
                         or not isinstance(action.availability_source_sha256, str)
                         or re.fullmatch(r"[0-9a-f]{64}", action.availability_source_sha256) is None
                         or action.availability_basis not in {"scenario", "documented_market_admission"}):
-                    raise ValueError("bonus availability requires complete dated source metadata")
+                    raise ValueError(f"{action.kind} availability requires complete dated source metadata")
             if sum(a.symbol == action.symbol and a.ex_date == action.ex_date for a in self.actions) != 1:
-                raise ValueError("simultaneous bonus or mixed actions are unsupported")
+                raise ValueError("simultaneous share or mixed actions are unsupported")
 
     def bar(self, symbol, session):
         frame = self.frames[symbol]

@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "authority": "RESEARCH_ONLY",
+  "can_trade": false,
+  "scope": "Forced HEG 24-share entry Oct17,2024;5/1 subdivision;time exit Oct18;documented admission versus unknown availability. Fixed300k/currentfees/5pctstop/100pcttarget/hold2;not a strategy test.",
+  "cases": [
+    "documented_market_admission",
+    "unknown_availability"
+  ],
+  "prior_reproduction": {
+    "path": "data/reports/dated-split-reproduction/5d6e22c9aa696cccd49d8c47b302370bc889a387ea9537aeb1022d906264f47f/report.json",
+    "sha256": "5d6e22c9aa696cccd49d8c47b302370bc889a387ea9537aeb1022d906264f47f"
+  },
+  "contract": {
+    "path": "docs/specs/split-portfolio-entitlements.md",
+    "sha256": "fe37795a90174d2796695cf0425c91b85f21275df33924614b6023c1424176b1"
+  },
+  "implementations": [
+    {
+      "path": "src/sensei/backtest/portfolio_campaign.py",
+      "sha256": "f71232b6f366f25b4397acf46d8aad58acb1832f8426e760c920a1bf396d1cbd"
+    },
+    {
+      "path": "src/sensei/backtest/raw_accounting.py",
+      "sha256": "8ccd215bd8537da37f658425197e1623e500ce9bb2b5e424e81951c86c17586b"
+    },
+    {
+      "path": "src/sensei/backtest/costs.py",
+      "sha256": "dfbeaf08aadd628ac4d95c41f5d72e03e99b01c8e5b0daa46a7f7454e275d3f3"
+    },
+    {
+      "path": "src/sensei/backtest/daily_execution.py",
+      "sha256": "fa61f8997570dcfafd6c99dffe8ba10c1560f16306d071bab148ab1904af6e03"
+    },
+    {
+      "path": "src/sensei/research/raw_portfolio.py",
+      "sha256": "aecbe47e61268061d03053ec1c14ee42ebebaad4818180c736484cded33bca49"
+    },
+    {
+      "path": "src/sensei/research/bonus_indicator_replay.py",
+      "sha256": "7cf121fe0ec17a43b1682dd99498ecd8097def4dcce0a9093817725e5402e020"
+    },
+    {
+      "path": "src/sensei/research/split_reproduction.py",
+      "sha256": "1198d7127c3286f5b2c46d37ae8dbe5e9916c31c4fc9ec0e45792827b0c8c5b0"
+    },
+    {
+      "path": "src/sensei/data/bhavcopy.py",
+      "sha256": "9b7cc2acc3cc54fb57d5ad537da1ec5ea36d1ce46aaf55b8ad4f8de5a17c6991"
+    },
+    {
+      "path": "src/sensei/execution/nse.py",
+      "sha256": "4dc9f6a746cefd7939b1f05d62e24869c0bfc2a8a3041fb26a3f12b19e95dc84"
+    },
+    {
+      "path": "src/sensei/strategy/selection.py",
+      "sha256": "d2af6c53848e9aa947db314f9775918c4cf545f58e81cd81163452349b11da5d"
+    },
+    {
+      "path": "src/sensei/research/split_portfolio_reproduction.py",
+      "sha256": "5303fb301d51ad8760743890167ff30c5f95335f9984b6d90fdd644cfb274a71"
+    }
+  ]
+}

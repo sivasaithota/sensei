@@ -474,3 +474,41 @@ state changed. Next: dated classification/identity evidence and deterministic
 eligibility, remaining mandatory-action accounting, then coherent portfolio
 evaluation against Nifty500 gross TRI. Do not retune the rejected family or repeat
 the completed BSE reproduction without a changed input or new failure.
+
+## Owner continuation — split inventory and classification coverage
+
+The owner's “go ahead” authorized the next implementation after `14bb914`.
+Share-increasing subdivisions now replace all old shares, with every resulting
+share pending until explicit availability and knowledge dates. Bonuses retain their
+existing original-share availability. No-action/dividend and bonus fixture
+economics/output fields remain unchanged, except implementation-dependent IDs.
+
+The real HEG holding buys 24 shares at ₹2,483.50 on Oct17,2024. Its 5/1 split gives
+120 shares at economic basis ₹496.70. The documented NSE new-ISIN admission control
+sells all120 on Oct18 at ₹496.35; final cash ₹299,809.99 after ₹148.01 costs. Unknown
+availability sells nothing and retains120 shares worth ₹49,728 with ₹240,325.17 cash
+on Oct25. These verify inventory accounting, not strategy performance or account
+credit. Eleven raw receipts and the earlier official evidence chain are pinned.
+
+Review found that `_Position` logic was missing from general experiment identity.
+The fix adds its source; a behavioral regression proves changed inventory outcomes
+now receive changed IDs. The first artifact remains saved; the final case parameters
+are unchanged. [Final reports and hashes](split-and-classification-results-2026-09-07.md).
+
+The classification checker retains exact observed tuples, effective intervals and
+knowledge dates, distinguishing confirmed classifications from missing evidence,
+unknown subtype/board and incomplete raw identity. It never grants admissibility or
+trading authority. Two pinned endpoint files retain6,318 observations:6,308 lack
+dated classification facts and10 have empty raw series. No eligibility is inferred.
+
+The official NSE MII daily-security-master route is identified, but historical
+sample requests failed; a contemporary subtype schema is also unverified. No dated
+master was captured and no parser schema was invented. Next acquisition should
+resolve one NSE-only historical file and its applicable dictionary, then populate
+the new coverage check before expanding sessions or deriving liquidity eligibility.
+
+Fifteen split and fifteen classification tests pass, alongside28 bonus tests.
+Twelve no-action/dividend and eight bonus economic/serialization parity fixtures
+pass. Independent Standards and Spec reviews are clear. Full suite: **1,141 passed**,
+30.22 seconds. No new full-portfolio comparison or tuning, Kite usage, purchase,
+live activation, external message or automation-state change.

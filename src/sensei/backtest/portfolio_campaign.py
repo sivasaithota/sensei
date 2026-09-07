@@ -155,16 +155,16 @@ class _Position:
     pending_action: RawAction | None = None
     deferred_exit_reason: str | None = None
 
-    def accrue_bonus(self, action):
+    def accrue_share_action(self, action):
         if self.pending_quantity:
             raise ValueError("overlapping pending share entitlements are unsupported")
         ratio = Fraction(action.new_shares, action.old_shares)
         total = self.quantity * ratio
         if total.denominator != 1:
-            raise ValueError("fractional bonus entitlement requires an explicit settlement policy")
+            raise ValueError(f"fractional {action.kind} entitlement requires an explicit settlement policy")
         original = self.quantity
         self.quantity = int(total)
-        self.pending_quantity = self.quantity - original
+        self.pending_quantity = self.quantity if action.kind == "split" else self.quantity - original
         self.pending_action = action
         self.entry_price /= float(ratio)
         self.stop /= float(ratio)
@@ -279,9 +279,9 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                     if action.kind == "unsupported":
                         raise ValueError(f"unsupported held corporate action: {position.symbol}:{session.date()}:{action.subject}")
                     if position.pending_quantity and action.kind != "no_accounting":
-                        raise ValueError("accounting event during pending bonus entitlement is unsupported")
-                    if action.kind == "bonus":
-                        position.accrue_bonus(action)
+                        raise ValueError(f"accounting event during pending {position.pending_action.kind} entitlement is unsupported")
+                    if action.kind in {"bonus", "split"}:
+                        position.accrue_share_action(action)
                         share_ledger.append({"event": "accrual", "session": str(session.date()),
                             "symbol": position.symbol, "strategy": position.strategy,
                             "entry_date": str(position.entry_date.date()), "source_id": action.source_id,
@@ -289,7 +289,8 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                             "available_from": str(action.available_from.date()) if action.available_from is not None else None,
                             "availability_known_from": str(action.availability_known_from.date()) if action.availability_known_from is not None else None,
                             "availability_basis": action.availability_basis,
-                            "availability_source_sha256": action.availability_source_sha256})
+                            "availability_source_sha256": action.availability_source_sha256,
+                            **({"kind": "split"} if action.kind == "split" else {})})
                     if action.kind == "dividend":
                         amount = position.quantity * action.amount
                         position.dividend_income += amount
@@ -304,7 +305,8 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                     share_ledger.append({"event": "release", "session": str(session.date()),
                         "symbol": position.symbol, "strategy": position.strategy,
                         "entry_date": str(position.entry_date.date()), "source_id": pending.source_id,
-                        "quantity": position.pending_quantity, "availability_basis": pending.availability_basis})
+                        "quantity": position.pending_quantity, "availability_basis": pending.availability_basis,
+                        **({"kind": "split"} if pending.kind == "split" else {})})
                     position.pending_quantity = 0
                     position.pending_action = None
                 tick = raw_accounting.tick(position.symbol, session)
@@ -470,7 +472,7 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
             "cash_settlement_policy": "same-day sale proceeds reusable as in the frozen research control; no settlement ledger",
             "gross_pnl_definition": "price P&L plus gross dividend entitlements",
             "dividend_receivables": round(dividend_receivables, 2), "dividend_ledger": dividend_ledger}
-        if any(a.kind == "bonus" for a in raw_accounting.actions):
+        if any(a.kind in {"bonus", "split"} for a in raw_accounting.actions):
             raw_summary.update({"share_entitlement_policy": "whole-bonus-receivable-explicit-availability-v1",
                 "share_ledger": share_ledger,
                 "share_receivables": curve[-1].share_receivables if curve else 0,
@@ -481,6 +483,9 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                 "trade_row_policy": "actual sale legs; partial exits allocate economic basis and reserved costs proportionally",
                 "availability_limitation": "Explicit research inputs; neither scenario nor market admission certifies account credit",
                 "bracket_policy": "dividend brackets unchanged; bonus basis/brackets move to new units before dated tick rounding"})
+        if any(a.kind == "split" for a in raw_accounting.actions):
+            raw_summary.update({"share_entitlement_policy": "whole-split-bonus-explicit-availability-v1",
+                "bracket_policy": "dividend brackets unchanged; split/bonus basis and brackets move to new units before dated tick rounding"})
     return PortfolioCampaignReport(config, tuple(trades), tuple(curve), round(final, 2),
         round(final - config.capital, 2), round((final / config.capital - 1) * 100, 3),
         round(max_dd, 3), round(turnover, 2), round(utilization, 2), attribution, len(positions), identity,
@@ -581,7 +586,7 @@ def _experiment_identity(frames, signals, strategies, config, eligibility, sessi
         "implementation": hashlib.sha256((inspect.getsource(run_portfolio_campaign)
             + inspect.getsource(daily_execution) + inspect.getsource(selection) + inspect.getsource(costs)
             + inspect.getsource(_close) + inspect.getsource(_mark)
-            + inspect.getsource(_entry_bracket)).encode()).hexdigest(),
+            + inspect.getsource(_entry_bracket) + inspect.getsource(_Position)).encode()).hexdigest(),
         "quantity_implementation": hashlib.sha256(inspect.getsource(_validated_quantity_steps).encode()).hexdigest(),
         "frames": {key: digest(frame) for key, frame in sorted(frames.items())},
         "signals": {str(key): digest(value) for key, value in sorted(signals.items())},
