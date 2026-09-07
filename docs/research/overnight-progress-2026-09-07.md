@@ -340,3 +340,32 @@ effective dates and temporary dummy constituents; continue seeking dated baselin
 and checkpoint sets. Keep an incomplete ledger inadmissible. Define the required
 dated corporate-action transformation contract before claiming causal adjusted
 indicators. Do not repeat this completed signal audit or tune the rejected family.
+
+## Pass 12 — pinned membership announcements and correction handling
+
+Resumed from `92fccb7` at about 09:03 IST. Captured all 12 finite official notice
+PDFs successfully, pinned their exact bytes and visually verified each relevant
+Nifty 500 table. The versioned register retains 342 rows: 283 observed effective
+rows within the evaluation window, 55 future rows, two cancelled original rows
+and two revocation records. March 2024's correction cancels IREDA inclusion and
+VGUARD exclusion. September 2026's upcoming changes and DUMMYHEG do not enter
+historical membership. Temporary placeholders do not imply tradable instruments.
+
+The bounded official-source anchor search obtained no complete dated starting
+constituent list or checkpoint. Neither a current CSV nor aggregate whitepaper
+statistics can establish that list. The register remains explicitly incomplete;
+it emits no membership intervals or entry eligibility. DATA_BLOCKED remains.
+
+Added capture verification and publication-aware classification, with 17 focused
+tests. Independent Standards review found compact date comparison and final-URL
+validation gaps; both are fixed and regression-tested. Final Standards and Spec
+reviews are clear. Full suite: **1,037 passed**. Final audit report SHA-256:
+`ebc9fc21be2a6b1d4a0e598bb45789e148041a3a412063d7f62f0932bb05de78`.
+[Evidence, source table and exact hashes](nifty500-notice-register-results-2026-09-07.md).
+
+No strategy or portfolio behavior changed, no new return experiment and no Kite
+requests, credit spending or live orders. Next: define a bounded date-aware
+corporate-action transformation contract and acceptance tests. Do not recapture
+these notices, repeat completed audits or tune the rejected family. Historical
+membership still requires a complete dated anchor, reconciled changes/checkpoints
+and stable instrument/dummy lineage. Keep unsupported evidence inadmissible.

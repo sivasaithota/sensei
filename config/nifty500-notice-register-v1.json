@@ -1,0 +1,3332 @@
+{
+  "version": 1,
+  "authority": "RESEARCH_ONLY",
+  "can_trade": false,
+  "completeness": "INCOMPLETE_NOTICE_REGISTER",
+  "index": "Nifty 500",
+  "window_start": "2024-01-01",
+  "window_end": "2026-09-03",
+  "known_through_date": "2026-09-03",
+  "capture_manifest_path": "../data/research/nifty500-membership-notices/20260907/manifest.json",
+  "capture_manifest_sha256": "2c25818f00e0aa8c47bb5eb0ba9fe5afc38539148375299d1934c44eef6ab99e",
+  "missing_requirements": [
+    "independently_dated_starting_constituent_set",
+    "complete_intervening_review_correction_and_ad_hoc_register",
+    "dated_reconciliation_checkpoints",
+    "stable_instrument_mapping_and_dummy_lineage"
+  ],
+  "membership_intervals": [],
+  "documents": [
+    {
+      "notice_id": "ind_prs28022024",
+      "url": "https://www.niftyindices.com/Press_Release/ind_prs28022024.pdf",
+      "pdf_path": "../data/research/nifty500-membership-notices/20260907/ind_prs28022024.pdf",
+      "pdf_sha256": "5c70d043edde682a31fc5fa043a3b829a380fc9896de904bcb76d64b8319f698",
+      "page_count": 37,
+      "published_date": "2024-02-28",
+      "effective_date": "2024-03-28",
+      "prior_close_date": "2024-03-27",
+      "kind": "scheduled_review",
+      "visually_verified": true,
+      "notes": [
+        "Relevant tables visually checked against PDF pages; spelling retained; later corrections remain separate."
+      ],
+      "events": [
+        {
+          "id": "ind_prs28022024:exclude:AARTIDRUGS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "AARTIDRUGS",
+          "company_name": "Aarti Drugs Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:BCG",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "BCG",
+          "company_name": "Brightcom Group Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:DELTACORP",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "DELTACORP",
+          "company_name": "Delta Corp Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:EPIGRAL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "EPIGRAL",
+          "company_name": "Epigral Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:GRINFRA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GRINFRA",
+          "company_name": "G R Infraprojects Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:GALAXYSURF",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GALAXYSURF",
+          "company_name": "Galaxy Surfactants Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:GOCOLORS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GOCOLORS",
+          "company_name": "Go Fashion (India) Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:GUJALKALI",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GUJALKALI",
+          "company_name": "Gujarat Alkalies & Chemicals Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:HLEGLAS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "HLEGLAS",
+          "company_name": "HLE Glascoat Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:INFIBEAM",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "INFIBEAM",
+          "company_name": "Infibeam Avenues Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:INGERRAND",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "INGERRAND",
+          "company_name": "Ingersoll Rand (India) Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:JAMNAAUTO",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "JAMNAAUTO",
+          "company_name": "Jamna Auto Industries Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:LAXMIMACH",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "LAXMIMACH",
+          "company_name": "Lakshmi Machine Works Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:LUXIND",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "LUXIND",
+          "company_name": "Lux Industries Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:NAZARA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "NAZARA",
+          "company_name": "Nazara Technologies Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:ORIENTELEC",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ORIENTELEC",
+          "company_name": "Orient Electric Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:PFIZER",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "PFIZER",
+          "company_name": "Pfizer Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:POLYPLEX",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "POLYPLEX",
+          "company_name": "Polyplex Corporation Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:PGHL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "PGHL",
+          "company_name": "Procter & Gamble Health Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:RAIN",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "RAIN",
+          "company_name": "Rain Industries Ltd",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:RALLIS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "RALLIS",
+          "company_name": "Rallis India Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:RELAXO",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "RELAXO",
+          "company_name": "Relaxo Footwears Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:ROSSARI",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ROSSARI",
+          "company_name": "Rossari Biotech Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:SHARDACROP",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SHARDACROP",
+          "company_name": "Sharda Cropchem Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:SFL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SFL",
+          "company_name": "Sheela Foam Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:SHOPERSTOP",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SHOPERSTOP",
+          "company_name": "Shoppers Stop Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:SUPRAJIT",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SUPRAJIT",
+          "company_name": "Suprajit Engineering Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:SYMPHONY",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SYMPHONY",
+          "company_name": "Symphony Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:TEAMLEASE",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "TEAMLEASE",
+          "company_name": "Teamlease Services Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:TTKPRESTIG",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "TTKPRESTIG",
+          "company_name": "TTK Prestige Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:VGUARD",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "VGUARD",
+          "company_name": "V-Guard Industries Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:VINATIORGA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "VINATIORGA",
+          "company_name": "Vinati Organics Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:VMART",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "VMART",
+          "company_name": "V-Mart Retail Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:exclude:ZYDUSWELL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ZYDUSWELL",
+          "company_name": "Zydus Wellness Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:ACE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ACE",
+          "company_name": "Action Construction Equipment Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:ANANDRATHI",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ANANDRATHI",
+          "company_name": "Anand Rathi Wealth Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:ASTRAZEN",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ASTRAZEN",
+          "company_name": "AstraZenca Pharma India Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:CAPLIPOINT",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "CAPLIPOINT",
+          "company_name": "Caplin Point Laboratories Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:CELLO",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "CELLO",
+          "company_name": "Cello World Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:CHENNPETRO",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "CHENNPETRO",
+          "company_name": "Chennai Petroleum Corporation Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:DOMS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "DOMS",
+          "company_name": "DOMS Industries Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:ELECON",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ELECON",
+          "company_name": "Elecon Engineering Co. Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:GRSE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "GRSE",
+          "company_name": "Garden Reach Shipbuilders & Engineers Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:GMDCLTD",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "GMDCLTD",
+          "company_name": "Gujarat Mineral Development Corporation Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:HAPPYFORGE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "HAPPYFORGE",
+          "company_name": "Happy Forgings Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:HBLPOWER",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "HBLPOWER",
+          "company_name": "HBL Power Systems Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:HSCL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "HSCL",
+          "company_name": "Himadri Speciality Chemical Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:HONASA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "HONASA",
+          "company_name": "Honasa Consumer Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:IREDA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "IREDA",
+          "company_name": "Indian Renewable Energy Development Agency Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:INOXWIND",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "INOXWIND",
+          "company_name": "Inox Wind Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:JAIBALAJI",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "JAIBALAJI",
+          "company_name": "Jai Balaji Industries Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:J&KBANK",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "J&KBANK",
+          "company_name": "Jammu & Kashmir Bank Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:JIOFIN",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "JIOFIN",
+          "company_name": "Jio Financial Services Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:JSWINFRA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "JSWINFRA",
+          "company_name": "JSW Infrastructure Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:JWL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "JWL",
+          "company_name": "Jupiter Wagons Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:LLOYDSME",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "LLOYDSME",
+          "company_name": "Lloyds Metals And Energy Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:MAHSEAMLES",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "MAHSEAMLES",
+          "company_name": "Maharashtra Seamless Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:NUVAMA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "NUVAMA",
+          "company_name": "Nuvama Wealth Management Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:RRKABEL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "RRKABEL",
+          "company_name": "R R Kabel Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:RAILTEL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "RAILTEL",
+          "company_name": "Railtel Corporation Of India Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:RKFORGE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "RKFORGE",
+          "company_name": "Ramkrishna Forgings Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:SBFC",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "SBFC",
+          "company_name": "SBFC Finance Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:SCHNEIDER",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "SCHNEIDER",
+          "company_name": "Schneider Electric Infrastructure Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:SIGNATURE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "SIGNATURE",
+          "company_name": "Signatureglobal (India) Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:TMB",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "TMB",
+          "company_name": "Tamilnad Mercantile Bank Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:TATATECH",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "TATATECH",
+          "company_name": "Tata Technologies Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:TITAGARH",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "TITAGARH",
+          "company_name": "Titagarh Rail Systems Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs28022024:include:TVSSCS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "TVSSCS",
+          "company_name": "TVS Supply Chain Solutions Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        }
+      ]
+    },
+    {
+      "notice_id": "ind_prs19032024",
+      "url": "https://www.niftyindices.com/Press_Release/ind_prs19032024.pdf",
+      "pdf_path": "../data/research/nifty500-membership-notices/20260907/ind_prs19032024.pdf",
+      "pdf_sha256": "1bef44dabdf594b9390b15329de1d9f38a8ab96af2abea243e99311b6d61587e",
+      "page_count": 4,
+      "published_date": "2024-03-19",
+      "effective_date": "2024-03-28",
+      "prior_close_date": "2024-03-27",
+      "kind": "correction",
+      "visually_verified": true,
+      "notes": [
+        "Nifty500 row visually verified onpage1; this is a revocation of two announced changes, not two new membership changes."
+      ],
+      "events": [
+        {
+          "id": "ind_prs19032024:revoke_include:IREDA",
+          "index": "Nifty 500",
+          "action": "revoke_include",
+          "symbol": "IREDA",
+          "company_name": "Indian Renewable Energy Dev. Agency Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null,
+          "revokes": "ind_prs28022024:include:IREDA"
+        },
+        {
+          "id": "ind_prs19032024:revoke_exclude:VGUARD",
+          "index": "Nifty 500",
+          "action": "revoke_exclude",
+          "symbol": "VGUARD",
+          "company_name": "V-Guard Industries Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null,
+          "revokes": "ind_prs28022024:exclude:VGUARD"
+        }
+      ]
+    },
+    {
+      "notice_id": "ind_prs23082024",
+      "url": "https://www.niftyindices.com/Press_Release/ind_prs23082024.pdf",
+      "pdf_path": "../data/research/nifty500-membership-notices/20260907/ind_prs23082024.pdf",
+      "pdf_sha256": "efc8eab5d129eaa2219e10b57ab9a5c3ce2d0cd7b8c5ebd2c7b6bc244a38b2b8",
+      "page_count": 38,
+      "published_date": "2024-08-23",
+      "effective_date": "2024-09-30",
+      "prior_close_date": "2024-09-27",
+      "kind": "scheduled_review",
+      "visually_verified": true,
+      "notes": [
+        "Relevant tables visually checked against PDF pages; spelling retained; later corrections remain separate."
+      ],
+      "events": [
+        {
+          "id": "ind_prs23082024:exclude:AETHER",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "AETHER",
+          "company_name": "Aether Industries Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:ALLCARGO",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ALLCARGO",
+          "company_name": "Allcargo Logistics Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:ANURAS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ANURAS",
+          "company_name": "Anupam Rasayan India Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:BORORENEW",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "BORORENEW",
+          "company_name": "Borosil Renewables Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:CSBBANK",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "CSBBANK",
+          "company_name": "CSB Bank Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:DCMSHRIRAM",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "DCMSHRIRAM",
+          "company_name": "DCM Shriram Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:EPL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "EPL",
+          "company_name": "EPL Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:FDC",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "FDC",
+          "company_name": "FDC Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:GLS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GLS",
+          "company_name": "Glenmark Life Sciences Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:GMMPFAUDLR",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GMMPFAUDLR",
+          "company_name": "GMM Pfaudler Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:HAPPYFORGE",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "HAPPYFORGE",
+          "company_name": "Happy Forgings Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:INDIGOPNTS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "INDIGOPNTS",
+          "company_name": "Indigo Paints Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:JAIBALAJI",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "JAIBALAJI",
+          "company_name": "Jai Balaji Industries Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:JKPAPER",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "JKPAPER",
+          "company_name": "JK Paper Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:KRBL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "KRBL",
+          "company_name": "KRBL Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:LXCHEM",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "LXCHEM",
+          "company_name": "Laxmi Organic Industries Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:MHRIL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "MHRIL",
+          "company_name": "Mahindra Holidays & Resorts India Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:MEDPLUS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "MEDPLUS",
+          "company_name": "Medplus Health Services Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:MTARTECH",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "MTARTECH",
+          "company_name": "MTAR Technologies Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:PRINCEPIPE",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "PRINCEPIPE",
+          "company_name": "Prince Pipes and Fittings Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:RBA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "RBA",
+          "company_name": "Restaurant Brands Asia Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:SAFARI",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SAFARI",
+          "company_name": "Safari Industries (India) Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:STLTECH",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "STLTECH",
+          "company_name": "Sterlite Technologies Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:SUNTECK",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SUNTECK",
+          "company_name": "Sunteck Realty Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:TMB",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "TMB",
+          "company_name": "Tamilnad Mercantile Bank Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:VAIBHAVGBL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "VAIBHAVGBL",
+          "company_name": "Vaibhav Global Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:exclude:IDEA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "IDEA",
+          "company_name": "Vodafone Idea Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:AADHARHFC",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "AADHARHFC",
+          "company_name": "Aadhar Housing Finance Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:ABSLAMC",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ABSLAMC",
+          "company_name": "Aditya Birla Sun Life AMC Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:ANANTRAJ",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ANANTRAJ",
+          "company_name": "Anant Raj Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:BASF",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "BASF",
+          "company_name": "BASF India Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:BHARTIHEXA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "BHARTIHEXA",
+          "company_name": "Bharti Hexacom Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:GRINFRA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "GRINFRA",
+          "company_name": "G R Infraprojects Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:GET&D",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "GET&D",
+          "company_name": "GE T&D India Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:GODIGIT",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "GODIGIT",
+          "company_name": "Go Digit General Insurance Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:GODREJAGRO",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "GODREJAGRO",
+          "company_name": "Godrej Agrovet Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:IFCI",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "IFCI",
+          "company_name": "IFCI Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:INDGN",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "INDGN",
+          "company_name": "Indegene Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:IREDA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "IREDA",
+          "company_name": "Indian Renewable Energy Development Agency Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:INOXINDIA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "INOXINDIA",
+          "company_name": "INOX India Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:JPPOWER",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "JPPOWER",
+          "company_name": "Jaiprakash Power Ventures Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:JKTYRE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "JKTYRE",
+          "company_name": "JK Tyre & Industries Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:JYOTICNC",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "JYOTICNC",
+          "company_name": "Jyoti CNC Automation Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:KIRLOSBROS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "KIRLOSBROS",
+          "company_name": "Kirloskar Brothers Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:KIRLOSENG",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "KIRLOSENG",
+          "company_name": "Kirloskar Oil Eng Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:NETWEB",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "NETWEB",
+          "company_name": "Netweb Technologies India Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:NEWGEN",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "NEWGEN",
+          "company_name": "Newgen Software Technologies Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:PFIZER",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "PFIZER",
+          "company_name": "Pfizer Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:PTCIL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "PTCIL",
+          "company_name": "PTC Industries Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:SCI",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "SCI",
+          "company_name": "Shipping Corporation of India Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:TBOTEK",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "TBOTEK",
+          "company_name": "TBO Tek Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:TECHNOE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "TECHNOE",
+          "company_name": "Techno Electric & Engineering Company Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:DBREALTY",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "DBREALTY",
+          "company_name": "Valor Estate Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23082024:include:VINATIORGA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "VINATIORGA",
+          "company_name": "Vinati Organics Ltd.",
+          "source_page": 4,
+          "stable_instrument_id": null
+        }
+      ]
+    },
+    {
+      "notice_id": "ind_prs13092024",
+      "url": "https://www.niftyindices.com/Press_Release/ind_prs13092024.pdf",
+      "pdf_path": "../data/research/nifty500-membership-notices/20260907/ind_prs13092024.pdf",
+      "pdf_sha256": "6a557dcc285cc719343d2d92977e2cb180bb52fba91946a6c748cb7891ebd76e",
+      "page_count": 2,
+      "published_date": "2024-09-13",
+      "effective_date": "2024-09-17",
+      "prior_close_date": "2024-09-16",
+      "kind": "ad_hoc",
+      "visually_verified": true,
+      "notes": [
+        "Only Nifty 500 actions are transcribed; other indices and variants are outside scope.",
+        "Publication time is not specified; no intraday availability or stable ISIN is inferred.",
+        "For index-list notices, source_row_number identifies the Nifty 500 row; for replacement tables it identifies the company row within its action table.",
+        "Retrospective reference only: the notice cites the July 05, 2024 release announcing DUMMYRAYMD inclusion effective July 11, 2024 (close of July 10), and states RAYMONDLSL listed on September 05, 2024. No earlier inclusion or listing event is generated from this later source.",
+        "The source says the exclusion will not be deferred even if the stock hits its price band on September 16, 2024."
+      ],
+      "events": [
+        {
+          "id": "ind_prs13092024:exclude:RAYMONDLSL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "RAYMONDLSL",
+          "company_name": "Raymond Lifestyle Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        }
+      ]
+    },
+    {
+      "notice_id": "ind_prs06022025_1",
+      "url": "https://www.niftyindices.com/Press_Release/ind_prs06022025_1.pdf",
+      "pdf_path": "../data/research/nifty500-membership-notices/20260907/ind_prs06022025_1.pdf",
+      "pdf_sha256": "60f61a6f41b2aa2f9f769d8fc42c4c090f03ae84b44af62827ea46ccd4d88878",
+      "page_count": 2,
+      "published_date": "2025-02-06",
+      "effective_date": "2025-02-10",
+      "prior_close_date": "2025-02-07",
+      "kind": "ad_hoc",
+      "visually_verified": true,
+      "notes": [
+        "Only Nifty 500 actions are transcribed; other indices and variants are outside scope.",
+        "Publication time is not specified; no intraday availability or stable ISIN is inferred.",
+        "For index-list notices, source_row_number identifies the Nifty 500 row; for replacement tables it identifies the company row within its action table.",
+        "Retrospective reference only: the notice cites the December 30, 2024 release announcing DUMMYITC inclusion effective January 06, 2025 (close of January 03), and states ITCHOTELS listed on January 29, 2025. No earlier inclusion or listing event is generated from this later source.",
+        "The source says the exclusion will not be deferred even if the stock hits its price band on February 07, 2025."
+      ],
+      "events": [
+        {
+          "id": "ind_prs06022025_1:exclude:ITCHOTELS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ITCHOTELS",
+          "company_name": "ITC Hotels Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        }
+      ]
+    },
+    {
+      "notice_id": "ind_prs21022025",
+      "url": "https://www.niftyindices.com/Press_Release/ind_prs21022025.pdf",
+      "pdf_path": "../data/research/nifty500-membership-notices/20260907/ind_prs21022025.pdf",
+      "pdf_sha256": "1b3a52abf5954f4b213f5b555ee8776ff596f0adde0612cfdd5409b109195370",
+      "page_count": 43,
+      "published_date": "2025-02-21",
+      "effective_date": "2025-03-28",
+      "prior_close_date": "2025-03-27",
+      "kind": "scheduled_review",
+      "visually_verified": true,
+      "notes": [
+        "Only the Nifty 500 section is transcribed; related index variants and other indices are outside scope.",
+        "This transcribes the notice as published. Later amendments, withdrawals and ad hoc notices are not reconciled here.",
+        "Publication time is not specified; no intraday availability or stable ISIN is inferred."
+      ],
+      "events": [
+        {
+          "id": "ind_prs21022025:exclude:ACI",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ACI",
+          "company_name": "Archean Chemical Industries Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:AVANTIFEED",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "AVANTIFEED",
+          "company_name": "Avanti Feeds Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:BALAMINES",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "BALAMINES",
+          "company_name": "Balaji Amines Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:BIRLACORPN",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "BIRLACORPN",
+          "company_name": "Birla Corporation Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:CELLO",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "CELLO",
+          "company_name": "Cello World Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:CHEMPLASTS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "CHEMPLASTS",
+          "company_name": "Chemplast Sanmar Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:CIEINDIA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "CIEINDIA",
+          "company_name": "CIE Automotive India Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:EASEMYTRIP",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "EASEMYTRIP",
+          "company_name": "Easy Trip Planners Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:EQUITASBNK",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "EQUITASBNK",
+          "company_name": "Equitas Small Finance Bank Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:FINEORG",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "FINEORG",
+          "company_name": "Fine Organic Industries Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:GRINFRA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GRINFRA",
+          "company_name": "G R Infraprojects Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:GRINDWELL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GRINDWELL",
+          "company_name": "Grindwell Norton Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:GAEL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GAEL",
+          "company_name": "Gujarat Ambuja Exports Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:GSFC",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GSFC",
+          "company_name": "Gujarat State Fertilizers & Chemicals Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:JKLAKSHMI",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "JKLAKSHMI",
+          "company_name": "JK Lakshmi Cement Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:KSB",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "KSB",
+          "company_name": "KSB Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:MAHLIFE",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "MAHLIFE",
+          "company_name": "Mahindra Lifespace Developers Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:METROBRAND",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "METROBRAND",
+          "company_name": "Metro Brands Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:NUVOCO",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "NUVOCO",
+          "company_name": "Nuvoco Vistas Corporation Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:PGHH",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "PGHH",
+          "company_name": "Procter & Gamble Hygiene & Health Care Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:RAJESHEXPO",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "RAJESHEXPO",
+          "company_name": "Rajesh Exports Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:RATNAMANI",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "RATNAMANI",
+          "company_name": "Ratnamani Metals & Tubes Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:SANOFI",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SANOFI",
+          "company_name": "Sanofi India Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:SPARC",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SPARC",
+          "company_name": "Sun Pharma Advanced Research Company Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:SUNDRMFAST",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SUNDRMFAST",
+          "company_name": "Sundram Fasteners Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:TVSSCS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "TVSSCS",
+          "company_name": "TVS Supply Chain Solutions Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:UJJIVANSFB",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "UJJIVANSFB",
+          "company_name": "Ujjivan Small Finance Bank Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:VIPIND",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "VIPIND",
+          "company_name": "V.I.P. Industries Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:VARROC",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "VARROC",
+          "company_name": "Varroc Engineering Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:exclude:VINATIORGA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "VINATIORGA",
+          "company_name": "Vinati Organics Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:ACMESOLAR",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ACMESOLAR",
+          "company_name": "ACME Solar Holdings Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:AFCONS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "AFCONS",
+          "company_name": "Afcons Infrastructure Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:ALIVUS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ALIVUS",
+          "company_name": "Alivus Life Sciences Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:AIIL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "AIIL",
+          "company_name": "Authum Investment & Infrastructure Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:BAJAJHFL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "BAJAJHFL",
+          "company_name": "Bajaj Housing Finance Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:FIRSTCRY",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "FIRSTCRY",
+          "company_name": "Brainbees Solutions Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:DCMSHRIRAM",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "DCMSHRIRAM",
+          "company_name": "DCM Shriram Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:GRAVITA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "GRAVITA",
+          "company_name": "Gravita India Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:HYUNDAI",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "HYUNDAI",
+          "company_name": "Hyundai Motor India Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:IGIL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "IGIL",
+          "company_name": "International Gemmological Institute (India) Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:IKS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "IKS",
+          "company_name": "Inventurus Knowledge Solutions Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:JSWHL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "JSWHL",
+          "company_name": "JSW Holdings Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:LTFOODS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "LTFOODS",
+          "company_name": "LT Foods Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:NAVA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "NAVA",
+          "company_name": "Nava Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:NEULANDLAB",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "NEULANDLAB",
+          "company_name": "Neuland Laboratories Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:NIVABUPA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "NIVABUPA",
+          "company_name": "Niva Bupa Health Insurance Company Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:NTPCGREEN",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "NTPCGREEN",
+          "company_name": "NTPC Green Energy Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:OLAELEC",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "OLAELEC",
+          "company_name": "Ola Electric Mobility Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:PGEL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "PGEL",
+          "company_name": "PG Electroplast Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:PREMIERENE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "PREMIERENE",
+          "company_name": "Premier Energies Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:RPOWER",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "RPOWER",
+          "company_name": "Reliance Power Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:SAGILITY",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "SAGILITY",
+          "company_name": "Sagility India Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:SAILIFE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "SAILIFE",
+          "company_name": "Sai Life Sciences Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:SARDAEN",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "SARDAEN",
+          "company_name": "Sarda Energy and Minerals Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:SWIGGY",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "SWIGGY",
+          "company_name": "Swiggy Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:TARIL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "TARIL",
+          "company_name": "Transformers And Rectifiers (India) Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:VMM",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "VMM",
+          "company_name": "Vishal Mega Mart Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:WAAREEENER",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "WAAREEENER",
+          "company_name": "Waaree Energies Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:WOCKPHARMA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "WOCKPHARMA",
+          "company_name": "Wockhardt Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs21022025:include:ZENTEC",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ZENTEC",
+          "company_name": "Zen Technologies Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        }
+      ]
+    },
+    {
+      "notice_id": "ind_prs19052025",
+      "url": "https://www.niftyindices.com/Press_Release/ind_prs19052025.pdf",
+      "pdf_path": "../data/research/nifty500-membership-notices/20260907/ind_prs19052025.pdf",
+      "pdf_sha256": "801f434cfb152028915b491124d60308e6533a9c7f3862f7009d88b5d36dc61a",
+      "page_count": 2,
+      "published_date": "2025-05-19",
+      "effective_date": "2025-05-22",
+      "prior_close_date": "2025-05-21",
+      "kind": "ad_hoc",
+      "visually_verified": true,
+      "notes": [
+        "Only Nifty 500 actions are transcribed; other indices and variants are outside scope.",
+        "Publication time is not specified; no intraday availability or stable ISIN is inferred.",
+        "For index-list notices, source_row_number identifies the Nifty 500 row; for replacement tables it identifies the company row within its action table.",
+        "The source explicitly includes the demerged entity at zero price without divisor adjustment. Index-accounting inclusion is not evidence of a tradable security.",
+        "The source refers to NSE/CMTR/68037 dated May 16, 2025 for the May 22 special pre-open session; no separate exchange event is generated."
+      ],
+      "events": [
+        {
+          "id": "ind_prs19052025:dummy_include:DUMMYABFRL",
+          "index": "Nifty 500",
+          "action": "dummy_include",
+          "symbol": "DUMMYABFRL",
+          "company_name": "Aditya Birla Lifestyle Brands Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        }
+      ]
+    },
+    {
+      "notice_id": "ind_prs22082025",
+      "url": "https://www.niftyindices.com/Press_Release/ind_prs22082025.pdf",
+      "pdf_path": "../data/research/nifty500-membership-notices/20260907/ind_prs22082025.pdf",
+      "pdf_sha256": "731113af85aad6b54cce359d5465d84e6062b28b03c21cd9922a20a3f44d2de1",
+      "page_count": 35,
+      "published_date": "2025-08-22",
+      "effective_date": "2025-09-30",
+      "prior_close_date": "2025-09-29",
+      "kind": "scheduled_review",
+      "visually_verified": true,
+      "notes": [
+        "Only the Nifty 500 section is transcribed; related index variants and other indices are outside scope.",
+        "This transcribes the notice as published. Later amendments, withdrawals and ad hoc notices are not reconciled here.",
+        "Publication time is not specified; no intraday availability or stable ISIN is inferred."
+      ],
+      "events": [
+        {
+          "id": "ind_prs22082025:exclude:ALIVUS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ALIVUS",
+          "company_name": "Alivus Life Sciences Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:GNFC",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GNFC",
+          "company_name": "Gujarat Narmada Valley Fertilizers and Chemicals Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:GPPL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GPPL",
+          "company_name": "Gujarat Pipavav Port Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:JSWHL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "JSWHL",
+          "company_name": "JSW Holdings Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:JUSTDIAL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "JUSTDIAL",
+          "company_name": "Justdial Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:KANSAINER",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "KANSAINER",
+          "company_name": "Kansai Nerolac Paints Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:KNRCON",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "KNRCON",
+          "company_name": "KNR Constructions Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:MASTEK",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "MASTEK",
+          "company_name": "Mastek Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:NETWORK18",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "NETWORK18",
+          "company_name": "Network18 Media & Investments Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:PNCINFRA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "PNCINFRA",
+          "company_name": "PNC Infratech Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:RTNINDIA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "RTNINDIA",
+          "company_name": "RattanIndia Enterprises Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:RAYMONDLSL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "RAYMONDLSL",
+          "company_name": "Raymond Lifestyle Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:RAYMOND",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "RAYMOND",
+          "company_name": "Raymond Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:ROUTE",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ROUTE",
+          "company_name": "Route Mobile Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:RENUKA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "RENUKA",
+          "company_name": "Shree Renuka Sugars Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:SWSOLAR",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SWSOLAR",
+          "company_name": "Sterling and Wilson Renewable Energy Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:TANLA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "TANLA",
+          "company_name": "Tanla Platforms Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:exclude:WESTLIFE",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "WESTLIFE",
+          "company_name": "Westlife Foodworld Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:ABLBL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ABLBL",
+          "company_name": "Aditya Birla Lifestyle Brands Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:AEGISVOPAK",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "AEGISVOPAK",
+          "company_name": "Aegis Vopak Terminals Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:AKZOINDIA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "AKZOINDIA",
+          "company_name": "Akzo Nobel India Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:ATHERENERG",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ATHERENERG",
+          "company_name": "Ather Energy Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:BLUEJET",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "BLUEJET",
+          "company_name": "Blue Jet Healthcare Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:CHOICEIN",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "CHOICEIN",
+          "company_name": "Choice International Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:AGARWALEYE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "AGARWALEYE",
+          "company_name": "Dr. Agarwal's Health Care Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:FORCEMOT",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "FORCEMOT",
+          "company_name": "Force Motors Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:HEXT",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "HEXT",
+          "company_name": "Hexaware Technologies Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:ITCHOTELS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ITCHOTELS",
+          "company_name": "ITC Hotels Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:KSB",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "KSB",
+          "company_name": "KSB Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:MAHSCOOTER",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "MAHSCOOTER",
+          "company_name": "Maharashtra Scooters Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:NUVOCO",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "NUVOCO",
+          "company_name": "Nuvoco Vistas Corporation Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:ONESOURCE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ONESOURCE",
+          "company_name": "Onesource Specialty Pharma Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:PGHH",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "PGHH",
+          "company_name": "Procter & Gamble Hygiene & Health Care Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:THELEELA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "THELEELA",
+          "company_name": "Schloss Bangalore Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:ENRIN",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ENRIN",
+          "company_name": "Siemens Energy India Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs22082025:include:VENTIVE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "VENTIVE",
+          "company_name": "Ventive Hospitality Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        }
+      ]
+    },
+    {
+      "notice_id": "ind_prs15092025_1",
+      "url": "https://www.niftyindices.com/Press_Release/ind_prs15092025_1.pdf",
+      "pdf_path": "../data/research/nifty500-membership-notices/20260907/ind_prs15092025_1.pdf",
+      "pdf_sha256": "3e7fc25c2e90266a8201f31794595cb0855a3d9a6eb06d5437fd1a0c94112881",
+      "page_count": 5,
+      "published_date": "2025-09-15",
+      "effective_date": "2025-09-23",
+      "prior_close_date": "2025-09-22",
+      "kind": "ad_hoc",
+      "visually_verified": true,
+      "notes": [
+        "Only Nifty 500 actions are transcribed; other indices and variants are outside scope.",
+        "Publication time is not specified; no intraday availability or stable ISIN is inferred.",
+        "For index-list notices, source_row_number identifies the Nifty 500 row; for replacement tables it identifies the company row within its action table.",
+        "The Nifty 500 replacement is stated to follow the scheme of amalgamation of Piramal Enterprises Ltd. with Piramal Finance Ltd. Only the Nifty 500 section on page 1 is transcribed."
+      ],
+      "events": [
+        {
+          "id": "ind_prs15092025_1:exclude:PEL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "PEL",
+          "company_name": "Piramal Enterprises Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs15092025_1:include:RELINFRA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "RELINFRA",
+          "company_name": "Reliance Infrastructure Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        }
+      ]
+    },
+    {
+      "notice_id": "ind_prs23022026",
+      "url": "https://www.niftyindices.com/Press_Release/ind_prs23022026.pdf",
+      "pdf_path": "../data/research/nifty500-membership-notices/20260907/ind_prs23022026.pdf",
+      "pdf_sha256": "cb5830aff1e8715997d9204509315f393ed961838ebc14e986fcb800c62e5a0b",
+      "page_count": 45,
+      "published_date": "2026-02-23",
+      "effective_date": "2026-03-30",
+      "prior_close_date": "2026-03-27",
+      "kind": "scheduled_review",
+      "visually_verified": true,
+      "notes": [
+        "Only the Nifty 500 section is transcribed; related index variants and other indices are outside scope.",
+        "This transcribes the notice as published. Later amendments, withdrawals and ad hoc notices are not reconciled here.",
+        "Publication time is not specified; no intraday availability or stable ISIN is inferred.",
+        "The source prints 'AstraZenca Pharma India Ltd.' for ASTRAZEN and 'Cera Sanitaryware Ltd' without a trailing full stop; both spellings are preserved verbatim."
+      ],
+      "events": [
+        {
+          "id": "ind_prs23022026:exclude:AKUMS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "AKUMS",
+          "company_name": "Akums Drugs and Pharmaceuticals Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:APLLTD",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "APLLTD",
+          "company_name": "Alembic Pharmaceuticals Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:ALKYLAMINE",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ALKYLAMINE",
+          "company_name": "Alkyl Amines Chemicals Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:ALOKINDS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ALOKINDS",
+          "company_name": "Alok Industries Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:ASTRAZEN",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ASTRAZEN",
+          "company_name": "AstraZenca Pharma India Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:BASF",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "BASF",
+          "company_name": "BASF India Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:CAMPUS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "CAMPUS",
+          "company_name": "Campus Activewear Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:CENTURYPLY",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "CENTURYPLY",
+          "company_name": "Century Plyboards (India) Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:CERA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "CERA",
+          "company_name": "Cera Sanitaryware Ltd",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:AGARWALEYE",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "AGARWALEYE",
+          "company_name": "Dr. Agarwal's Health Care Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:FINPIPE",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "FINPIPE",
+          "company_name": "Finolex Industries Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:GODREJAGRO",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GODREJAGRO",
+          "company_name": "Godrej Agrovet Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:GUJGASLTD",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GUJGASLTD",
+          "company_name": "Gujarat Gas Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:HAPPSTMNDS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "HAPPSTMNDS",
+          "company_name": "Happiest Minds Technologies Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:INOXINDIA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "INOXINDIA",
+          "company_name": "INOX India Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:JYOTHYLAB",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "JYOTHYLAB",
+          "company_name": "Jyothy Labs Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:KIRLOSBROS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "KIRLOSBROS",
+          "company_name": "Kirloskar Brothers Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:KSB",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "KSB",
+          "company_name": "KSB Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:MAHSCOOTER",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "MAHSCOOTER",
+          "company_name": "Maharashtra Scooters Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:MAHSEAMLES",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "MAHSEAMLES",
+          "company_name": "Maharashtra Seamless Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:METROPOLIS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "METROPOLIS",
+          "company_name": "Metropolis Healthcare Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:PRAJIND",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "PRAJIND",
+          "company_name": "Praj Industries Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:PGHH",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "PGHH",
+          "company_name": "Procter & Gamble Hygiene & Health Care Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:RCF",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "RCF",
+          "company_name": "Rashtriya Chemicals & Fertilizers Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:RELINFRA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "RELINFRA",
+          "company_name": "Reliance Infrastructure Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:SUNDRMFAST",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SUNDRMFAST",
+          "company_name": "Sundram Fasteners Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:TRIVENI",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "TRIVENI",
+          "company_name": "Triveni Engineering & Industries Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:DBREALTY",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "DBREALTY",
+          "company_name": "Valor Estate Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:MANYAVAR",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "MANYAVAR",
+          "company_name": "Vedant Fashions Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:VENTIVE",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "VENTIVE",
+          "company_name": "Ventive Hospitality Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:exclude:VGUARD",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "VGUARD",
+          "company_name": "V-Guard Industries Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:ACUTAAS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ACUTAAS",
+          "company_name": "Acutaas Chemicals Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:CPPLUS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "CPPLUS",
+          "company_name": "Aditya Infotech Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:ABDL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ABDL",
+          "company_name": "Allied Blenders and Distillers Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:ANTHEM",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ANTHEM",
+          "company_name": "Anthem Biosciences Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:ANURAS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ANURAS",
+          "company_name": "Anupam Rasayan India Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:BELRISE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "BELRISE",
+          "company_name": "Belrise Industries Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:GROWW",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "GROWW",
+          "company_name": "Billionbrains Garage Ventures Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:CANHLIFE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "CANHLIFE",
+          "company_name": "Canara HSBC Life Insurance Company Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:CARTRADE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "CARTRADE",
+          "company_name": "Cartrade Tech Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:CEMPRO",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "CEMPRO",
+          "company_name": "Cemindia Projects Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:EMMVEE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "EMMVEE",
+          "company_name": "Emmvee Photovoltaic Power Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:GABRIEL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "GABRIEL",
+          "company_name": "Gabriel India Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:GALLANTT",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "GALLANTT",
+          "company_name": "Gallantt Ispat Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:HDBFS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "HDBFS",
+          "company_name": "HDB Financial Services Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:ICICIAMC",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ICICIAMC",
+          "company_name": "ICICI Prudential Asset Management Company Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:JAINREC",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "JAINREC",
+          "company_name": "Jain Resource Recycling Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:LENSKART",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "LENSKART",
+          "company_name": "Lenskart Solutions Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:LGEINDIA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "LGEINDIA",
+          "company_name": "LG Electronics India Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:MEESHO",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "MEESHO",
+          "company_name": "Meesho Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:PARADEEP",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "PARADEEP",
+          "company_name": "Paradeep Phosphates Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:PWL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "PWL",
+          "company_name": "Physicswallah Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:PINELABS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "PINELABS",
+          "company_name": "Pine Labs Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:PIRAMALFIN",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "PIRAMALFIN",
+          "company_name": "Piramal Finance Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:SPLPETRO",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "SPLPETRO",
+          "company_name": "Supreme Petrochem Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:TATACAP",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "TATACAP",
+          "company_name": "Tata Capital Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:TMCV",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "TMCV",
+          "company_name": "Tata Motors Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:TEGA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "TEGA",
+          "company_name": "Tega Industries Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:TENNIND",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "TENNIND",
+          "company_name": "Tenneco Clean Air India Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:TRAVELFOOD",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "TRAVELFOOD",
+          "company_name": "Travel Food Services Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:URBANCO",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "URBANCO",
+          "company_name": "Urban Company Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs23022026:include:ZYDUSWELL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "ZYDUSWELL",
+          "company_name": "Zydus Wellness Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        }
+      ]
+    },
+    {
+      "notice_id": "ind_prs10082026",
+      "url": "https://www.niftyindices.com/Press_Release/ind_prs10082026.pdf",
+      "pdf_path": "../data/research/nifty500-membership-notices/20260907/ind_prs10082026.pdf",
+      "pdf_sha256": "56a3d162e4aabd8767686010afb01eb8dd21dc089d5cf8995a8a34091eef9bff",
+      "page_count": 46,
+      "published_date": "2026-08-10",
+      "effective_date": "2026-09-30",
+      "prior_close_date": "2026-09-29",
+      "kind": "scheduled_review",
+      "visually_verified": true,
+      "notes": [
+        "Relevant tables visually checked against PDF pages; spelling retained; later corrections remain separate."
+      ],
+      "events": [
+        {
+          "id": "ind_prs10082026:exclude:3MINDIA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "3MINDIA",
+          "company_name": "3M India Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:ABFRL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ABFRL",
+          "company_name": "Aditya Birla Fashion and Retail Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:ABLBL",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ABLBL",
+          "company_name": "Aditya Birla Lifestyle Brands Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:BAYERCROP",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "BAYERCROP",
+          "company_name": "Bayer Cropscience Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:BIKAJI",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "BIKAJI",
+          "company_name": "Bikaji Foods International Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:BLUEDART",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "BLUEDART",
+          "company_name": "Blue Dart Express Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:BLUEJET",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "BLUEJET",
+          "company_name": "Blue Jet Healthcare Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:BBTC",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "BBTC",
+          "company_name": "Bombay Burmah Trading Corporation Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:MAPMYINDIA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "MAPMYINDIA",
+          "company_name": "C.E. Info Systems Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:CHALET",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "CHALET",
+          "company_name": "Chalet Hotels Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:DCMSHRIRAM",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "DCMSHRIRAM",
+          "company_name": "DCM Shriram Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:ERIS",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "ERIS",
+          "company_name": "Eris Lifesciences Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:GODIGIT",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "GODIGIT",
+          "company_name": "Go Digit General Insurance Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:INDGN",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "INDGN",
+          "company_name": "Indegene Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:JSWDULUX",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "JSWDULUX",
+          "company_name": "JSW Dulux Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:JUBLPHARMA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "JUBLPHARMA",
+          "company_name": "Jubilant Pharmova Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:LATENTVIEW",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "LATENTVIEW",
+          "company_name": "Latent View Analytics Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:THELEELA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "THELEELA",
+          "company_name": "Leela Palaces Hotels & Resorts Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:NEWGEN",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "NEWGEN",
+          "company_name": "Newgen Software Technologies Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:NIVABUPA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "NIVABUPA",
+          "company_name": "Niva Bupa Health Insurance Company Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:PFIZER",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "PFIZER",
+          "company_name": "Pfizer Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:SAPPHIRE",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SAPPHIRE",
+          "company_name": "Sapphire Foods India Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:SAREGAMA",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SAREGAMA",
+          "company_name": "Saregama India Ltd",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:SBFC",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SBFC",
+          "company_name": "SBFC Finance Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:SONATSOFTW",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SONATSOFTW",
+          "company_name": "Sonata Software Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:SPLPETRO",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "SPLPETRO",
+          "company_name": "Supreme Petrochem Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:exclude:TRAVELFOOD",
+          "index": "Nifty 500",
+          "action": "exclude",
+          "symbol": "TRAVELFOOD",
+          "company_name": "Travel Food Services Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:AETHER",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "AETHER",
+          "company_name": "Aether Industries Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:AVANTIFEED",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "AVANTIFEED",
+          "company_name": "Avanti Feeds Ltd.",
+          "source_page": 2,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:AZAD",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "AZAD",
+          "company_name": "Azad Engineering Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:BAGMANE",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "BAGMANE",
+          "company_name": "Bagmane Prime Office REIT",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:BHARATCOAL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "BHARATCOAL",
+          "company_name": "Bharat Coking Coal Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:BBOX",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "BBOX",
+          "company_name": "Black Box Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:BIRET",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "BIRET",
+          "company_name": "Brookfield India Real Estate Trust",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:CMPDI",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "CMPDI",
+          "company_name": "Central Mine Planning & Design Institute Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:CLEANMAX",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "CLEANMAX",
+          "company_name": "Clean Max Enviro Energy Solutions Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:CUPID",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "CUPID",
+          "company_name": "Cupid Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:EMBASSY",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "EMBASSY",
+          "company_name": "Embassy Office Parks REIT",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:FRACTAL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "FRACTAL",
+          "company_name": "Fractal Analytics Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:INOXINDIA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "INOXINDIA",
+          "company_name": "INOX India Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:KIRLOSBROS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "KIRLOSBROS",
+          "company_name": "Kirloskar Brothers Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:KSB",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "KSB",
+          "company_name": "KSB Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:MTARTECH",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "MTARTECH",
+          "company_name": "MTAR Technologies Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:PRIVISCL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "PRIVISCL",
+          "company_name": "Privi Speciality Chemicals Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:RUBICON",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "RUBICON",
+          "company_name": "Rubicon Research Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:SANSERA",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "SANSERA",
+          "company_name": "Sansera Engineering Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:SHRIPISTON",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "SHRIPISTON",
+          "company_name": "SPR Auto Technologies Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:STLTECH",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "STLTECH",
+          "company_name": "Sterlite Technologies Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:TDPOWERSYS",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "TDPOWERSYS",
+          "company_name": "TD Power Systems Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:THANGAMAYL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "THANGAMAYL",
+          "company_name": "Thangamayil Jewellery Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:VAML",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "VAML",
+          "company_name": "Vedanta Aluminium Metal Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:VISL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "VISL",
+          "company_name": "Vedanta Iron and Steel Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:VOGL",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "VOGL",
+          "company_name": "Vedanta Oil and Gas Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        },
+        {
+          "id": "ind_prs10082026:include:VEDPOWER",
+          "index": "Nifty 500",
+          "action": "include",
+          "symbol": "VEDPOWER",
+          "company_name": "Vedanta Power Ltd.",
+          "source_page": 3,
+          "stable_instrument_id": null
+        }
+      ]
+    },
+    {
+      "notice_id": "ind_prs03092026",
+      "url": "https://www.niftyindices.com/Press_Release/ind_prs03092026.pdf",
+      "pdf_path": "../data/research/nifty500-membership-notices/20260907/ind_prs03092026.pdf",
+      "pdf_sha256": "5086c32763739c50f450a6bbbf0c7fa648ea8ac918b4bb3748e96471c77a211a",
+      "page_count": 2,
+      "published_date": "2026-09-03",
+      "effective_date": "2026-09-07",
+      "prior_close_date": "2026-09-04",
+      "kind": "ad_hoc",
+      "visually_verified": true,
+      "notes": [
+        "Only Nifty 500 actions are transcribed; other indices and variants are outside scope.",
+        "Publication time is not specified; no intraday availability or stable ISIN is inferred.",
+        "For index-list notices, source_row_number identifies the Nifty 500 row; for replacement tables it identifies the company row within its action table.",
+        "The source explicitly includes the demerged entity at zero price without divisor adjustment. Index-accounting inclusion is not evidence of a tradable security.",
+        "The September 07, 2026 effective date is future to the source evaluation end September 03, 2026; publication before effectiveness must not create earlier membership.",
+        "The source refers to NSE/CML/76106 dated September 01, 2026 for the September 07 special pre-open session; no separate exchange event is generated."
+      ],
+      "events": [
+        {
+          "id": "ind_prs03092026:dummy_include:DUMMYHEG",
+          "index": "Nifty 500",
+          "action": "dummy_include",
+          "symbol": "DUMMYHEG",
+          "company_name": "HEG Graphite Ltd.",
+          "source_page": 1,
+          "stable_instrument_id": null
+        }
+      ]
+    }
+  ]
+}
