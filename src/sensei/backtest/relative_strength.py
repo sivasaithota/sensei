@@ -340,6 +340,7 @@ class _Portfolio:
                     del self.positions[symbol]
             self.fees += fee
             self.fills.append({'session': str(session.date()), 'symbol': symbol, 'side': order.side,
+                'execution_symbol': str(bar['symbol']),
                 'quantity': q, 'price': price, 'notional': q*price, 'fees': fee,
                 'net_realized_pnl': net_pnl, 'reason': order.reason,
                 'formation': str(order.formation.date()), 'equity_before': equity,

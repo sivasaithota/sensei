@@ -70,6 +70,7 @@ def rank_formation(frames, calendar, session, eligible, *, reset_dates=None,
                         (history.low-prior).abs()], axis=1).max(axis=1)
         r6, r12 = close.iloc[-1] / close.loc[middle] - 1, close.iloc[-1] / close.iloc[0] - 1
         rows.append({'symbol': symbol, 'isin': str(history['isin'].iloc[-1]),
+                     'observed_symbol': str(history['symbol'].iloc[-1]),
                      'turnover60': turnover, 'atr20': float(tr.iloc[-20:].mean()),
                      'close': float(close.iloc[-1]), 'return6': float(r6),
                      'return12': float(r12), 'sigma': sigma,

@@ -21,10 +21,11 @@ from sensei.research import security_master_batch as batch
 from sensei.research.raw_portfolio import load_actions, tick_reference, tick_from_reference
 from sensei.research.split_reproduction import ROOT, pinned, sha
 from sensei.research.stock_closure import build_raw_frames, load_snapshots, map_actions
+from sensei.research.relative_strength_evidence import recover_metadata, join_documented_renames, repair_share_actions
 from sensei.strategy.relative_strength import month_ends, rank_formation
 
 
-def prepare_inputs(source_plan, *, first_formation, end):
+def prepare_inputs(source_plan, *, first_formation, end, repairs=None):
     """Validate frozen source bytes, then construct separate decision/fill inputs."""
     content = pinned(source_plan)
     plan = json.loads(content)
@@ -37,12 +38,16 @@ def prepare_inputs(source_plan, *, first_formation, end):
     sample = json.loads(pinned(plan['sample_plan']))
     calendar = pd.DatetimeIndex(sorted(parent))
     frames, receipt = build_raw_frames(parent, ROOT / 'data/research/stock-closure/20260907')
+    repairs = repairs or {}
+    frames = join_documented_renames(frames, calendar, repairs.get('renames', []))
     snapshots, evidence = load_snapshots(scope['sessions'], sorted(parent), sample,
                                        ROOT / 'data/research/nse-master-batch/v1')
+    snapshots, evidence = recover_metadata(snapshots, evidence, repairs.get('metadata', []), sorted(parent), sample)
     pinned(plan['action_manifest'])
     records, action_evidence = load_actions(ROOT / plan['action_manifest']['path'])
     print(f'Mapping {len(records)} corporate-action records', flush=True)
     actions, resets, details = map_actions(frames, records, calendar, sha(content), plan.get('split_identity_bridges', ()))
+    actions = repair_share_actions(frames, calendar, actions, repairs.get('share_actions', []))
     references = {d: tick_reference(d, calendar) for d in calendar}
     previous = {d: calendar[i-1] for i, d in enumerate(calendar) if i}
     ticks, turnover, tradable = {}, {}, {d: set() for d in calendar}
@@ -53,8 +58,8 @@ def prepare_inputs(source_plan, *, first_formation, end):
         # Reindex BEFORE rolling: a missing exchange session cannot be silently
         # replaced by an older observation in the sixty-session capacity window.
         turnover[symbol] = frame.turnover.reindex(calendar).rolling(60, min_periods=60).median().shift(1)
-        for d, isin, token, series in frame[['isin', 'token', 'series']].itertuples():
-            metadata = snapshots.get(previous.get(d), {}).get(symbol)
+        for d, observed_symbol, isin, token, series in frame[['symbol', 'isin', 'token', 'series']].itertuples():
+            metadata = snapshots.get(previous.get(d), {}).get(observed_symbol)
             if metadata is not None and (isin, token, series) == (
                     metadata['ISIN'], metadata['FinInstrmId'], metadata['SctySrs']):
                 tradable[d].add(symbol)
@@ -64,9 +69,16 @@ def prepare_inputs(source_plan, *, first_formation, end):
              if first_formation <= d < end and period < calendar[-1].to_period('M')]
     for d in dates:
         snapshot = snapshots.get(d)
-        eligible = None if snapshot is None else {
-            s for s, row in snapshot.items() if s in frames and d in frames[s].index
-            and (frames[s].loc[d, 'isin'], frames[s].loc[d, 'symbol']) == (row['ISIN'], row['TckrSymb'])}
+        eligible = None
+        if snapshot is not None:
+            eligible = set()
+            for symbol, frame in frames.items():
+                if d not in frame.index:
+                    continue
+                row = frame.loc[d]
+                metadata = snapshot.get(row['symbol'])
+                if metadata is not None and row['isin'] == metadata['ISIN']:
+                    eligible.add(symbol)
         try:
             ranking = rank_formation(frames, calendar, d, eligible, reset_dates=resets)
         except ValueError as exc:
@@ -75,8 +87,9 @@ def prepare_inputs(source_plan, *, first_formation, end):
         else:
             formations[d] = ranking
             print(f'Formation {d.date()}: {len(ranking)} stocks', flush=True)
-    identity = {'raw_panel': receipt, 'source_plan': source_plan, 'metadata': evidence,
+    identity = {'raw_panel': receipt, 'source_plan': source_plan, 'metadata': evidence, 'repairs': repairs,
         'actions': action_evidence, 'action_details': details,
+        'effective_actions': json.loads(json.dumps([asdict(a) for a in actions], default=str)),
         'formations': {str(d.date()): (f if isinstance(f, str) else {
             'sha256': sha(batch.payload(f.reset_index().to_dict('records'))), 'coverage': f.attrs})
             for d, f in formations.items()},
@@ -129,7 +142,7 @@ def run(plan_path, output):
     policy = MomentumPolicy(**plan['policy'])
     end = pd.Timestamp(plan['end'])
     inputs, benchmark, evidence = prepare_inputs(plan['source_plan'],
-        first_formation=pd.Timestamp(plan['extended_formation']), end=end)
+        first_formation=pd.Timestamp(plan['extended_formation']), end=end, repairs=plan.get('repairs'))
     identity = {'plan': plan, 'plan_sha256': sha(content), 'inputs': evidence,
         'runtime': {'python': sys.version, **{n: version(n) for n in ('numpy', 'pandas', 'pyarrow')}}}
     run_id = sha(batch.payload(identity))
