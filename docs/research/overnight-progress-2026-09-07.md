@@ -414,3 +414,30 @@ pass; independent reviews clear. No strategy/portfolio return changed. This does
 not certify upload times, revisions, complete actions or historical membership.
 Full suite: **1,070 passed**, 26.91 seconds.
 [Final artifact, source hashes and next bounded scope](real-split-reproduction-results-2026-09-07.md).
+
+## Owner continuation — real bonus and full-warmup indicators
+
+The owner's “okay continue” authorized the next bounded milestone. Captured BSE's
+May12 pre-ex company notice, May14 exchange circular and May26 allotment confirmation.
+The first two establish the modeled May15 knowledge date and 3/1 total-share factor
+for the May23 bonus; the later confirmation remains corroboration only.
+
+Preregistered a price-only dividend convention and 262 raw sessions for BSE/HEG,
+with 252 observations at the first of 11 decision dates. All five observed actions
+are explicitly classified, including three dividend rows. The real replay passes
+28,270 rational-oracle OHLCV cells, 5,654 Boolean cells, all ranking components,
+correlation and append/input-immutability checks. BSE's May30 signal is true with
+coherent units and false in unnormalized raw contrast. This is not a comparison
+against the frozen adjusted portfolio or a profitability claim.
+
+Strengthened the late-knowledge negative control after review found a silent-fallback
+false-pass path; added fallback and mutation regressions. Thirteen focused tests
+pass; final reviews clear. All captures, decisions and earlier artifact versions
+are retained. [Final results and exact hashes](bonus-indicator-replay-results-2026-09-07.md).
+
+Full suite: **1,083 passed**, 29.02 seconds.
+
+No portfolio return changed and no Kite credits, purchases, live orders or external
+messages were used. Overnight automation remains paused. Next integration needs
+dated universe/action coverage plus physical entitlement/credit-time handling;
+do not repeat the completed real split/bonus diagnostic or tune the rejected family.
