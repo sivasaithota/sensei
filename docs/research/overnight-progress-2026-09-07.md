@@ -369,3 +369,28 @@ corporate-action transformation contract and acceptance tests. Do not recapture
 these notices, repeat completed audits or tune the rejected family. Historical
 membership still requires a complete dated anchor, reconciled changes/checkpoints
 and stable instrument/dummy lineage. Keep unsupported evidence inadmissible.
+
+## Pass 13 — dated split/bonus signal-history contract
+
+Resumed from `109d04a` at 09:49 IST. Wrote the scoped contract before implementing
+a pure research transform. It reconstructs one instrument's indicator history in
+decision-session units from raw OHLCV and declared split/bonus events. Only events
+effective and known by that decision may normalize earlier rows. Ex-session raw
+rows, supplied currency turnover and input arrays remain unchanged. Events already
+effective but not yet known block, as do unsupported effective kinds. This neither
+certifies the caller's evidence nor changes the production catalog or portfolios.
+
+Twenty synthetic acceptance tests pass, including compound factors and preservation
+of genuine price moves. Spec review found malformed future ratios were being
+skipped; validation now precedes the skip, with three regressions. Final Standards
+and Spec reviews are clear. Full suite: **1,057 passed**, 27.26 seconds.
+[Contract and exact scope](../specs/dated-action-signal-history.md),
+[acceptance results](dated-action-history-results-2026-09-07.md).
+
+No new return experiment, Kite requests/credits, live orders or external messages.
+The portfolio comparison and DATA_BLOCKED status remain unchanged. Next bounded
+step: preregister source-pinned real split/bonus reproductions with conservative
+first-known-session mapping and complete raw identity/action coverage, then daily
+ranking/correlation replay. Physical entitlements and complete dated membership
+remain separate unmet requirements. Do not rerun completed diagnostics or tune
+the rejected strategy family. [Consolidated overnight report](overnight-summary-2026-09-07.md).
