@@ -22,6 +22,7 @@ from sensei.strategy.selection import (
     average_turnover,
 )
 from sensei.backtest.costs import delivery_charge, delivery_quantity
+from sensei.backtest.raw_accounting import RawAccounting, tick_round
 
 SELECTION_POLICY = SignalRankingPolicy()
 
@@ -63,6 +64,7 @@ class EquityPoint:
     cash: float
     invested: float
     open_positions: int
+    dividend_receivables: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -83,8 +85,10 @@ class PortfolioCampaignReport:
     quantity_unit_mode: str = "synthetic_integer_units"
     quantity_evidence_sha256: str | None = None
 
+    raw_accounting: dict | None = None
+
     def to_dict(self):
-        return {
+        result = {
             "execution_policy": DAILY_EXECUTION_POLICY,
             "price_rounding_policy": ("continuous-model-prices-v1" if self.config.execution_tick_paise is None
                 else "constant-tick-buy-fill-up-stop-down-target-up-v1"),
@@ -115,6 +119,17 @@ class PortfolioCampaignReport:
             "can_trade": False,
         }
 
+        if self.raw_accounting is not None:
+            result["raw_accounting"] = self.raw_accounting
+            result["price_rounding_policy"] = "dated-tick-buy-up-sell-down-brackets-replaced-v1"
+            result["quantity_units"] = {"mode": "physical_whole_shares",
+                "evidence_sha256": self.quantity_evidence_sha256,
+                "limitation": "Scoped raw identity and action evidence; research, not execution certification"}
+        else:
+            for point in result["equity_curve"]:
+                point.pop("dividend_receivables")
+        return result
+
 
 @dataclass
 class _Position:
@@ -130,6 +145,7 @@ class _Position:
     held: int = 1
     cost_model: str = "flat_round_trip"
     dp_charge_inr: float = 15.34
+    dividend_income: float = 0.0
 
 
 def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
@@ -143,6 +159,7 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                            entry_eligibility: Mapping[str, pd.Series] | None = None,
                            entry_quantity_steps: Mapping[str, pd.Series] | None = None,
                            quantity_evidence_sha256: str | None = None,
+                           raw_accounting: RawAccounting | None = None,
                            ) -> PortfolioCampaignReport:
     values = (config.capital, config.max_position_pct,
               config.max_risk_per_trade_pct, config.cost_pct)
@@ -210,6 +227,16 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
     if evaluation_end is not None:
         end = pd.Timestamp(evaluation_end)
         sessions = [session for session in sessions if session <= end]
+    execution = normalized if raw_accounting is None else raw_accounting.frames
+    dividend_receivables = 0.0
+    dividend_ledger = []
+    actions_by_date = {}
+    if raw_accounting is not None:
+        if quantity_steps is not None or config.execution_tick_paise is not None:
+            raise ValueError("raw accounting owns physical quantities and dated ticks")
+        raw_accounting.validate(normalized, sessions)
+        for action in raw_accounting.actions:
+            actions_by_date.setdefault(action.ex_date, []).append(action)
     cash = config.capital
     positions: list[_Position] = []
     trades: list[PortfolioTrade] = []
@@ -218,18 +245,38 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
     for session_index, session in enumerate(sessions):
         blocked_symbols: set[str] = set()
         blocked_strategies: set[str] = set()
+        # Entitlements belong to holders from before the ex date, including
+        # holders who sell at today's open. Today's buyers receive nothing.
+        if raw_accounting is not None:
+            for position in positions:
+                for action in actions_by_date.get(session, ()):
+                    if action.symbol != position.symbol:
+                        continue
+                    if action.kind == "unsupported":
+                        raise ValueError(f"unsupported held corporate action: {position.symbol}:{session.date()}:{action.subject}")
+                    if action.kind == "dividend":
+                        amount = position.quantity * action.amount
+                        position.dividend_income += amount
+                        dividend_receivables += amount
+                        dividend_ledger.append({"symbol": position.symbol, "strategy": position.strategy,
+                            "entry_date": str(position.entry_date.date()), "ex_date": str(session.date()),
+                            "quantity": position.quantity, "per_share": action.amount,
+                            "amount": amount, "source_id": action.source_id})
+                tick = raw_accounting.tick(position.symbol, session)
+                position.stop = tick_round(position.stop, tick)
+                position.target = tick_round(position.target, tick, buy=True)
         # Resolve known opening exits before spending available cash.
         survivors = []
         for position in positions:
-            frame = normalized[position.symbol]
+            frame = execution[position.symbol]
             if session not in frame.index:
                 raise ValueError(
                     f"missing held-position bar: {position.symbol}:{session.date()}"
                 )
-            bar = frame.loc[session]
+            bar = frame.loc[session] if raw_accounting is None else raw_accounting.bar(position.symbol, session)
             outcome = opening_exit(float(bar.open), position.stop, position.target)
             if outcome is not None:
-                cash, turnover = _close(position, session, outcome.price,
+                cash, turnover = _close(position, session, outcome.price if raw_accounting is None else tick_round(outcome.price, raw_accounting.tick(position.symbol, session)),
                     outcome.reason, cash, turnover, trades)
                 blocked_symbols.add(position.symbol); blocked_strategies.add(position.strategy)
             else:
@@ -273,9 +320,11 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                     lookback=SELECTION_POLICY.correlation_lookback_sessions,
                 ) >= SELECTION_POLICY.maximum_pairwise_correlation for p in positions):
                     continue
+                execution_bar = execution[symbol].loc[session] if raw_accounting is None else raw_accounting.bar(symbol, session)
+                tick = config.execution_tick_paise if raw_accounting is None else raw_accounting.tick(symbol, session)
                 entry, stop, target = _entry_bracket(
-                    float(normalized[symbol].loc[session, "open"]), config.entry_slippage_bps,
-                    float(spec["stop_pct"]), float(spec["target_pct"]), config.execution_tick_paise)
+                    float(execution_bar["open"]), config.entry_slippage_bps,
+                    float(spec["stop_pct"]), float(spec["target_pct"]), tick)
                 fee_rate = config.cost_pct / 100
                 by_risk = config.capital * config.max_risk_per_trade_pct / 100 / (
                     entry - stop + entry * fee_rate
@@ -309,10 +358,11 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
         # Intraday/close phase, including positions opened today; stop first.
         survivors = []
         for position in positions:
-            frame = normalized[position.symbol]
+            frame = execution[position.symbol]
             if session not in frame.index:
                 survivors.append(position); continue
-            bar = frame.loc[session]; reason = None; price = None
+            bar = frame.loc[session] if raw_accounting is None else raw_accounting.bar(position.symbol, session)
+            reason = None; price = None
             outcome = intraday_exit(
                 float(bar.low), float(bar.high), position.stop, position.target,
             )
@@ -321,6 +371,8 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
             elif position.held >= position.max_hold_days:
                 reason, price = "time", float(bar.close)
             if reason:
+                if raw_accounting is not None:
+                    price = tick_round(price, raw_accounting.tick(position.symbol, session))
                 cash, turnover = _close(position, session, price, reason,
                     cash, turnover, trades)
             else:
@@ -329,14 +381,15 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
         if config.liquidate_at_end and session == sessions[-1]:
             for position in positions:
                 cash, turnover = _close(position, session,
-                    float(normalized[position.symbol].loc[session, "close"]),
+                    (float(execution[position.symbol].loc[session, "close"]) if raw_accounting is None
+                     else tick_round(raw_accounting.bar(position.symbol, session)["close"], raw_accounting.tick(position.symbol, session))),
                     "final_session", cash, turnover, trades)
             positions = []
         invested = sum(
-            p.quantity * _mark(normalized[p.symbol], session) for p in positions
+            p.quantity * _mark(execution[p.symbol], session) for p in positions
         )
-        curve.append(EquityPoint(str(session.date()), round(cash + invested, 2),
-            round(cash, 2), round(invested, 2), len(positions)))
+        curve.append(EquityPoint(str(session.date()), round(cash + invested + dividend_receivables, 2),
+            round(cash, 2), round(invested, 2), len(positions), round(dividend_receivables, 2)))
     equities = [point.equity for point in curve]
     peak = config.capital; max_dd = 0.0
     for equity in equities:
@@ -344,18 +397,31 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
     final = equities[-1] if equities else config.capital
     attribution = {name: round(
         sum(t.net_pnl for t in trades if t.strategy == name)
-        + sum((_mark(normalized[p.symbol], sessions[-1]) - p.entry_price) * p.quantity
-              - p.round_trip_cost for p in positions if p.strategy == name), 2)
+        + sum((_mark(execution[p.symbol], sessions[-1]) - p.entry_price) * p.quantity
+              - p.round_trip_cost + p.dividend_income for p in positions if p.strategy == name), 2)
         for name in strategies}
     utilization = sum(point.invested / point.equity for point in curve if point.equity) / max(1, len(curve)) * 100
     identity = _experiment_identity(normalized, signals, strategies, config, entry_eligibility, sessions,
         quantity_steps, quantity_evidence_sha256)
+    raw_summary = None
+    if raw_accounting is not None:
+        identity = "sha256:" + hashlib.sha256((identity + raw_accounting.identity()).encode()).hexdigest()
+        raw_summary = {"policy": "raw-whole-share-gross-dividends-no-reinvestment-v1",
+            "signal_basis": "frozen adjusted history used only for signals, ranking and correlation",
+            "execution_basis": "verified raw NSE OHLC; dated ticks; whole physical shares",
+            "dividend_policy": "ex-date gross entitlement, excluded from buying power throughout; no payment-date or tax simulation",
+            "bracket_policy": "nominal price brackets unchanged on cash dividends; rounded to each session tick; simulated replacements",
+            "unsupported_actions": "held mandatory actions fail the entire run, never silently skip securities",
+            "cash_settlement_policy": "same-day sale proceeds reusable as in the frozen research control; no settlement ledger",
+            "gross_pnl_definition": "price P&L plus gross dividend entitlements",
+            "dividend_receivables": round(dividend_receivables, 2), "dividend_ledger": dividend_ledger}
     return PortfolioCampaignReport(config, tuple(trades), tuple(curve), round(final, 2),
         round(final - config.capital, 2), round((final / config.capital - 1) * 100, 3),
         round(max_dd, 3), round(turnover, 2), round(utilization, 2), attribution, len(positions), identity,
         str(previous_session[sessions[0]].date()) if sessions and sessions[0] in previous_session else None,
-        "synthetic_integer_units" if quantity_steps is None else "explicit_entry_increments",
-        quantity_evidence_sha256)
+        ("physical_whole_shares" if raw_accounting is not None else
+         "synthetic_integer_units" if quantity_steps is None else "explicit_entry_increments"),
+        quantity_evidence_sha256 if raw_accounting is None else raw_accounting.evidence_sha256, raw_summary)
 
 
 def _validated_quantity_steps(frames, steps, evidence_sha256):
@@ -399,7 +465,7 @@ def _entry_bracket(open_price, slippage_bps, stop_pct, target_pct, tick_paise):
 
 
 def _close(position, session, price, reason, cash, turnover, trades):
-    gross = (price - position.entry_price) * position.quantity
+    gross = (price - position.entry_price) * position.quantity + position.dividend_income
     exit_cost = (delivery_charge(price * position.quantity, "SELL", dp_charge_inr=position.dp_charge_inr)
                  if position.cost_model == "current_delivery_schedule" else 0)
     total_cost = position.round_trip_cost + exit_cost

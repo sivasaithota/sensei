@@ -1,0 +1,20 @@
+{
+  "authority": "RESEARCH_ONLY",
+  "coverage": "One dated PGEL split identity transition only; no automatic share entitlements or price adjustments; not a complete action ledger",
+  "research_note": "../docs/research/pgel-split-identity-2026-09-07.md",
+  "research_note_sha256": "a95a910444afbd03c0143aae07a87326954743cb32e41c9737a155a78e5eef7c",
+  "events": [
+    {
+      "exchange_symbol": "PGEL",
+      "old_isin": "INE457L01011",
+      "new_isin": "INE457L01029",
+      "effective_date": "2024-07-10",
+      "record_date": "2024-07-10",
+      "new_shares_per_old_share": 10,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2024/July/Circular-15638.pdf",
+        "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-07-2024&to_date=31-12-2024"
+      ]
+    }
+  ]
+}

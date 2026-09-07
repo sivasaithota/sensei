@@ -1,0 +1,249 @@
+{
+  "authority": "RESEARCH_ONLY",
+  "coverage": "21 dated identity transitions in current499; excludes separately pinned PGEL; includes CGCL/BAJFINANCE combined-action identity only; no automatic share entitlements or price adjustments; not complete history",
+  "research_note": "../docs/research/remaining-split-identities-2026-09-07.md",
+  "research_note_sha256": "64189fcaa458593f1e264558241dc1c0aefe7eb1955014a9c88e2508b6e49737",
+  "events": [
+    {
+      "exchange_symbol": "NESTLEIND",
+      "old_isin": "INE239A01016",
+      "new_isin": "INE239A01024",
+      "effective_date": "2024-01-05",
+      "new_shares_per_old_share": 10,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2024/January/Circular-14689.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "COCHINSHIP",
+      "old_isin": "INE704P01017",
+      "new_isin": "INE704P01025",
+      "effective_date": "2024-01-10",
+      "new_shares_per_old_share": 2,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2024/January/Circular-14701.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "CGCL",
+      "old_isin": "INE180C01026",
+      "new_isin": "INE180C01042",
+      "effective_date": "2024-03-05",
+      "new_shares_per_old_share": 2,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2024/March/Circular-14980.pdf",
+        "https://nsearchives.nseindia.com/content/circulars/CML60920.pdf"
+      ],
+      "same_date_combined_action": true,
+      "ratio_scope": "Split component only; excludes same-date bonus; not a total entitlement multiplier"
+    },
+    {
+      "exchange_symbol": "CANBK",
+      "old_isin": "INE476A01014",
+      "new_isin": "INE476A01022",
+      "effective_date": "2024-05-15",
+      "new_shares_per_old_share": 5,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2024/May/Circular-15314.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "BDL",
+      "old_isin": "INE171Z01018",
+      "new_isin": "INE171Z01026",
+      "effective_date": "2024-05-24",
+      "new_shares_per_old_share": 2,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2024/May/Circular-15362.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "ELECON",
+      "old_isin": "INE205B01023",
+      "new_isin": "INE205B01031",
+      "effective_date": "2024-07-19",
+      "new_shares_per_old_share": 2,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2024/July/Circular-15678.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "SAPPHIRE",
+      "old_isin": "INE806T01012",
+      "new_isin": "INE806T01020",
+      "effective_date": "2024-09-05",
+      "new_shares_per_old_share": 5,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2024/September/Circular-15908.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "VBL",
+      "old_isin": "INE200M01021",
+      "new_isin": "INE200M01039",
+      "effective_date": "2024-09-12",
+      "new_shares_per_old_share": 2.5,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2024/September/Circular-15949.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "KIMS",
+      "old_isin": "INE967H01017",
+      "new_isin": "INE967H01025",
+      "effective_date": "2024-09-13",
+      "new_shares_per_old_share": 5,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2024/September/Circular-15964.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "GPIL",
+      "old_isin": "INE177H01021",
+      "new_isin": "INE177H01039",
+      "effective_date": "2024-10-04",
+      "new_shares_per_old_share": 5,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2024/October/Circular-16089.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "JINDALSAW",
+      "old_isin": "INE324A01024",
+      "new_isin": "INE324A01032",
+      "effective_date": "2024-10-09",
+      "new_shares_per_old_share": 2,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2024/October/Circular-16114.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "DRREDDY",
+      "old_isin": "INE089A01023",
+      "new_isin": "INE089A01031",
+      "effective_date": "2024-10-28",
+      "new_shares_per_old_share": 5,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2024/October/Circular-16211.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "SHRIRAMFIN",
+      "old_isin": "INE721A01013",
+      "new_isin": "INE721A01047",
+      "effective_date": "2025-01-10",
+      "new_shares_per_old_share": 5,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2025/January/Circular-16557.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "ACUTAAS",
+      "old_isin": "INE00FF01017",
+      "new_isin": "INE00FF01025",
+      "effective_date": "2025-04-25",
+      "new_shares_per_old_share": 2,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2025/April/Circular-17050.pdf",
+        "https://nsearchives.nseindia.com/content/circulars/CML68201.pdf"
+      ],
+      "symbol_at_effective_date": "AMIORG",
+      "symbol_change_effective_date": "2025-06-02"
+    },
+    {
+      "exchange_symbol": "NAUKRI",
+      "old_isin": "INE663F01024",
+      "new_isin": "INE663F01032",
+      "effective_date": "2025-05-07",
+      "new_shares_per_old_share": 5,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2025/May/Circular-17119.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "BAJFINANCE",
+      "old_isin": "INE296A01024",
+      "new_isin": "INE296A01032",
+      "effective_date": "2025-06-16",
+      "new_shares_per_old_share": 2,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2025/June/Circular-17333.pdf",
+        "https://nsearchives.nseindia.com/content/circulars/CML68472.pdf",
+        "https://nsearchives.nseindia.com/content/circulars/CML68469.pdf"
+      ],
+      "same_date_combined_action": true,
+      "ratio_scope": "Split component only; excludes same-date bonus; not a total entitlement multiplier"
+    },
+    {
+      "exchange_symbol": "ZYDUSWELL",
+      "old_isin": "INE768C01010",
+      "new_isin": "INE768C01028",
+      "effective_date": "2025-09-18",
+      "new_shares_per_old_share": 5,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2025/September/Circular-17786.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "BEML",
+      "old_isin": "INE258A01016",
+      "new_isin": "INE258A01024",
+      "effective_date": "2025-11-03",
+      "new_shares_per_old_share": 2,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2025/October/Circular-18064.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "NUVAMA",
+      "old_isin": "INE531F01015",
+      "new_isin": "INE531F01023",
+      "effective_date": "2025-12-26",
+      "new_shares_per_old_share": 5,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2025/December/Circular-18319.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "KOTAKBANK",
+      "old_isin": "INE237A01028",
+      "new_isin": "INE237A01036",
+      "effective_date": "2026-01-14",
+      "new_shares_per_old_share": 5,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2026/January/Circular-18443.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "ANGELONE",
+      "old_isin": "INE732I01013",
+      "new_isin": "INE732I01021",
+      "effective_date": "2026-02-26",
+      "new_shares_per_old_share": 10,
+      "identity_only": true,
+      "sources": [
+        "https://www.msei.in/SX-Content/Circulars/2026/February/Circular-18646.pdf"
+      ]
+    }
+  ]
+}

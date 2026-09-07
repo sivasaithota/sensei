@@ -273,3 +273,42 @@ saved holdings; reuse existing captures and fetch only needed missing NSE sessio
 Intervals crossing actions need explicit entitlements, not forced no-action replay.
 Keep dated tick evidence separate. Broaden actual-price cash accounting before
 claiming a corrected portfolio or returning to strategy selection.
+
+## Pass 10 — complete held-trade raw accounting comparison
+
+The owner explicitly prioritized the trading work and asked to extend coverage
+across remaining trades, rerun coherent portfolio accounting and compare against
+Nifty 500 TRI. LinkedIn and unrelated runtime files remain untouched.
+
+Captured the 14 missing raw sessions; verified all 665 evaluation sessions.
+Reconciled whole-market action captures against half-period captures: 2024's
+whole-year response omits one COASTCORP dividend, retained through the partition
+union. Added PGEL plus 21 other dated split identities, used only for lineage.
+All 499 stocks remain in the simulation. All 908 saved and 908 raw rerun trades
+have zero held raw/tick issues, covering 6,538 trade-sessions per comparison pair.
+
+Added separate adjusted-signal and raw-execution inputs, whole physical shares,
+dated ticks and ex-date gross dividend entitlements excluded from buying power.
+Unsupported mandatory held actions stop the full run. No split/bonus/demerger
+crossings occur in the completed controls; their event intersections require
+dividends, an ordinary AGM and nonparticipation in one verified voluntary tender.
+
+Baseline now finishes **₹286,796.32 (−4.401%, DD29.660%)**; hold60
+**₹323,748.95 (+7.916%, DD24.126%)**; benchmark **+22.9535%**.
+Gross dividends are ₹5,481 and ₹6,026.25, kept outside buying power. Both verdicts
+remain NO_CLEAR_NET_EDGE/DATA_BLOCKED. A raw/adjusted rounding difference changes
+GODFRYPHLP's September 2024 exit and a subsequent portfolio admission; do not
+change the valid raw bar to recover the better legacy result.
+
+Full suite: **1,013 passed**. Independent Standards and Spec reviews clear after
+fixing same-path frozen-input substitution and conflicting raw-row collapse.
+Both complete legacy controls preserve exact campaign economics and serialization
+apart from experiment identity. No Kite calls/extra credits/live orders.
+[Final artifact hashes, cash reconciliation and interpretation](raw-portfolio-results-2026-09-07.md).
+
+Next pass: preserve this completed comparison and stop tuning this filter family.
+Investigate causal signal prefix invariance and required historical-identity/
+membership inputs before claiming point-in-time strategy evidence. This is not
+another request to repeat the raw holding audit. Preregister any genuinely new
+strategy hypotheses and evaluation rules; retain all failures and development
+history exposure. Do not activate live trading from these results.

@@ -1,0 +1,17 @@
+{
+  "scope": "Frozen legacy controls for coverage and accounting comparison, no strategy tuning",
+  "sources": [
+    {
+      "name": "swing-momentum-demerger-risk-sensitivity-v1",
+      "report_path": "data/reports/stock-development/dc2f2c35abed08eb4c86f5a43754edd3ace773aa5d1436cf2072442db2349e9d/report.json",
+      "report_sha256": "d9196dcb8c8152d9478426a774b2f00706053c5123573ba9528fb0e604f58f91",
+      "manifest_sha256": "0a728b2e160d3febe9aac910f886c246e3f83b25c7f08c1edd0e7a0acca2c75a"
+    },
+    {
+      "name": "swing-lower-turnover-v1-hold60",
+      "report_path": "data/reports/stock-development/2bdc847ec4e4f14ae1d4e948d798d19d2ae2f4e2ea3f7c3dc228533f3ec9c480/report.json",
+      "report_sha256": "4bc9cae2528dd03446bf89b8969058fc48420fc3346427541f0c86775f10699f",
+      "manifest_sha256": "fa58f5f3087c1e10bb49d1d3c5a29f66ced37e4fbdbdf5ddb0abba0fe831505f"
+    }
+  ]
+}
