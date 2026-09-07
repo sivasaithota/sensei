@@ -170,3 +170,27 @@ Next pass: reconcile historical ISIN changes against official split/bonus notice
 starting with MAZDOCK and HEG. Preserve effective dates, ratios and identity
 uncertainty; use this evidence to scope actual-price/entitlement accounting.
 Continue to stop strategy parameter tuning until the accounting basis is sound.
+
+## Pass 6 — evidenced split-unit defect
+
+Resumed from `7d3f5aa` around 05:45 IST. Official company/exchange records establish
+MAZDOCK's 2-for-1 split (December 27, 2024) and HEG's 5-for-1 split (October 18,
+2024), including ISIN transitions. Added a bounded, hash-pinned event ledger and
+share-unit audit that retains every one of the 908 source trade records.
+
+Three shared trades have fractional physical-share equivalents: HEG 123 adjusted
+units = 24.6 shares; MAZDOCK 35 = 17.5 and 21 = 10.5. Each occurs in both controls,
+so six records are flagged. Two records are integral and 900 unevaluated. This
+is a demonstrated sizing representation defect, not a revised portfolio return.
+No source trades, prices, cash or results changed. No Kite requests or spending.
+
+Full suite: **938 passed**. Standards and Spec reviews clear; exact artifact counts independently checked.
+[Results, artifact identity and implementation boundary](share-unit-audit-results-2026-09-07.md).
+
+Next pass: implement evidence-aware entry quantity increments in portfolio sizing,
+rounding down within cash/risk/allocation limits including fees, with missing
+unit evidence blocking entry in the explicit mode. Bind the map into experiment
+identity. Reproduce the known fractional cases and test the correction without
+claiming a fully corrected portfolio from only two stocks' evidence. Preserve
+control behavior and make its synthetic-unit limitation explicit. Keep dividends,
+ticks and demerger entitlements separate; do not double-credit split quantities.

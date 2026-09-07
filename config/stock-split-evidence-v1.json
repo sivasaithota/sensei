@@ -1,0 +1,34 @@
+{
+  "authority": "RESEARCH_ONLY",
+  "coverage": "Two manually transcribed 2024 splits; not a complete action ledger",
+  "research_note": "../docs/research/mazdock-heg-share-lineage-2026-09-07.md",
+  "research_note_sha256": "60ac4f281c0a1b9846fbd9804984cdb1ee9b9bcbdee54085b6beb6fc257e8872",
+  "events": [
+    {
+      "exchange_symbol": "MAZDOCK",
+      "old_isin": "INE249Z01012",
+      "new_isin": "INE249Z01020",
+      "effective_date": "2024-12-27",
+      "record_date": "2024-12-27",
+      "new_shares_per_old_share": 2,
+      "sources": [
+        "https://www.mazagondock.in/images/pdf/Intimation%20of%20Record%20date%20for%20split%20of%20shares_02122024.pdf",
+        "https://nsearchives.nseindia.com/content/circulars/CMPT65800.pdf",
+        "https://www.msei.in/SX-Content/Circulars/2024/December/Circular-16513.pdf"
+      ]
+    },
+    {
+      "exchange_symbol": "HEG",
+      "old_isin": "INE545A01016",
+      "new_isin": "INE545A01024",
+      "effective_date": "2024-10-18",
+      "record_date": "2024-10-18",
+      "new_shares_per_old_share": 5,
+      "sources": [
+        "https://nsearchives.nseindia.com/content/circulars/CML64528.pdf",
+        "https://nsearchives.nseindia.com/content/circulars/CMPT64615.pdf",
+        "https://nsearchives.nseindia.com/annual_reports/AR_26827_HEG_2024_2025_A_10072025113543.pdf"
+      ]
+    }
+  ]
+}
