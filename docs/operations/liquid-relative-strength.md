@@ -8,7 +8,7 @@ Run from the repository root:
 
 ```bash
 .venv/bin/python -m sensei.research.relative_strength_run \
-  --plan config/liquid-relative-strength-v4.json
+  --plan config/liquid-relative-strength-v6.json
 ```
 
 The runner verifies closure-v4 source/code pins, the new specification and code
@@ -22,8 +22,11 @@ history as development. No downloads are performed.
 Plan v1 is retained as the unsimulated pre-review draft. Plan v2 pins the reviewed
 implementation; v3 corrects rank labels in control traces. V4 additionally enforces
 the ten-holding limit while partial exits remain and the physical daily-volume
-fill ceiling. Policy parameters and evidence are unchanged. Old plans/results
-remain historical artifacts; replay them from their matching source commits.
+fill ceiling. V5 adds documented CUPID/AMIORG share actions, AMIORG's rename and
+four recovered formation masters. V6 adds 44 further validated masters after a
+uniform retry of every remaining failed date. Signal and risk parameters are
+unchanged. Old plans/results remain historical artifacts; replay them from their
+matching source commits. See the [latest evidence and results](../research/liquid-relative-strength-evidence-repair-2026-09-08.md).
 
 The batch has four policies initialized independently with ₹300,000 at the June
 30, 2025 formation, an additional January 31 candidate inception, and five fixed
@@ -55,11 +58,13 @@ Focused checks:
 
 ```bash
 .venv/bin/python -m pytest tests/test_relative_strength.py \
-  tests/test_relative_strength_portfolio.py tests/test_relative_strength_run.py -q
+  tests/test_relative_strength_portfolio.py tests/test_relative_strength_run.py \
+  tests/test_relative_strength_evidence.py -q
 ```
 
 These cover calendar lookbacks/future invariance, liquidity and history exclusions,
 model-roster retention, frozen quantities, next-session stops, settlement delays,
 dividend receivables, split/bonus availability, partial exits, current-equity
 rebalancing, expiry, stress timing, control rank traces, physical holding/volume
-limits and aligned benchmark dates.
+limits, aligned benchmark dates, pinned metadata recovery, exact rejected-action
+replacement and documented same-ISIN symbol continuity.

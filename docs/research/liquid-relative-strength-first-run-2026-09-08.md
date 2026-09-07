@@ -1,5 +1,11 @@
 # Liquid relative strength: implementation and first registered batch
 
+**Historical v2 report.** The original outcomes below are preserved. Subsequent
+uniform metadata recovery and documented share-action repairs supersede these
+blockers and test counts; see the [v6 evidence and results](liquid-relative-strength-evidence-repair-2026-09-08.md).
+The strategy specification is a frozen design artifact; its original
+"not implemented" status describes proposal time, not the current implementation.
+
 Completed 2026-09-08. **The implementation is tested; the first batch is blocked
 by accounting and metadata evidence. There is no complete strategy return yet.**
 
