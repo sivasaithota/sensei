@@ -130,6 +130,12 @@ orders per stock, including sales; unfinished exits can carry forward. A 9.5%
 target is an allocation-time limit, not a guarantee against concentration drift
 between reviews or after other holdings fall. Report daily realized weights.
 
+Implementation clarification: partially exited and unavailable-share holdings
+continue to occupy one of the ten holding slots. A new name waits for a slot.
+The whole day's observed volume is an additional physical fill ceiling, applied
+only to reduce the simulated fill after order formation; it never increases an
+order using future volume. It does not prove availability at the opening price.
+
 ## Daily exit and corporate actions
 
 Use a **daily-close trailing exit**, not an assumed intraday guaranteed stop fill.

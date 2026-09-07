@@ -291,10 +291,14 @@ class _Portfolio:
             price = self.fill_price(symbol, session, float(bar.open), order.side)
             if price <= 0:
                 raise ValueError('nonpositive executable price')
-            q = min(order.remaining, self.capacity(symbol, session, price))
+            q = min(order.remaining, self.capacity(symbol, session, price), math.floor(bar.volume))
             equity = self.equity(session, 'open')
             p = self.positions.get(symbol)
             if order.side == 'BUY':
+                if p is None and len(self.positions) >= 10:
+                    self.events.append({'session': str(session.date()), 'symbol': symbol,
+                        'kind': 'no_fill', 'reason': 'ten_holding_limit_including_pending_exits'})
+                    continue
                 held = p.quantity if p else 0
                 if ((p is None and price <= self.policy.atr_multiple * order.atr)
                         or self.inputs.turnover60[symbol].get(session, 0) < 50_000_000):

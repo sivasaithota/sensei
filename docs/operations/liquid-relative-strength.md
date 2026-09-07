@@ -8,7 +8,7 @@ Run from the repository root:
 
 ```bash
 .venv/bin/python -m sensei.research.relative_strength_run \
-  --plan config/liquid-relative-strength-v2.json
+  --plan config/liquid-relative-strength-v4.json
 ```
 
 The runner verifies closure-v4 source/code pins, the new specification and code
@@ -20,8 +20,10 @@ individual registration before each account path. Results live under
 history as development. No downloads are performed.
 
 Plan v1 is retained as the unsimulated pre-review draft. Plan v2 pins the reviewed
-implementation with unchanged policy parameters. Review fixed purchase priority,
-calendar-year history admission, a retained-position guard and report serialization.
+implementation; v3 corrects rank labels in control traces. V4 additionally enforces
+the ten-holding limit while partial exits remain and the physical daily-volume
+fill ceiling. Policy parameters and evidence are unchanged. Old plans/results
+remain historical artifacts; replay them from their matching source commits.
 
 The batch has four policies initialized independently with ₹300,000 at the June
 30, 2025 formation, an additional January 31 candidate inception, and five fixed
@@ -59,4 +61,5 @@ Focused checks:
 These cover calendar lookbacks/future invariance, liquidity and history exclusions,
 model-roster retention, frozen quantities, next-session stops, settlement delays,
 dividend receivables, split/bonus availability, partial exits, current-equity
-rebalancing, expiry, stress timing and aligned benchmark dates.
+rebalancing, expiry, stress timing, control rank traces, physical holding/volume
+limits and aligned benchmark dates.

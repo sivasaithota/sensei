@@ -198,3 +198,30 @@ def test_decision_trace_reports_control_priority_separately_from_momentum_rank()
     ranking = result['formations'][0]['ranking']
     assert [r['rank'] for r in ranking] == [1, 2]
     assert [r['momentum_rank'] for r in ranking] == [2, 1]
+
+
+def test_pending_partial_exit_keeps_its_slot_and_cannot_create_eleventh_holding():
+    inputs = market()
+    dates = inputs.calendar
+    names = [f'S{i:02}' for i in range(11)]
+    frames = {s: inputs.raw.frames['A'].assign(symbol=s, isin=s) for s in names}
+    raw = replace(inputs.raw, frames=frames, ticks={s: inputs.raw.ticks['A'].copy() for s in names})
+    ranking = pd.DataFrame({'atr20': 2., 'close': 100., 'turnover60': 100000000.,
+        'rank': range(1, 11)}, index=names[:10])
+    replacement = ranking.copy()
+    replacement.index = names[:9]+names[10:]
+    turnovers = {s: inputs.turnover60['A'].copy() for s in names}
+    turnovers[names[9]].loc[dates[5]:] = 1000000.  # liquidate only ten shares a day
+    inputs = MomentumInputs(raw, dates, {dates[0]: ranking, dates[4]: replacement},
+        {d: set(names) for d in dates}, turnovers)
+    result = run_momentum_portfolio(inputs, MomentumPolicy(), formation_start=dates[0], end=dates[-1])
+    assert max(len(p['weights']) for p in result['equity_curve']) == 10
+    assert not [f for f in result['fills'] if f['symbol'] == names[10] and f['side'] == 'BUY']
+
+
+def test_fill_cannot_exceed_all_shares_observed_trading_that_day():
+    inputs = market()
+    for frame in inputs.raw.frames.values():
+        frame.loc[inputs.calendar[1]:, 'volume'] = 1.
+    result = run_momentum_portfolio(inputs, MomentumPolicy(), formation_start=inputs.calendar[0], end=inputs.calendar[-1])
+    assert all(f['quantity'] == 1 for f in result['fills'])
