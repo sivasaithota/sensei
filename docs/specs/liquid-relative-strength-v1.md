@@ -157,11 +157,20 @@ the closure pipeline's documented action and share-availability assumptions.
 ## Execution and costs
 
 Base reference is the next eligible session's open with adverse **10 bps on each
-side**, dated tick rounding and dated delivery charges, including aggregate
+side**, dated tick rounding and explicit delivery charges, including aggregate
 sell-side DP treatment. Quantity calculations use information available at the
 execution quote; a historical open is a fill scenario, not proof of an obtainable
 auction order. No same-close fills. Freeze the inherited fee-schedule identifier
 and source hashes in the registration manifest before producing results.
+
+Implementation clarification before candidate results: the inherited charge model
+is the **current delivery schedule effective 2026-03-01**, applied consistently as
+a current-cost counterfactual, not reconstructed historical tax rates. This corrects
+the proposal's earlier imprecise phrase “dated delivery charges.” No sector or
+announcement alpha filter is added. Missing formation metadata blocks a complete
+result; missing execution metadata defers orders. Absent circuit records, zero-
+activity/one-price bars are conservative non-fill proxies, not certified fills on
+all other bars. Missing future liquidation prices are reported, never invented.
 
 Require available shares and spendable cash. In the absence of verified historical
 broker cash availability, assume sale proceeds become spendable before the open
