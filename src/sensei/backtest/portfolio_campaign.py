@@ -6,7 +6,9 @@ import math
 import hashlib
 import inspect
 import json
+import re
 from dataclasses import asdict, dataclass
+from numbers import Integral
 from typing import Mapping
 
 import pandas as pd
@@ -76,6 +78,8 @@ class PortfolioCampaignReport:
     open_positions: int
     experiment_id: str = ""
     preceding_session: str | None = None
+    quantity_unit_mode: str = "synthetic_integer_units"
+    quantity_evidence_sha256: str | None = None
 
     def to_dict(self):
         return {
@@ -83,6 +87,14 @@ class PortfolioCampaignReport:
             "selection_policy": asdict(SELECTION_POLICY),
             "experiment_id": self.experiment_id,
             "preceding_session": self.preceding_session,
+            "quantity_units": {
+                "mode": self.quantity_unit_mode,
+                "evidence_sha256": self.quantity_evidence_sha256,
+                "limitation": ("Caller-supplied entry increments; evidence is not certified by this simulator"
+                    if self.quantity_unit_mode == "explicit_entry_increments"
+                    else "Integer units of the supplied price series may represent fractional physical shares"),
+                "execution_limitations": "Raw prices, ticks, dividends and complete corporate-action accounting remain unverified",
+            },
             "parity_scope": "shared ranking/correlation and daily bracket semantics; not governed execution certification",
             "config": asdict(self.config),
             "trades": [asdict(value) for value in self.trades],
@@ -125,6 +137,8 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                                tuple[str, str], pd.Series
                            ] | None = None,
                            entry_eligibility: Mapping[str, pd.Series] | None = None,
+                           entry_quantity_steps: Mapping[str, pd.Series] | None = None,
+                           quantity_evidence_sha256: str | None = None,
                            ) -> PortfolioCampaignReport:
     values = (config.capital, config.max_position_pct,
               config.max_risk_per_trade_pct, config.cost_pct)
@@ -163,6 +177,7 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
         for series in entry_eligibility.values():
             if series.index.has_duplicates or not pd.api.types.is_bool_dtype(series.dtype):
                 raise ValueError("entry eligibility must have unique dates and boolean values")
+    quantity_steps = _validated_quantity_steps(normalized, entry_quantity_steps, quantity_evidence_sha256)
     sessions = sorted({date for frame in normalized.values() for date in frame.index})
     previous_session = {session: sessions[i - 1] for i, session in enumerate(sessions) if i}
     required_signal_keys = {
@@ -229,6 +244,8 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                         eligible = entry_eligibility[symbol].get(session, False)
                         if pd.isna(eligible) or not bool(eligible):
                             continue
+                    if quantity_steps is not None and pd.isna(quantity_steps[symbol].loc[session]):
+                        continue
                     if bool(signals[(name, symbol)].get(prior, False)):
                         observed = frame.loc[:prior]
                         evidence = spec.get("ranking_evidence", RankingEvidence())
@@ -256,13 +273,16 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
                     entry - stop + entry * fee_rate
                 )
                 by_size = config.capital * config.max_position_pct / 100 / entry
+                quantity_step = 1 if quantity_steps is None else int(quantity_steps[symbol].loc[session])
                 quantity = math.floor(min(by_risk, by_size, cash / (entry * (1 + fee_rate))))
+                quantity = quantity // quantity_step * quantity_step
                 if config.cost_model == "current_delivery_schedule":
                     quantity = delivery_quantity(
                         price=entry, stop=stop, cash=cash,
                         size_budget=config.capital * config.max_position_pct / 100,
                         risk_budget=config.capital * config.max_risk_per_trade_pct / 100,
                         dp_charge_inr=config.dp_charge_inr,
+                        quantity_step=quantity_step,
                     )
                 if quantity <= 0:
                     continue
@@ -320,11 +340,37 @@ def run_portfolio_campaign(*, frames: Mapping[str, pd.DataFrame],
               - p.round_trip_cost for p in positions if p.strategy == name), 2)
         for name in strategies}
     utilization = sum(point.invested / point.equity for point in curve if point.equity) / max(1, len(curve)) * 100
-    identity = _experiment_identity(normalized, signals, strategies, config, entry_eligibility, sessions)
+    identity = _experiment_identity(normalized, signals, strategies, config, entry_eligibility, sessions,
+        quantity_steps, quantity_evidence_sha256)
     return PortfolioCampaignReport(config, tuple(trades), tuple(curve), round(final, 2),
         round(final - config.capital, 2), round((final / config.capital - 1) * 100, 3),
         round(max_dd, 3), round(turnover, 2), round(utilization, 2), attribution, len(positions), identity,
-        str(previous_session[sessions[0]].date()) if sessions and sessions[0] in previous_session else None)
+        str(previous_session[sessions[0]].date()) if sessions and sessions[0] in previous_session else None,
+        "synthetic_integer_units" if quantity_steps is None else "explicit_entry_increments",
+        quantity_evidence_sha256)
+
+
+def _validated_quantity_steps(frames, steps, evidence_sha256):
+    if steps is None:
+        if evidence_sha256 is not None:
+            raise ValueError("quantity evidence requires an entry quantity map")
+        return None
+    if not isinstance(evidence_sha256, str) or re.fullmatch(r"[0-9a-f]{64}", evidence_sha256) is None:
+        raise ValueError("entry quantity map requires an evidence SHA-256")
+    if set(steps) != set(frames):
+        raise ValueError("entry quantity map must cover exactly the price universe")
+    normalized = {}
+    for symbol, series in steps.items():
+        if (not isinstance(series, pd.Series) or not isinstance(series.index, pd.DatetimeIndex)
+                or series.index.has_duplicates or series.index.hasnans or series.index.tz is not None
+                or not series.index.equals(series.index.normalize())
+                or not series.index.isin(frames[symbol].index).all()):
+            raise ValueError("entry quantity dates must be unique daily price sessions")
+        for value in series.dropna():
+            if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
+                raise ValueError("entry quantity steps must be positive integers or unknown")
+        normalized[symbol] = series.astype("Int64").reindex(frames[symbol].index)
+    return normalized
 
 
 def _close(position, session, price, reason, cash, turnover, trades):
@@ -349,7 +395,8 @@ def _mark(frame: pd.DataFrame, session: pd.Timestamp) -> float:
     return float(available.iloc[-1])
 
 
-def _experiment_identity(frames, signals, strategies, config, eligibility, sessions):
+def _experiment_identity(frames, signals, strategies, config, eligibility, sessions,
+                         quantity_steps, quantity_evidence_sha256):
     from sensei.backtest import daily_execution
     from sensei.strategy import selection
     from sensei.backtest import costs
@@ -366,11 +413,14 @@ def _experiment_identity(frames, signals, strategies, config, eligibility, sessi
         "implementation": hashlib.sha256((inspect.getsource(run_portfolio_campaign)
             + inspect.getsource(daily_execution) + inspect.getsource(selection) + inspect.getsource(costs)
             + inspect.getsource(_close) + inspect.getsource(_mark)).encode()).hexdigest(),
+        "quantity_implementation": hashlib.sha256(inspect.getsource(_validated_quantity_steps).encode()).hexdigest(),
         "frames": {key: digest(frame) for key, frame in sorted(frames.items())},
         "signals": {str(key): digest(value) for key, value in sorted(signals.items())},
         "strategies": {name: {key: (asdict(value) if isinstance(value, RankingEvidence) else value)
             for key, value in spec.items() if key != "fn"} for name, spec in sorted(strategies.items())},
         "eligibility": None if eligibility is None else {key: digest(value) for key, value in sorted(eligibility.items())},
+        "entry_quantity_steps": None if quantity_steps is None else {key: digest(value) for key, value in sorted(quantity_steps.items())},
+        "quantity_evidence_sha256": quantity_evidence_sha256,
         "sessions": [str(value) for value in sessions],
     }
     return "sha256:" + hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()

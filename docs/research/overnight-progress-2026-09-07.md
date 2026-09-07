@@ -194,3 +194,28 @@ identity. Reproduce the known fractional cases and test the correction without
 claiming a fully corrected portfolio from only two stocks' evidence. Preserve
 control behavior and make its synthetic-unit limitation explicit. Keep dividends,
 ticks and demerger entitlements separate; do not double-credit split quantities.
+
+## Pass 7 — explicit entry quantity increments implemented
+
+Resumed from `ab8c6e3` around 06:24 IST. Added an optional dated quantity-increment
+map and evidence hash to the portfolio simulator. Missing evidence blocks entry;
+both cost models round down to the increment. Delivery cash and stop-risk limits
+include fees. Existing holdings receive no second split credit. Identity and
+report metadata bind and distinguish the explicit mode from legacy synthetic units.
+
+The isolated, source-pinned reproduction corrects HEG 123→120 (24 shares),
+MAZDOCK 35→34 (17 shares) and MAZDOCK 21→20 (10 shares); MAZDOCK 30 stays 30 (15 shares).
+Each case occurs in both controls. This is a sizing correction, not a revised
+full-portfolio return. The full runner remains in legacy mode pending coverage.
+
+Both complete controls reran with every trade, equity point and economic value
+unchanged. Baseline remains ₹294,661.96; hold60 ₹329,853.50. Full suite:
+**957 passed**. Standards and Spec reviews clear. No Kite requests or spending.
+[Artifacts, parity IDs and scope](entry-quantity-units-results-2026-09-07.md).
+
+Next pass: classify the finite 27-symbol set with observed non-unit volume scaling
+using primary corporate-action notices and measure coverage. Integer splits are
+not the whole problem: OIL/TRENT are near 1.5, CUB near 4/3, and ABFRL/SIEMENS/TMPV/VEDL
+show noninteger vendor factors that must not be assumed to represent shares.
+Keep rational bonuses and demerger accounting distinct. Do not auto-build a unit
+map from volume ratios or label the complete universe corrected from two stocks.
