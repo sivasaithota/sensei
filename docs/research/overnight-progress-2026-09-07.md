@@ -312,3 +312,31 @@ membership inputs before claiming point-in-time strategy evidence. This is not
 another request to repeat the raw holding audit. Preregister any genuinely new
 strategy hypotheses and evaluation rules; retain all failures and development
 history exposure. Do not activate live trading from these results.
+
+## Pass 11 — signal prefix invariance and membership evidence gaps
+
+Resumed from `8e749a5` at about 08:23 IST under the authorized heartbeat.
+Preregistered a read-only diagnostic against the frozen raw comparison and its
+original control identities. Checked all 499 instruments at every available
+evaluation-date cutoff: **315,950 prefixes**, of which 315,451 contain genuinely
+later data in the full frame, and **175,403,081 Boolean cells**. No earlier signal
+changed. A deliberate future-mean control produced two mismatches. Uniform
+reciprocal OHLC/volume multipliers 3 and 5 changed no signals; all final-date
+ranking components matched within the declared 1e−12 tolerance.
+
+This establishes fixed-data append invariance only. It does not recover historic
+vendor adjustment vintages or cure current-universe survivorship bias. The bounded
+primary-source membership review located scheduled and ad hoc official notices,
+but not a complete starting set, change register or dated reconciliation anchors.
+No membership dates, prices or corporate-action transforms were invented.
+
+Full suite: **1,020 passed**; independent Standards and Spec reviews clear.
+No production strategy/portfolio behavior changed, no new return experiment, no
+Kite calls or spending. [Artifact hashes, exact test scope and interpretation](signal-causality-results-2026-09-07.md).
+
+Next pass: acquire/pin the finite official membership notices listed in
+[the coverage note](nifty500-membership-coverage-2026-09-07.md), preserving revisions,
+effective dates and temporary dummy constituents; continue seeking dated baseline
+and checkpoint sets. Keep an incomplete ledger inadmissible. Define the required
+dated corporate-action transformation contract before claiming causal adjusted
+indicators. Do not repeat this completed signal audit or tune the rejected family.

@@ -1,0 +1,13 @@
+{
+  "source_report_path": "../data/reports/raw-portfolio/0b195544a232eb526769ddbb47a74ff25d098070513cc39a59718a37ab351fb2/report.json",
+  "source_report_sha256": "0ee2965a7d665359a0068e50711eb2fd825286ebc26ab22a1a82130a1ac5fc3a",
+  "source_manifest_sha256": "49d77c27d99d168510ba78b58251dc56b6c43dcf298958557f8fd483768b12fa",
+  "scope": "Every available instrument evaluation-date prefix; full Boolean prefix comparison; no portfolio rerun or parameter selection",
+  "uniform_unit_multipliers": [
+    3,
+    5
+  ],
+  "score_absolute_tolerance": 1e-12,
+  "maximum_examples": 20,
+  "authority": "RESEARCH_ONLY"
+}
