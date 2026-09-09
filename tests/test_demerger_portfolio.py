@@ -57,6 +57,11 @@ def test_no_capacity_keeps_listed_entitlement_and_its_dividend_nonspendable():
     assert result['terminal_entitlements'][0]['quantity']==284
     assert result['terminal_entitlements'][0]['marked_value']==13632.
     assert result['equity_curve'][-1]['dividend_receivables']==568.
+    lifecycle=result['entitlement_lifecycles'][0]
+    assert lifecycle['disposal_status']=='PENDING'
+    assert lifecycle['sessions_outstanding']==6
+    assert lifecycle['listed_sessions_outstanding']==3
+    assert lifecycle['last_no_fill_reason']=='sixty_session_capacity_unavailable'
     assert result['equity_curve'][-1]['cash']==result['equity_curve'][1]['cash']
     assert result['attribution_residual_inr']==pytest.approx(0,abs=.001)
 
@@ -110,3 +115,18 @@ def test_unlisted_child_distribution_is_explicitly_unresolved():
     inputs=replace(inputs,raw=replace(inputs.raw,actions=(*inputs.raw.actions,action)))
     with pytest.raises(ValueError,match='unlisted resulting-security distribution'):
         run_momentum_portfolio(inputs,MomentumPolicy(),formation_start=dates[0],end=dates[8])
+
+
+def test_missing_child_execution_tick_defers_sale_and_completed_disposal_is_tracked():
+    inputs=demerger_market();dates=inputs.calendar
+    inputs.raw.ticks['C'].loc[dates[7]]=float('nan')
+    result=run_momentum_portfolio(inputs,MomentumPolicy(),formation_start=dates[0],end=dates[9])
+    sale=next(f for f in result['fills'] if f['symbol']=='C')
+    assert sale['session']==str(dates[8].date())
+    lifecycle=result['entitlement_lifecycles'][0]
+    assert lifecycle['disposal_status']=='COMPLETE'
+    assert lifecycle['disposed_on']==str(dates[8].date())
+    assert lifecycle['quantity_granted']==284 and lifecycle['quantity_remaining']==0
+    assert lifecycle['sessions_outstanding']==6
+    assert lifecycle['unlisted_sessions_outstanding']==3
+    assert result['attribution_residual_inr']==pytest.approx(0,abs=.001)

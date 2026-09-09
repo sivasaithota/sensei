@@ -79,6 +79,7 @@ class Entitlement:
 class EntitlementBook:
     def __init__(self):
         self.holdings: dict[str, Entitlement] = {}
+        self.closed: dict[str, tuple[Entitlement, pd.Timestamp]] = {}
 
     def distribute(self, rule, quantity, basis, previous_close, discovered_parent_price):
         """Return transferred basis and distribution value per old parent share."""

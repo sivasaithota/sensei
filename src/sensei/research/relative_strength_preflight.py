@@ -20,7 +20,7 @@ def experiment_formations(inputs, experiment):
 
 
 def audit_inputs(inputs, plan):
-    starts, formation_errors = {}, {}
+    starts, formation_errors, tick_errors = {}, {}, []
     end = pd.Timestamp(plan['end'])
     for experiment in plan['experiments']:
         start = pd.Timestamp(plan['extended_formation'] if experiment.get('extended') else plan['common_formation'])
@@ -34,6 +34,10 @@ def audit_inputs(inputs, plan):
             roster = buffered_roster(list(ranking.index),roster)
             for symbol in roster:
                 starts[symbol] = min(starts.get(symbol,date),date)
+                try:
+                    inputs.raw.tick(symbol,date)
+                except ValueError as exc:
+                    tick_errors.append(str(exc))
     errors, covered, children = [], set(), {}
     for rule in inputs.demergers:
         try:
@@ -76,10 +80,11 @@ def audit_inputs(inputs, plan):
                 inputs.raw.bar(symbol,date)
             except ValueError as exc:
                 invalid.append(str(exc))
-    blocked=bool(formation_errors or errors or unsupported or missing or invalid)
+    blocked=bool(formation_errors or tick_errors or errors or unsupported or missing or invalid)
     return {'status':'BLOCKED' if blocked else 'CLEAR',
         'scope':'union of scheduled rosters, earliest selection through end, plus resulting securities',
         'potential_holdings':sorted(starts),'formation_errors':formation_errors,
+        'formation_tick_errors':sorted(set(tick_errors)),
         'rule_errors':errors,'unsupported_actions':unsupported,
         'missing_raw_bars':missing,'invalid_raw_bars':invalid,'child_actions':child_actions,
         'declared_demergers':len(covered),

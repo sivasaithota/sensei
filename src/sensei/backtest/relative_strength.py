@@ -339,6 +339,12 @@ class _Portfolio:
                 self.events.append({'session': str(session.date()), 'symbol': symbol,
                     'kind': 'no_fill', 'reason': 'zero_activity_or_one_price_bar'})
                 continue
+            try:
+                self.inputs.raw.tick(symbol,session)
+            except ValueError:
+                self.events.append({'session':str(session.date()),'symbol':symbol,
+                    'kind':'no_fill','reason':'execution_tick_unavailable'})
+                continue
             price = self.fill_price(symbol, session, float(bar.open), order.side)
             if price <= 0:
                 raise ValueError('nonpositive executable price')
@@ -426,10 +432,22 @@ class _Portfolio:
                     'kind':'entitlement_no_fill','reason':'sixty_session_capacity_unavailable'})
                 continue
             if bar.volume<=0 or bar.high==bar.low:
+                self.events.append({'session':str(session.date()),'symbol':symbol,
+                    'kind':'entitlement_no_fill','reason':'zero_activity_or_one_price_bar'})
+                continue
+            try:
+                self.inputs.raw.tick(symbol,session)
+            except ValueError:
+                self.events.append({'session':str(session.date()),'symbol':symbol,
+                    'kind':'entitlement_no_fill','reason':'execution_tick_unavailable'})
                 continue
             price = self.fill_price(symbol,session,float(bar.open),'SELL')
+            if price<=0:
+                raise ValueError('nonpositive resulting-security executable price')
             quantity = min(p.quantity,self.capacity(symbol,session,price),math.floor(bar.volume))
             if quantity<=0:
+                self.events.append({'session':str(session.date()),'symbol':symbol,
+                    'kind':'entitlement_no_fill','reason':'capacity_below_one_share'})
                 continue
             equity = self.equity(session,'open')
             fee = delivery_charge(quantity*price,'SELL',dp_charge_inr=self.policy.dp_charge_inr)
@@ -447,6 +465,7 @@ class _Portfolio:
                 'equity_before':equity,'participation':quantity*price/float(capacity),
                 'slippage_inr':quantity*(float(bar.open)-price)})
             if not p.quantity:
+                self.entitlements.closed[symbol] = (p,session)
                 del self.entitlements.holdings[symbol]
 
     def close(self, session, i):
@@ -493,6 +512,22 @@ class _Portfolio:
             contribution[symbol] = contribution.get(symbol,0)+value-p.basis
             child_terminal.append({'symbol':symbol, 'parent':p.parent, 'quantity':p.quantity,
                 'marked_value':value, 'basis':p.basis, 'listed':session>=p.security.listed_from})
+        lifecycles = []
+        accounts = {s:(p,session) for s,p in self.entitlements.holdings.items()}
+        accounts.update(self.entitlements.closed)
+        for symbol,(p,until) in sorted(accounts.items()):
+            days = self.calendar[(self.calendar>=p.ex_date)&(self.calendar<=until)]
+            sales = [f for f in self.fills if f['symbol']==symbol and f['reason']=='demerger_disposal']
+            failures = [e for e in self.events if e['symbol']==symbol and e['kind']=='entitlement_no_fill']
+            lifecycles.append({'symbol':symbol,'parent':p.parent,'ex_date':str(p.ex_date.date()),
+                'listed_from':str(p.security.listed_from.date()),'available_from':str(p.security.available_from.date()),
+                'quantity_granted':p.quantity+sum(f['quantity'] for f in sales),
+                'quantity_remaining':p.quantity,'sessions_outstanding':len(days),
+                'unlisted_sessions_outstanding':int(sum(days<p.security.listed_from)),
+                'listed_sessions_outstanding':int(sum(days>=p.security.listed_from)),
+                'disposal_status':'PENDING' if p.quantity else 'COMPLETE',
+                'disposed_on':None if p.quantity else str(until.date()),
+                'last_no_fill_reason':failures[-1]['reason'] if p.quantity and failures else None})
         error = equity-self.policy.capital-(sum(contribution.values())-self.overhead)
         if not math.isclose(error, 0, abs_tol=0.001):
             raise ValueError('stock attribution does not reconcile to account equity')
@@ -504,7 +539,7 @@ class _Portfolio:
             'longest_underwater_sessions': self.longest_underwater,
             'fills': self.fills, 'equity_curve': self.curve, 'formations': self.decisions,
             'events': self.events, 'terminal_positions': terminal,
-            'terminal_entitlements': child_terminal,
+            'terminal_entitlements': child_terminal, 'entitlement_lifecycles': lifecycles,
             'maximum_unlisted_nav_pct': max(100*r['unlisted_entitlements']/r['equity'] for r in self.curve),
             'sessions_with_unlisted_entitlements': sum(r['unlisted_security_count']>0 for r in self.curve),
             'pending_orders': [o.to_dict() for o in self.orders.values()],

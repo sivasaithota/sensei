@@ -81,12 +81,32 @@ def test_exact_cash_repair_pins_notice_and_retains_total_dividend(tmp_path):
     rule={'symbol':'OLD','isin':'ISIN','ex_date':str(dates[2].date()),
         'known_from':str(dates[0].date()),'amount':57.,'subject':'11 interim plus 46 special',
         'replaces_source_id':'cash-event','sources':[source(tmp_path)]}
-    repaired=repair_cash_actions({'OLD':frame},(rejected,),[rule])
+    repaired,resets=repair_cash_actions({'OLD':frame},dates,(rejected,),{'OLD':{dates[2],dates[4]}},[rule])
+    assert resets['OLD']=={dates[4]}
     assert repaired[0].kind=='dividend' and repaired[0].amount==57.
     rule['replaces_source_id']='other-event'
     with pytest.raises(ValueError,match='exact-source cash'):
-        repair_cash_actions({'OLD':frame},(rejected,),[rule])
+        repair_cash_actions({'OLD':frame},dates,(rejected,),{'OLD':{dates[2]}},[rule])
     rule['replaces_source_id']='cash-event'
     rule['sources'][0]['sha256']='0'*64
     with pytest.raises(ValueError):
-        repair_cash_actions({'OLD':frame},(rejected,),[rule])
+        repair_cash_actions({'OLD':frame},dates,(rejected,),{'OLD':{dates[2]}},[rule])
+
+
+def test_cash_repair_restores_ranking_eligibility_and_preserves_other_resets(tmp_path):
+    from tests.test_relative_strength import histories
+    from sensei.research.relative_strength_evidence import repair_cash_actions
+    from sensei.strategy.relative_strength import rank_formation
+    dates,fs=histories();ex=pd.Timestamp('2025-01-16');formation=pd.Timestamp('2025-01-31')
+    fs['C']['series']='EQ';fs['C']['prev_close']=fs['C']['close'].shift(1)
+    bad=RawAction('C',ex,'unsupported',0.,'cash','Combined dividend')
+    reset={'C':{ex,pd.Timestamp('2024-01-02')}}
+    assert 'C' not in rank_formation(fs,dates,formation,set(fs),reset_dates=reset).index
+    rule={'symbol':'C','isin':'C','ex_date':str(ex.date()),'known_from':'2025-01-12',
+        'amount':57.,'subject':'Combined dividend','replaces_source_id':'cash','sources':[source(tmp_path)]}
+    _,fixed=repair_cash_actions(fs,dates,(bad,),reset,[rule])
+    assert fixed['C']=={pd.Timestamp('2024-01-02')}
+    assert list(rank_formation(fs,dates,formation,set(fs),reset_dates=fixed).index)==['C','B','A']
+    fs['C'].loc[dates[dates.get_loc(ex)-1],'isin']='OTHER'
+    with pytest.raises(ValueError,match='independent raw discontinuity'):
+        repair_cash_actions(fs,dates,(bad,),reset,[rule])

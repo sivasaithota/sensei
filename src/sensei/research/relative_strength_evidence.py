@@ -108,9 +108,11 @@ def repair_share_actions(frames, calendar, actions, rules):
     return tuple(result)
 
 
-def repair_cash_actions(frames, actions, rules):
+def repair_cash_actions(frames, calendar, actions, resets, rules):
     """Admit exact, independently documented cash events rejected by the grammar."""
     result = list(actions)
+    calendar = pd.DatetimeIndex(calendar)
+    resets = {s:set(v) for s,v in resets.items()}
     seen = set()
     for rule in rules:
         for source in rule['sources']:
@@ -125,10 +127,20 @@ def repair_cash_actions(frames, actions, rules):
                 or not math.isfinite(amount) or amount<=0
                 or frames[key[0]].loc[date,'isin']!=rule['isin']):
             raise ValueError('invalid exact-source cash action repair')
+        index = calendar.get_loc(date)
+        frame = frames[key[0]]
+        if not index or calendar[index-1] not in frame.index:
+            raise ValueError('cash repair lacks consecutive raw endpoints')
+        before, after = frame.loc[calendar[index-1]],frame.loc[date]
+        if (before['isin']!=after['isin'] or before['series']!=after['series']
+                or not any(math.isclose(float(after.prev_close),value,rel_tol=.005,abs_tol=.01)
+                    for value in (float(before.close),float(before.close)-amount))):
+            raise ValueError('cash repair cannot resolve independent raw discontinuity')
         seen.add(key)
+        resets.setdefault(key[0],set()).discard(date)
         result.remove(matches[0])
         result.append(RawAction(key[0],date,'dividend',amount,sha(batch.payload(rule)),rule['subject']))
-    return tuple(result)
+    return tuple(result), resets
 
 
 def documented_demergers(source, rules):
