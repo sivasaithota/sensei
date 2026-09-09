@@ -106,3 +106,64 @@ def repair_share_actions(frames, calendar, actions, rules):
             rule['subject'], n, d, known, available, availability_known,
             source_id, rule['availability_basis']))
     return tuple(result)
+
+
+def repair_cash_actions(frames, actions, rules):
+    """Admit exact, independently documented cash events rejected by the grammar."""
+    result = list(actions)
+    seen = set()
+    for rule in rules:
+        for source in rule['sources']:
+            pinned(source)
+        date = pd.Timestamp(rule['ex_date'])
+        key = rule['symbol'],date
+        matches = [a for a in result if (a.symbol,a.ex_date)==key]
+        amount = rule['amount']
+        if (not rule['sources'] or key in seen or len(matches)!=1
+                or matches[0].kind!='unsupported' or matches[0].source_id!=rule['replaces_source_id']
+                or pd.Timestamp(rule['known_from'])>=date
+                or not math.isfinite(amount) or amount<=0
+                or frames[key[0]].loc[date,'isin']!=rule['isin']):
+            raise ValueError('invalid exact-source cash action repair')
+        seen.add(key)
+        result.remove(matches[0])
+        result.append(RawAction(key[0],date,'dividend',amount,sha(batch.payload(rule)),rule['subject']))
+    return tuple(result)
+
+
+def documented_demergers(source, rules):
+    """Reviewed source claims become explicit research rules, not raw actions."""
+    import json
+    from sensei.backtest.entitlements import Demerger, ResultingSecurity
+    if source is None:
+        if rules:
+            raise ValueError('demergers require a source manifest')
+        return ()
+    content = pinned(source)
+    manifest = json.loads(content)
+    pinned(manifest['raw_panel'])
+    for document in manifest['documents'].values():
+        for key in ('source','receipt','archive'):
+            if key in document:
+                pinned(document[key])
+    if manifest['valuation_contract']['basis']!='NSE_SPOS_RULE_PLUS_RAW_OPEN':
+        raise ValueError('unsupported demerger valuation convention')
+    events = {(r['symbol'],r['ex_date']):r for r in manifest['events']}
+    children = {r['symbol']:r for r in manifest['children']}
+    result = []
+    seen = set()
+    for rule in rules:
+        key = rule['symbol'],rule['ex_date']
+        if key in seen or key not in events:
+            raise ValueError('unknown or duplicate documented demerger')
+        seen.add(key)
+        event = events[key]
+        terms = []
+        for symbol in event['children']:
+            child = children[symbol]
+            terms.append(ResultingSecurity(symbol,child['isin'],child['ratio_numerator'],
+                child['ratio_denominator'],pd.Timestamp(child['listing_date']),
+                pd.Timestamp(child['listing_announcement_date']),pd.Timestamp(child['listing_date'])))
+        result.append(Demerger(key[0],pd.Timestamp(key[1]),pd.Timestamp(event['entitlement_known_from']),
+            rule['replaces_source_id'],event['parent_isin'],tuple(terms),sha(content)))
+    return tuple(result)

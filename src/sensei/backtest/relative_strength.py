@@ -12,6 +12,7 @@ import math
 
 import pandas as pd
 
+from sensei.backtest.entitlements import Demerger, EntitlementBook
 from sensei.backtest.costs import delivery_charge
 from sensei.backtest.raw_accounting import RawAccounting, tick_round
 from sensei.strategy.relative_strength import buffered_roster
@@ -33,6 +34,7 @@ class MomentumPolicy:
     exit_delay: int = 0
     buy_valid_sessions: int = 5
     maximum_drawdown_pct: float = 100.0
+    exclude_unlisted_from_sizing: bool = False
 
     def __post_init__(self):
         for name in ('capital', 'position_fraction', 'risk_fraction', 'reserve_fraction',
@@ -47,7 +49,8 @@ class MomentumPolicy:
         for name in ('slippage_bps', 'subscription_inr', 'dp_charge_inr'):
             if isinstance(getattr(self, name), bool) or not math.isfinite(getattr(self, name)) or getattr(self, name) < 0:
                 raise ValueError(f'nonnegative finite {name} required')
-        if self.slippage_bps >= 10000 or type(self.trailing_exit) is not bool:
+        if (self.slippage_bps >= 10000 or type(self.trailing_exit) is not bool
+                or type(self.exclude_unlisted_from_sizing) is not bool):
             raise ValueError('invalid execution policy')
         if any(type(x) is not int or x < 0 for x in (self.execution_delay, self.exit_delay)):
             raise ValueError('execution delays must be nonnegative integers')
@@ -62,6 +65,7 @@ class MomentumInputs:
     formations: dict[pd.Timestamp, pd.DataFrame | str]
     tradable: dict[pd.Timestamp, set[str]]
     turnover60: dict[str, pd.Series]  # aligned to execution; strictly prior sessions
+    demergers: tuple[Demerger, ...] = ()
 
 
 @dataclass
@@ -123,6 +127,13 @@ class _Portfolio:
         self.inception = self.calendar[self.start_index + 1]
         self.cycle = 1
         self.positions = {}
+        self.entitlements = EntitlementBook()
+        self.demergers = {}
+        for rule in inputs.demergers:
+            rule.validate(inputs.raw, self.calendar)
+            if rule.replaces_source_id in self.demergers:
+                raise ValueError('duplicate demerger rule')
+            self.demergers[rule.replaces_source_id] = rule
         self.orders = {}
         self.roster = []
         self.unsettled = defaultdict(float)
@@ -138,8 +149,15 @@ class _Portfolio:
 
     def equity(self, session, column):
         return (self.cash + sum(self.unsettled.values()) + self.dividends
+                + self.entitlements.value(session, column, self.inputs.raw)
                 + sum(p.quantity * float(self.inputs.raw.bar(s, session)[column])
                       for s, p in self.positions.items()))
+
+    def sizing_equity(self, session, column):
+        value = self.equity(session, column)
+        if self.policy.exclude_unlisted_from_sizing:
+            value -= self.entitlements.value(session, column, self.inputs.raw, unlisted_only=True)
+        return value
 
     def fill_price(self, symbol, session, price, side):
         slipped = price * (1 + (1 if side == 'BUY' else -1) * self.policy.slippage_bps / 10000)
@@ -186,7 +204,7 @@ class _Portfolio:
                     or (p is None and price <= self.policy.atr_multiple * atr)):
                 targets[symbol] = (0, atr, price)
                 continue
-            target = self.total_target(equity, price, atr)
+            target = self.total_target(self.sizing_equity(session, 'close'), price, atr)
             # Capacity limits delta orders, not an existing stock position.
             delta_cap = math.floor(self.policy.participation * float(row.turnover60) / price)
             target = min(target, (p.quantity if p else 0) + delta_cap)
@@ -226,7 +244,40 @@ class _Portfolio:
             p = self.positions.get(action.symbol)
             if action.kind != 'dividend' and action.symbol in self.orders and self.orders[action.symbol].side == 'BUY':
                 del self.orders[action.symbol]
+            child = self.entitlements.holdings.get(action.symbol)
+            if child is not None:
+                if session < child.security.listed_from and action.kind != 'no_accounting':
+                    raise ValueError('unlisted resulting-security distribution requires reconciliation')
+                if action.kind == 'dividend':
+                    amount = child.quantity * action.amount
+                    self.dividends += amount
+                    self.contributions[action.symbol] += amount
+                    self.events.append({'session': str(session.date()), 'symbol': action.symbol,
+                        'kind': 'entitlement_dividend', 'amount': amount, 'source_id': action.source_id})
+                elif action.kind != 'no_accounting':
+                    raise ValueError(f'unsupported resulting-security action: {action.symbol}:{session.date()}')
             if p is None:
+                continue
+            if action.source_id in self.demergers:
+                if p.pending_shares:
+                    raise ValueError('unavailable parent shares require demerger eligibility reconciliation')
+                rule = self.demergers[action.source_id]
+                if any(c.symbol in self.positions for c in rule.children):
+                    raise ValueError('resulting security already held as strategy position')
+                previous = self.calendar[self.calendar.get_loc(session)-1]
+                transferred, distribution = self.entitlements.distribute(rule, p.quantity, p.basis,
+                    float(self.inputs.raw.bar(action.symbol, previous).close),
+                    float(self.inputs.raw.bar(action.symbol, session).open))
+                p.basis -= transferred
+                p.stop -= distribution
+                p.high_water -= distribution
+                order = self.orders.get(action.symbol)
+                if order and order.reason == 'trim':
+                    del self.orders[action.symbol]
+                self.events.append({'session': str(session.date()), 'symbol': action.symbol,
+                    'kind': 'demerger', 'distribution_per_parent_share': distribution,
+                    'quantity': p.quantity, 'transferred_basis': transferred,
+                    'source_id': action.source_id, 'evidence_sha256': rule.evidence_sha256})
                 continue
             if action.kind == 'unsupported':
                 raise ValueError(f'unsupported held action: {action.symbol}:{session.date()}:{action.subject}')
@@ -295,7 +346,8 @@ class _Portfolio:
             equity = self.equity(session, 'open')
             p = self.positions.get(symbol)
             if order.side == 'BUY':
-                if p is None and len(self.positions) >= 10:
+                if p is None and (symbol in self.entitlements.holdings
+                        or len(self.positions)+len(self.entitlements.holdings) >= 10):
                     self.events.append({'session': str(session.date()), 'symbol': symbol,
                         'kind': 'no_fill', 'reason': 'ten_holding_limit_including_pending_exits'})
                     continue
@@ -303,11 +355,12 @@ class _Portfolio:
                 if ((p is None and price <= self.policy.atr_multiple * order.atr)
                         or self.inputs.turnover60[symbol].get(session, 0) < 50_000_000):
                     continue
-                q = min(q, max(0, self.total_target(equity, price, order.atr)-held))
+                q = min(q, max(0, self.total_target(self.sizing_equity(session, 'open'), price, order.atr)-held))
                 # Avoid funding gross exposure >95% via receivables or rounding.
                 held_value = sum(pos.quantity * float(self.inputs.raw.bar(s, session).open)
                                  for s, pos in self.positions.items())
-                gross_room = max(0, (1-self.policy.reserve_fraction)*equity-held_value)
+                held_value += self.entitlements.value(session, 'open', self.inputs.raw)
+                gross_room = max(0, (1-self.policy.reserve_fraction)*self.sizing_equity(session, 'open')-held_value)
                 q = min(q, math.floor(gross_room/price))
                 q = affordable_quantity(q, price, self.cash-self.policy.reserve_fraction*equity,
                                         dp_charge_inr=self.policy.dp_charge_inr)
@@ -350,6 +403,52 @@ class _Portfolio:
             if order.remaining == 0:
                 del self.orders[symbol]
 
+    def execute_entitlements(self, session, i):
+        # Resulting securities are mandatory distributions, not new signal buys.
+        # Dispose only after listing, known admission and assumed availability,
+        # with the SAME sixty-session capacity and dated EQ permission rules.
+        for symbol,p in list(self.entitlements.holdings.items()):
+            security = p.security
+            ready = max(self.calendar.get_loc(security.listed_from)+1,
+                self.calendar.searchsorted(security.listing_known_from, side='right'),
+                self.calendar.get_loc(security.available_from))
+            ready += self.policy.execution_delay+self.policy.exit_delay
+            if i < ready:
+                continue
+            if symbol not in self.inputs.tradable.get(session,set()):
+                self.events.append({'session':str(session.date()),'symbol':symbol,
+                    'kind':'entitlement_no_fill','reason':'dated_permission'})
+                continue
+            bar = self.inputs.raw.bar(symbol,session)
+            capacity = self.inputs.turnover60[symbol].get(session)
+            if capacity is None or not math.isfinite(capacity) or capacity<=0:
+                self.events.append({'session':str(session.date()),'symbol':symbol,
+                    'kind':'entitlement_no_fill','reason':'sixty_session_capacity_unavailable'})
+                continue
+            if bar.volume<=0 or bar.high==bar.low:
+                continue
+            price = self.fill_price(symbol,session,float(bar.open),'SELL')
+            quantity = min(p.quantity,self.capacity(symbol,session,price),math.floor(bar.volume))
+            if quantity<=0:
+                continue
+            equity = self.equity(session,'open')
+            fee = delivery_charge(quantity*price,'SELL',dp_charge_inr=self.policy.dp_charge_inr)
+            basis = p.basis*quantity/p.quantity
+            pnl = quantity*price-fee-basis
+            self.contributions[symbol] += pnl
+            self.unsettled[i+1] += quantity*price-fee
+            self.fees += fee
+            p.basis -= basis
+            p.quantity -= quantity
+            self.fills.append({'session':str(session.date()),'symbol':symbol,'side':'SELL',
+                'execution_symbol':str(bar['symbol']),'quantity':quantity,'price':price,
+                'notional':quantity*price,'fees':fee,'net_realized_pnl':pnl,
+                'reason':'demerger_disposal','formation':str(p.ex_date.date()),
+                'equity_before':equity,'participation':quantity*price/float(capacity),
+                'slippage_inr':quantity*(float(bar.open)-price)})
+            if not p.quantity:
+                del self.entitlements.holdings[symbol]
+
     def close(self, session, i):
         for symbol, p in self.positions.items():
             price = float(self.inputs.raw.bar(symbol, session).close)
@@ -366,8 +465,14 @@ class _Portfolio:
         self.longest_underwater = max(self.longest_underwater, self.underwater)
         weights = {s: p.quantity*float(self.inputs.raw.bar(s, session).close)/equity
                    for s, p in self.positions.items()}
+        weights.update({s: p.quantity*self.entitlements.mark(s,session,'close',self.inputs.raw)/equity
+            for s,p in self.entitlements.holdings.items()})
         self.curve.append({'session': str(session.date()), 'equity': equity, 'cash': self.cash,
             'unsettled_sales': sum(self.unsettled.values()), 'dividend_receivables': self.dividends,
+            'unlisted_entitlements': self.entitlements.value(session, 'close', self.inputs.raw, unlisted_only=True),
+            'resulting_securities_value': self.entitlements.value(session, 'close', self.inputs.raw),
+            'unlisted_security_count': sum(session<p.security.listed_from for p in self.entitlements.holdings.values()),
+            'sizing_equity': self.sizing_equity(session, 'close'),
             'drawdown_pct': (1-equity/self.peak)*100, 'weights': weights,
             'gross_exposure_pct': 100*sum(weights.values()),
             'pending_share_quantity': sum(p.pending_shares for p in self.positions.values())})
@@ -382,6 +487,12 @@ class _Portfolio:
             terminal.append({'symbol': symbol, **asdict(p), 'marked_value': p.quantity*price,
                 'entry_session': str(p.entry_session.date()),
                 'available_from': str(p.available_from.date()) if p.available_from is not None else None})
+        child_terminal = []
+        for symbol,p in self.entitlements.holdings.items():
+            value = p.quantity*self.entitlements.mark(symbol,session,'close',self.inputs.raw)
+            contribution[symbol] = contribution.get(symbol,0)+value-p.basis
+            child_terminal.append({'symbol':symbol, 'parent':p.parent, 'quantity':p.quantity,
+                'marked_value':value, 'basis':p.basis, 'listed':session>=p.security.listed_from})
         error = equity-self.policy.capital-(sum(contribution.values())-self.overhead)
         if not math.isclose(error, 0, abs_tol=0.001):
             raise ValueError('stock attribution does not reconcile to account equity')
@@ -393,6 +504,9 @@ class _Portfolio:
             'longest_underwater_sessions': self.longest_underwater,
             'fills': self.fills, 'equity_curve': self.curve, 'formations': self.decisions,
             'events': self.events, 'terminal_positions': terminal,
+            'terminal_entitlements': child_terminal,
+            'maximum_unlisted_nav_pct': max(100*r['unlisted_entitlements']/r['equity'] for r in self.curve),
+            'sessions_with_unlisted_entitlements': sum(r['unlisted_security_count']>0 for r in self.curve),
             'pending_orders': [o.to_dict() for o in self.orders.values()],
             'fees_inr': self.fees, 'overhead_inr': self.overhead,
             'stock_contributions': contribution, 'attribution_residual_inr': error,
@@ -414,6 +528,7 @@ def run_momentum_portfolio(inputs: MomentumInputs, policy: MomentumPolicy, *,
             account.overhead += policy.subscription_inr
             account.cycle += 1
         account.apply_actions(session)
+        account.execute_entitlements(session, i)
         account.execute(session, i)
         account.close(session, i)
         if session in inputs.formations:

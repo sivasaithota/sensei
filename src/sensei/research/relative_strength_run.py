@@ -21,7 +21,9 @@ from sensei.research import security_master_batch as batch
 from sensei.research.raw_portfolio import load_actions, tick_reference, tick_from_reference
 from sensei.research.split_reproduction import ROOT, pinned, sha
 from sensei.research.stock_closure import build_raw_frames, load_snapshots, map_actions
-from sensei.research.relative_strength_evidence import recover_metadata, join_documented_renames, repair_share_actions
+from sensei.research.relative_strength_evidence import (recover_metadata, join_documented_renames,
+    repair_share_actions, repair_cash_actions, documented_demergers)
+from sensei.research.relative_strength_preflight import audit_inputs, experiment_formations
 from sensei.strategy.relative_strength import month_ends, rank_formation
 
 
@@ -48,6 +50,8 @@ def prepare_inputs(source_plan, *, first_formation, end, repairs=None):
     print(f'Mapping {len(records)} corporate-action records', flush=True)
     actions, resets, details = map_actions(frames, records, calendar, sha(content), plan.get('split_identity_bridges', ()))
     actions = repair_share_actions(frames, calendar, actions, repairs.get('share_actions', []))
+    actions = repair_cash_actions(frames, actions, repairs.get('cash_actions', []))
+    demergers = documented_demergers(repairs.get('demerger_source'),repairs.get('demergers', []))
     references = {d: tick_reference(d, calendar) for d in calendar}
     previous = {d: calendar[i-1] for i, d in enumerate(calendar) if i}
     ticks, turnover, tradable = {}, {}, {d: set() for d in calendar}
@@ -101,7 +105,7 @@ def prepare_inputs(source_plan, *, first_formation, end, repairs=None):
     benchmark_bytes = pinned(plan['benchmark'])
     benchmark = pd.read_parquet(ROOT / plan['benchmark']['path'])['close']
     identity['benchmark_sha256'] = sha(benchmark_bytes)
-    return MomentumInputs(raw, calendar, formations, tradable, turnover), benchmark, identity
+    return MomentumInputs(raw, calendar, formations, tradable, turnover, demergers), benchmark, identity
 
 
 def compare_benchmark(result, benchmark, maximum_drawdown_pct):
@@ -132,13 +136,15 @@ def compare_benchmark(result, benchmark, maximum_drawdown_pct):
         'passive_product_comparison': 'UNAVAILABLE: no pinned investable-product history; gross TRI is not a funded comparator.'}
 
 
-def run(plan_path, output):
+def run(plan_path, output, *, preflight_only=False):
     content = plan_path.read_bytes()
     plan = json.loads(content)
     if plan.get('authority') != 'RESEARCH_ONLY' or plan.get('can_trade') is not False:
         raise ValueError('research-only plan required')
     for spec in [plan['contract'], *plan['implementations']]:
         pinned(spec)
+    if 'accounting_contract' in plan:
+        pinned(plan['accounting_contract'])
     policy = MomentumPolicy(**plan['policy'])
     end = pd.Timestamp(plan['end'])
     inputs, benchmark, evidence = prepare_inputs(plan['source_plan'],
@@ -150,17 +156,15 @@ def run(plan_path, output):
     batch.immutable(root / 'manifest.json', batch.payload(identity))
     from sensei.research.exposure import record_development_frames
     record_development_frames(inputs.raw.frames, campaign_id='liquid-relative-strength-'+run_id)
+    preflight = audit_inputs(inputs,plan)
+    batch.immutable(root / 'preflight.json',batch.payload(preflight))
+    if preflight_only:
+        return root / 'preflight.json'
     results = []
     for experiment in plan['experiments']:
         name = experiment['name']
         run_policy = replace(policy, **experiment.get('overrides', {}))
-        formations = inputs.formations
-        if experiment.get('cadence') == 'semiannual':
-            formations = {d: f for d, f in formations.items() if d.month in (6, 12)}
-        if experiment.get('selection') == 'liquidity':
-            formations = {d: (f if isinstance(f, str) else f.reset_index().sort_values(
-                ['turnover60', 'isin', 'symbol'], ascending=[False, True, True]).set_index('symbol'))
-                for d, f in formations.items()}
+        formations = experiment_formations(inputs,experiment)
         formation = pd.Timestamp(plan['extended_formation'] if experiment.get('extended') else plan['common_formation'])
         print(f'Running {name} from {formation.date()}', flush=True)
         # Every attempt is durably recorded BEFORE invoking the simulation.
@@ -168,6 +172,8 @@ def run(plan_path, output):
             'run_id': run_id, 'experiment': experiment, 'formation_start': str(formation.date()),
             'policy': asdict(run_policy), 'status': 'REGISTERED_DEVELOPMENT_ATTEMPT'}))
         try:
+            if preflight['status'] != 'CLEAR':
+                raise ValueError('complete input preflight blocked; see preflight.json for every identified gap')
             result = run_momentum_portfolio(replace(inputs, formations=formations), run_policy,
                 formation_start=formation, end=end)
             comparison = compare_benchmark(result, benchmark, run_policy.maximum_drawdown_pct)
@@ -191,6 +197,7 @@ def run(plan_path, output):
             else 'POSITIVE_DEVELOPMENT_SCENARIO_ONLY')
     report = {'run_id': run_id, 'authority': 'RESEARCH_ONLY', 'can_trade': False,
         'admissible': False, 'holdout_is_untouched': False, 'batch_verdict': batch_verdict,
+        'preflight': preflight,
         'experiments': results, 'master_coverage': dict(Counter(v['status'] for v in evidence['metadata'].values())),
         'blocked_formations': {str(d.date()): f for d, f in inputs.formations.items() if isinstance(f, str)},
         'limitations': plan['assumptions']}
@@ -203,8 +210,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--plan', type=Path, required=True)
     parser.add_argument('--output', type=Path, default=ROOT / 'data/reports/liquid-relative-strength')
+    parser.add_argument('--preflight-only', action='store_true')
     args = parser.parse_args()
-    print(run(args.plan, args.output))
+    print(run(args.plan, args.output, preflight_only=args.preflight_only))
 
 
 if __name__ == '__main__':

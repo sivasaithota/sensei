@@ -72,3 +72,21 @@ def test_share_repair_rejects_changed_or_inconsistent_evidence(tmp_path, mutatio
         rule['known_from'] = rule['ex_date']
     with pytest.raises(ValueError):
         repair_share_actions({'OLD': frame}, dates, (rejected,), [rule])
+
+
+def test_exact_cash_repair_pins_notice_and_retains_total_dividend(tmp_path):
+    from sensei.research.relative_strength_evidence import repair_cash_actions
+    dates,frame=frames()
+    rejected=RawAction('OLD',dates[2],'unsupported',0.,'cash-event','Interim and special dividend')
+    rule={'symbol':'OLD','isin':'ISIN','ex_date':str(dates[2].date()),
+        'known_from':str(dates[0].date()),'amount':57.,'subject':'11 interim plus 46 special',
+        'replaces_source_id':'cash-event','sources':[source(tmp_path)]}
+    repaired=repair_cash_actions({'OLD':frame},(rejected,),[rule])
+    assert repaired[0].kind=='dividend' and repaired[0].amount==57.
+    rule['replaces_source_id']='other-event'
+    with pytest.raises(ValueError,match='exact-source cash'):
+        repair_cash_actions({'OLD':frame},(rejected,),[rule])
+    rule['replaces_source_id']='cash-event'
+    rule['sources'][0]['sha256']='0'*64
+    with pytest.raises(ValueError):
+        repair_cash_actions({'OLD':frame},(rejected,),[rule])
