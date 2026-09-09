@@ -1,5 +1,10 @@
 # Liquid relative strength: evidence repairs and latest development batch
 
+**Historical v6 result.** The subsequent [accounting closure and complete v8
+scorecard](liquid-relative-strength-closure-2026-09-09.md) now supplies the full
+comparison under an explicitly assumed demerger valuation contract. V6 remains
+unchanged as the stricter blocked result.
+
 Research date: 8 September 2026. This supersedes the blocker inventory in the
 [first-run note](liquid-relative-strength-first-run-2026-09-08.md), whose original
 results remain unchanged. The strategy is implemented and tested. Its main

@@ -1,0 +1,610 @@
+{
+  "version": 8,
+  "authority": "RESEARCH_ONLY",
+  "can_trade": false,
+  "contract": {
+    "path": "docs/specs/liquid-relative-strength-v1.md",
+    "sha256": "4245fcd87268053c980d6caf1f8db30a84015e6b62cd8a2f6a774381ee6c08bf"
+  },
+  "source_plan": {
+    "path": "config/stock-closure-v4.json",
+    "sha256": "9bad9a4bddc330347d5222bb94b80275622416a7099e332f00f6c9f0fdc8595d"
+  },
+  "implementations": [
+    {
+      "path": "src/sensei/strategy/relative_strength.py",
+      "sha256": "e8d59e48dc08d48cd1d4d43ffdc721a7c372dcdb027074224e8b0b37c09e8719"
+    },
+    {
+      "path": "src/sensei/backtest/relative_strength.py",
+      "sha256": "0ba0c82dd3bb976c7f39c72ae0b8acd3870b8cdd4dcef2f8785ba98a60358385"
+    },
+    {
+      "path": "src/sensei/research/relative_strength_run.py",
+      "sha256": "b29b93b4f5f7f2ac38973ecc828740bed870c8e092ec122cfbe23821248101fa"
+    },
+    {
+      "path": "src/sensei/research/relative_strength_evidence.py",
+      "sha256": "198af9b04e53642fcf11e909a986a1bc004910cf51f691a88f700b83658d08de"
+    },
+    {
+      "path": "src/sensei/backtest/entitlements.py",
+      "sha256": "616da3ec7c6234026ca48799c4380ae0ad19d9c87218d80e49a53b353df33b82"
+    },
+    {
+      "path": "src/sensei/research/relative_strength_preflight.py",
+      "sha256": "cf238fb2a634fbd6d3a9effb9b41da816ae21c7d6739af19a4300d3942a3a685"
+    }
+  ],
+  "common_formation": "2025-06-30",
+  "extended_formation": "2025-01-31",
+  "end": "2026-09-03",
+  "policy": {
+    "capital": 300000.0,
+    "position_fraction": 0.095,
+    "risk_fraction": 0.0075,
+    "reserve_fraction": 0.05,
+    "atr_multiple": 3.0,
+    "participation": 0.001,
+    "slippage_bps": 10.0,
+    "subscription_inr": 500.0,
+    "dp_charge_inr": 15.34,
+    "trailing_exit": true,
+    "execution_delay": 0,
+    "exit_delay": 0,
+    "buy_valid_sessions": 5,
+    "maximum_drawdown_pct": 100.0
+  },
+  "experiments": [
+    {
+      "name": "candidate"
+    },
+    {
+      "name": "liquidity_control",
+      "selection": "liquidity"
+    },
+    {
+      "name": "no_trailing_control",
+      "overrides": {
+        "trailing_exit": false
+      }
+    },
+    {
+      "name": "semiannual_control",
+      "cadence": "semiannual"
+    },
+    {
+      "name": "extended_candidate",
+      "extended": true
+    },
+    {
+      "name": "slippage20",
+      "overrides": {
+        "slippage_bps": 20.0
+      }
+    },
+    {
+      "name": "slippage40",
+      "overrides": {
+        "slippage_bps": 40.0
+      }
+    },
+    {
+      "name": "execution_delay",
+      "overrides": {
+        "execution_delay": 1
+      }
+    },
+    {
+      "name": "half_capacity",
+      "overrides": {
+        "participation": 0.0005
+      }
+    },
+    {
+      "name": "exit_delay3",
+      "overrides": {
+        "exit_delay": 3
+      }
+    },
+    {
+      "name": "exclude_unlisted_sizing",
+      "overrides": {
+        "exclude_unlisted_from_sizing": true
+      }
+    }
+  ],
+  "assumptions": [
+    "All dates are previously exposed development history; this is not independent validation.",
+    "Historical security-master publication timing and exhaustive ordinary-share subtype remain provisional. Missing formations block complete results; no forward-fill.",
+    "Daily open plus adverse slippage and dated reconstructed ticks is a reference-fill scenario, not actual auction execution.",
+    "Zero-activity and one-price bars are non-fill proxies. Intraday circuits, queues and spreads are not certified.",
+    "Current delivery fee schedule effective 2026-03-01 is applied to every date as a cost counterfactual, not historical tax reconstruction.",
+    "Sale proceeds settle before the following exchange-session open; broker historical cash availability is not established.",
+    "Kite subscription costs 500 INR per started monthly cycle. Additional production hosting/model overhead is unknown and excluded, not assumed free.",
+    "No certified historical sector labels, no sector-cap claim. No extra announcement alpha filter.",
+    "Gross Nifty 500 TRI is a diagnostic, not a costed investable product. Nifty 200/Momentum 30 series are not pinned in current local inputs.",
+    "Terminal positions remain marked. Without subsequent exchange-session inputs there is no executable terminal liquidation result.",
+    "100 percent research drawdown acceptance remains configurable and does not establish an acceptable live loss mandate.",
+    "Entire-day observed volume only reduces scenario fills ex post; it is never a signal or formation-time sizing input.",
+    "Documented rename joins retain actual raw execution symbols. CUPID exchange admission is used as research sellability; it does not prove an individual account credit time.",
+    "Splits/bonuses retain frozen availability assumptions; CUPID uses documented March11 admission. Cash dividends including child distributions remain nonspendable gross receivables.",
+    "Demerger valuation uses documented NSE SPOS rules plus observed raw open as explicit inference, not an independently captured numeric auction result. Strict v6 is retained.",
+    "Resulting shares are nonspendable, admission-based account availability is assumed, all disposal requires the original dated EQ/tick/60-session capacity and cost rules; new listings may remain unsold.",
+    "Compulsory distributions may exceed ten securities; all resulting holdings consume slots and gross exposure for new purchases.",
+    "Original entry ATR retained; parent stop/high water reduced by discovery-based distribution, pending buys/trims canceled, full exits persist. Book basis allocation is internal attribution, not tax accounting."
+  ],
+  "previous_plan": {
+    "path": "config/liquid-relative-strength-v7.json",
+    "sha256": "eae2177fde769271ed3cb129fdf90cf87880bc8f86e22fc01ea2bbd20b6fbef8"
+  },
+  "revision_note": "Reviewed accounting closure: correctly clear only verified cash-event signal resets, report complete child disposal lifecycles, audit formation ticks/defer missing execution ticks, and join documented SMLISUZU-to-SMLMAH rename. V7 was preflight only, no performance. All ten original cases plus declared unlisted-sizing diagnostic unchanged.",
+  "repairs": {
+    "metadata": [
+      {
+        "session": "2025-01-13",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-01-13/capture.json",
+          "sha256": "06775f29228356c02ac42136f95d6641d0574e374cda994003f2152cf3386119"
+        }
+      },
+      {
+        "session": "2025-01-22",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-01-22/capture.json",
+          "sha256": "eb66f72f44454bec0f7f7cab09d2ba181310531734d7a16902ee572d8f10beac"
+        }
+      },
+      {
+        "session": "2025-02-14",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-02-14/capture.json",
+          "sha256": "aba4f1228403bf06b540a0339f198fef89e19ee70a54c5c88107948406b4f0db"
+        }
+      },
+      {
+        "session": "2025-02-17",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-02-17/capture.json",
+          "sha256": "4865f6a4762593eedff7474b0e5cc2d1d5a480a39f521d212c778eda37629cf7"
+        }
+      },
+      {
+        "session": "2025-03-05",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-03-05/capture.json",
+          "sha256": "8cb2d94c1b916ae7330fcb1c58df55cbbbe1fe90e328987ecc16463ac64773ad"
+        }
+      },
+      {
+        "session": "2025-03-18",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-03-18/capture.json",
+          "sha256": "4b5567460a8753e612da03c5597b2a6608f2fdada5e96ee386a9f5a7510d8ddc"
+        }
+      },
+      {
+        "session": "2025-03-21",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-03-21/capture.json",
+          "sha256": "07bf7c8964c59fcc5cfbe1ef3cd31b07394ecff163af2a84f060e3af8eef2051"
+        }
+      },
+      {
+        "session": "2025-04-02",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-04-02/capture.json",
+          "sha256": "7967f0cf9a1d183a44d56d830e63332947f9ecd7566b899369b22b5afbc6b41b"
+        }
+      },
+      {
+        "session": "2025-04-03",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-04-03/capture.json",
+          "sha256": "9c70e01d5fcf441e3b1ce018a2ba71b3f858aef0fdb4c314faffbdb1781df858"
+        }
+      },
+      {
+        "session": "2025-04-04",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-04-04/capture.json",
+          "sha256": "a7fc14022ade602209ce06eef038d178d3f13f2fb381a117d9b1df05a6d33b2a"
+        }
+      },
+      {
+        "session": "2025-04-25",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-04-25/capture.json",
+          "sha256": "69147c72bd42ebe599c1fd8c9353a4ae9486b42d8a24b6e81d30f2fbc3d056c8"
+        }
+      },
+      {
+        "session": "2025-04-28",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-04-28/capture.json",
+          "sha256": "fd1af9473833b21d1392f106defc65bf5f2129060ab96f447eb265bee2ce5179"
+        }
+      },
+      {
+        "session": "2025-06-05",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-06-05/capture.json",
+          "sha256": "5cf4491d90f9e6c6557d92676e414d7d216f6b2f6e80c5549ef28d8f13fd2b35"
+        }
+      },
+      {
+        "session": "2025-06-06",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-06-06/capture.json",
+          "sha256": "d7819e5a25e46be115c73847928475d326786a44694ed0e392d2ff70beac0410"
+        }
+      },
+      {
+        "session": "2025-06-17",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-06-17/capture.json",
+          "sha256": "3179f358880d4a79225f8c63ee84c7f85088f68dc06d88db7dc16e7a82653c26"
+        }
+      },
+      {
+        "session": "2025-07-11",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-07-11/capture.json",
+          "sha256": "6f02ca205182bbdc6255039e9bc21f43016c956932cec7e9024b6ee835e424e9"
+        }
+      },
+      {
+        "session": "2025-07-25",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-07-25/capture.json",
+          "sha256": "4886ae19f1f386e4b4eda0e51cb5d5c4c87fe06b9f4b0378848fdaa68053b3ce"
+        }
+      },
+      {
+        "session": "2025-08-05",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-08-05/capture.json",
+          "sha256": "903684790bf9a1589d2ec24f0b7b7c054b16f000ce0b621675d497580ed7a694"
+        }
+      },
+      {
+        "session": "2025-08-08",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/attempt2/2025-08-08/capture.json",
+          "sha256": "3128a67a5059ab0e8e13360ba1ab44cd19c057e13be66110916aef4b21b2e3ac"
+        }
+      },
+      {
+        "session": "2025-08-19",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-08-19/capture.json",
+          "sha256": "40b01853c7424ffa86e62a0ba7a8a4eb3664828b6e814b76d9e0908cb7697afb"
+        }
+      },
+      {
+        "session": "2025-09-12",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-09-12/capture.json",
+          "sha256": "4ff99c4ca4c8677b80835bde16ec2ff9eb55c8dad357cfe4a28c12e05c9340ba"
+        }
+      },
+      {
+        "session": "2025-09-16",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-09-16/capture.json",
+          "sha256": "43afc494d74acfff90f8d9582743cb83158e71a13491269f01a8e88691f01434"
+        }
+      },
+      {
+        "session": "2025-10-07",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-10-07/capture.json",
+          "sha256": "74c2e4b1508d657df54476b08a223063dd30a661f0dfa2c2221a3b292b0c0c2a"
+        }
+      },
+      {
+        "session": "2025-11-17",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2025-11-17/capture.json",
+          "sha256": "7d7d29155d0f0d82a802e770c9ea4200696631a173a7a623d086c5c258cc792a"
+        }
+      },
+      {
+        "session": "2026-01-02",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-01-02/capture.json",
+          "sha256": "04795d2ea90c4a6e11a79f2737f312aacc9464d41793441137a0babe37cd204c"
+        }
+      },
+      {
+        "session": "2026-01-13",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-01-13/capture.json",
+          "sha256": "6de4fad13de70af8119be3663675b2f5172cb6df8bcca0174122838175d18853"
+        }
+      },
+      {
+        "session": "2026-01-14",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-01-14/capture.json",
+          "sha256": "48cfb075b3075087707b9f2f110ff405e89da35439afe7304cc9b8c47e106040"
+        }
+      },
+      {
+        "session": "2026-01-27",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-01-27/capture.json",
+          "sha256": "b0ae549cc03a6b3723573f67380571083494d278299abafe0105ea9f0fc72394"
+        }
+      },
+      {
+        "session": "2026-02-03",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-02-03/capture.json",
+          "sha256": "145f788a324666b225eff8cfe01f45494da36c44bf7e8cda12e23151c3402098"
+        }
+      },
+      {
+        "session": "2026-02-20",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/attempt2/2026-02-20/capture.json",
+          "sha256": "dca465c0746b6d91789ba4d4646cb1cb61e1731a3827ab2b8eb203c33105fb28"
+        }
+      },
+      {
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-recovered/2026-03-30/capture.json",
+          "sha256": "275f7c6188cff518456da921856bfb5b2a33c385c4322580cfa9d18d800e7fb7"
+        },
+        "session": "2026-03-30"
+      },
+      {
+        "session": "2026-04-09",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-04-09/capture.json",
+          "sha256": "69de5545e5c699b3a6f50df655675c90f231c65c42ab6901c6c2f46ef2589b86"
+        }
+      },
+      {
+        "session": "2026-04-10",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-04-10/capture.json",
+          "sha256": "c2c9092a317f1a310a43310a61ca1e6c0dbcc040f60c54ea858e34903715f8ff"
+        }
+      },
+      {
+        "session": "2026-04-21",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-04-21/capture.json",
+          "sha256": "d52c55f2603229f49b46f2bd973f2c7b51c03381af9271825329ed064bb51caf"
+        }
+      },
+      {
+        "session": "2026-04-22",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/attempt2/2026-04-22/capture.json",
+          "sha256": "959936e9ec3a226ca94483a1e17a412881a915c10f9f6b6fd49a0b94c5817d36"
+        }
+      },
+      {
+        "session": "2026-04-23",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-04-23/capture.json",
+          "sha256": "d771e9a2e2943f74bc5f6edaf06bfa0129e5d78f80ab166702dbed0c4a2925f9"
+        }
+      },
+      {
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-recovered/2026-04-30/capture.json",
+          "sha256": "c3eddfabaa7cb235c8ae125ca67fdf9c18f513f8068a778b5bd4aa84c5229ed8"
+        },
+        "session": "2026-04-30"
+      },
+      {
+        "session": "2026-05-11",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-05-11/capture.json",
+          "sha256": "207d886a98456f403a6c241f65ec954ea6e33dc4825b334bce03719ba8cb1db3"
+        }
+      },
+      {
+        "session": "2026-05-26",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-05-26/capture.json",
+          "sha256": "f19c908d7c753772e409c97bd5948dd1bbd1725119e04ef6f06f135f39560f3d"
+        }
+      },
+      {
+        "session": "2026-06-04",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-06-04/capture.json",
+          "sha256": "5d0e1408c7c5142b419c592d2d5df25c16a4e8d3c390c1aa7a6192036221abcd"
+        }
+      },
+      {
+        "session": "2026-06-10",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-06-10/capture.json",
+          "sha256": "40a85a26a65fc6c80001e9035ab1b46d31981147162b16bf76d9214b2892a714"
+        }
+      },
+      {
+        "session": "2026-06-17",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-06-17/capture.json",
+          "sha256": "5eac3fb413a4eca9fc9105899bf70b0b830daf3bebd90071bd749b2c4980ef5b"
+        }
+      },
+      {
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-recovered/2026-06-30/capture.json",
+          "sha256": "bf9360c265aef6518f5533bbb2d9ea8739e8112be318ab6d6e9df49c08284632"
+        },
+        "session": "2026-06-30"
+      },
+      {
+        "session": "2026-07-13",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-07-13/capture.json",
+          "sha256": "80ac286791cc60deecdb288cae1a599725209d70ffdd4e3832e5a25e4d353ef4"
+        }
+      },
+      {
+        "session": "2026-07-21",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-07-21/capture.json",
+          "sha256": "01448e5c98935fef03a0e89dc1fbb40c5ff27e684db9dc9c993ab5a0b600fa42"
+        }
+      },
+      {
+        "session": "2026-07-27",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-07-27/capture.json",
+          "sha256": "ce894884b792987960cb341a615aadbde8f5ed9d3a5a507c6ed197d7d8a7b05c"
+        }
+      },
+      {
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-recovered/2026-07-31/capture.json",
+          "sha256": "1fab3e96873b16e5f04a2fe5cde9e212c2b22adb5f1897d548f8dfad88b0ffa3"
+        },
+        "session": "2026-07-31"
+      },
+      {
+        "session": "2026-08-20",
+        "receipt": {
+          "path": "data/research/strategy-design/20260908/master-rest-reprobe/2026-08-20/capture.json",
+          "sha256": "d0f6a592ae506169f0543223f8a804c8f7c74ec5234f89a324f608b75494fabf"
+        }
+      }
+    ],
+    "renames": [
+      {
+        "old_symbol": "AMIORG",
+        "new_symbol": "ACUTAAS",
+        "isin": "INE00FF01025",
+        "effective_from": "2025-06-02",
+        "known_from": "2025-05-27",
+        "source": {
+          "path": "data/research/strategy-design/20260908/action-repair/amiorg-rename.pdf",
+          "sha256": "cd4c6bad4318f9b6c2a5d1b7aad518a56b17fe6c4cb5eb70bb729b6a90201f84"
+        }
+      },
+      {
+        "old_symbol": "TATAMOTORS",
+        "new_symbol": "TMPV",
+        "isin": "INE155A01022",
+        "known_from": "2025-10-16",
+        "effective_from": "2025-10-24",
+        "source": {
+          "path": "data/research/strategy-design/20260909/demergers/tata-rename.pdf",
+          "sha256": "ae7140b4eb8e13430323dd565f2018f5d5474aa443ba64746a71ff863f0977df"
+        }
+      },
+      {
+        "old_symbol": "SMLISUZU",
+        "new_symbol": "SMLMAH",
+        "isin": "INE294B01019",
+        "effective_from": "2025-11-10",
+        "known_from": "2025-11-03",
+        "source": {
+          "path": "data/research/strategy-design/20260909/sml-rename/CML71094.pdf",
+          "sha256": "0abee1e4012d6d40c3ef9f40ff98aac04c49fb949e2908935f2bc7d90f82c9d7"
+        }
+      }
+    ],
+    "share_actions": [
+      {
+        "symbol": "CUPID",
+        "ex_date": "2026-03-09",
+        "known_from": "2026-03-05",
+        "kind": "bonus",
+        "new_shares": 5,
+        "old_shares": 1,
+        "before_isin": "INE509F01029",
+        "after_isin": "INE509F01029",
+        "subject": "Documented Bonus 4:1; stale API ISIN reconciled with NSE CML73156",
+        "replaces_source_id": "76e7c03a1199fb84301cf01e1f281ba869600133c2cf44c8590c217e8e1e561e",
+        "available_from": "2026-03-11",
+        "availability_known_from": "2026-03-05",
+        "availability_basis": "documented_market_admission",
+        "sources": [
+          {
+            "path": "data/research/strategy-design/20260908/action-repair/cupid-record-date.pdf",
+            "sha256": "21c1c1a51e7bfb5de1ecfc14330b5fd61066df9ce756e464d22a328cc52837cb"
+          },
+          {
+            "path": "data/research/strategy-design/20260908/action-repair/cupid-admission.pdf",
+            "sha256": "cdeb9f938c6a730b050b96ab5f4b5192f7c7e74a12e0b88a832665081cb17088"
+          }
+        ]
+      },
+      {
+        "symbol": "AMIORG",
+        "ex_date": "2025-04-25",
+        "known_from": "2025-04-22",
+        "kind": "split",
+        "new_shares": 2,
+        "old_shares": 1,
+        "before_isin": "INE00FF01017",
+        "after_isin": "INE00FF01025",
+        "subject": "Documented Rs10-to-Rs5 split; unrevised raw previous close",
+        "replaces_source_id": "a1fb7bc6a2a554b104ba3930091c1b3df4281c61091fee5e73e863df4f5d7aff",
+        "available_from": "2025-04-29",
+        "availability_known_from": "2025-04-25",
+        "availability_basis": "scenario",
+        "sources": [
+          {
+            "path": "data/research/strategy-design/20260908/action-repair/amiorg-split.pdf",
+            "sha256": "e7771a325800824b29503fa18a9e98d951083451e3ca894a8dd018850468a4e8"
+          }
+        ]
+      }
+    ],
+    "demerger_source": {
+      "path": "data/research/strategy-design/20260909/demergers/source-manifest.json",
+      "sha256": "54164d91f119a10800dd285a02ee84d65be63e85ec873fa5e04ddf2fa2aa4d78"
+    },
+    "demergers": [
+      {
+        "symbol": "TATAMOTORS",
+        "ex_date": "2025-10-14",
+        "replaces_source_id": "f76aa760a6006485c6f67be833fdb0cd12bd9465f9fefbf948124a9de92706bd"
+      },
+      {
+        "symbol": "VEDL",
+        "ex_date": "2026-04-30",
+        "replaces_source_id": "2c8af17c40ed830cc917be68519e13b0c11b2c686a73770a5fa161b82b0827ce"
+      }
+    ],
+    "cash_actions": [
+      {
+        "symbol": "TCS",
+        "isin": "INE467B01029",
+        "ex_date": "2026-01-16",
+        "known_from": "2026-01-12",
+        "amount": 57.0,
+        "subject": "Interim dividend 11 INR plus special dividend 46 INR",
+        "replaces_source_id": "db590d16db179e06a958bd8625f455445219efd7e282d23895c1f05411c11073",
+        "sources": [
+          {
+            "path": "data/research/strategy-design/20260909/tcs-dividend/tcs-declaration.pdf",
+            "sha256": "a94fabc9a7a2a8069841b8100380806e31e5e5cc1119963292d162cbbdc83ab1"
+          },
+          {
+            "path": "data/research/strategy-design/20260909/tcs-dividend/tcs-declaration.pdf.json",
+            "sha256": "001c9815f18ad14d3ac61b0677566064cb3d9bff1d1e6ce228ec6f3f24b4328a"
+          },
+          {
+            "path": "data/reports/portfolio-action-evidence/2026-through-09-04.json",
+            "sha256": "805a271ed3305880065d5cb9417a75324ce6b9825ab9018b0d2de4eac73505e7"
+          }
+        ]
+      }
+    ]
+  },
+  "accounting_contract": {
+    "path": "docs/specs/demerger-accounting-closure-v1.md",
+    "sha256": "b0dffcc0463e64031824fa3743920f1aa3a7fab32b8c6693ce558364013bed65"
+  }
+}

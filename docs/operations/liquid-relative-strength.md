@@ -8,7 +8,7 @@ Run from the repository root:
 
 ```bash
 .venv/bin/python -m sensei.research.relative_strength_run \
-  --plan config/liquid-relative-strength-v6.json
+  --plan config/liquid-relative-strength-v8.json
 ```
 
 The runner verifies closure-v4 source/code pins, the new specification and code
@@ -17,7 +17,10 @@ data. It prepares calendar-month rankings separately from session-level executio
 permissions. It writes a content-addressed manifest before simulation and an
 individual registration before each account path. Results live under
 `data/reports/liquid-relative-strength/<run-id>/`; the exposure ledger records all
-history as development. No downloads are performed.
+history as development. No downloads are performed. Add `--preflight-only` to
+produce the complete potential-ownership input audit without registering economic
+account paths. A blocked preflight produces no portfolio returns; inspect all
+gaps in `preflight.json` before another batch.
 
 Plan v1 is retained as the unsimulated pre-review draft. Plan v2 pins the reviewed
 implementation; v3 corrects rank labels in control traces. V4 additionally enforces
@@ -25,12 +28,16 @@ the ten-holding limit while partial exits remain and the physical daily-volume
 fill ceiling. V5 adds documented CUPID/AMIORG share actions, AMIORG's rename and
 four recovered formation masters. V6 adds 44 further validated masters after a
 uniform retry of every remaining failed date. Signal and risk parameters are
-unchanged. Old plans/results remain historical artifacts; replay them from their
-matching source commits. See the [latest evidence and results](../research/liquid-relative-strength-evidence-repair-2026-09-08.md).
+unchanged. V7 adds the demerger ledger and full preflight; it was used only for an
+input audit. V8 includes review corrections and the documented SML rename. Old
+plans/results remain historical artifacts; replay them from their matching source
+commits. See the [closure scorecard](../research/liquid-relative-strength-closure-2026-09-09.md)
+and [accounting contract](../specs/demerger-accounting-closure-v1.md).
 
 The batch has four policies initialized independently with ₹300,000 at the June
 30, 2025 formation, an additional January 31 candidate inception, and five fixed
-stresses. Reports must not compare the extended inception directly with a June
+stresses. One additional accounting diagnostic excludes unlisted value from sizing
+equity while retaining it in marked NAV. Reports must not compare the extended inception directly with a June
 control. The inherited delivery schedule is a current-cost counterfactual; daily
 opens with slippage are modeled fills. Neither is historical broker reconciliation.
 
@@ -59,7 +66,8 @@ Focused checks:
 ```bash
 .venv/bin/python -m pytest tests/test_relative_strength.py \
   tests/test_relative_strength_portfolio.py tests/test_relative_strength_run.py \
-  tests/test_relative_strength_evidence.py -q
+  tests/test_relative_strength_evidence.py tests/test_relative_strength_preflight.py \
+  tests/test_demerger_portfolio.py -q
 ```
 
 These cover calendar lookbacks/future invariance, liquidity and history exclusions,
@@ -67,4 +75,7 @@ model-roster retention, frozen quantities, next-session stops, settlement delays
 dividend receivables, split/bonus availability, partial exits, current-equity
 rebalancing, expiry, stress timing, control rank traces, physical holding/volume
 limits, aligned benchmark dates, pinned metadata recovery, exact rejected-action
-replacement and documented same-ISIN symbol continuity.
+replacement and documented same-ISIN symbol continuity. Closure tests additionally
+cover demerger wealth conservation, zero-valued legal entitlements, listing marks,
+child dividends/disposal/settlement, conservative sizing, cash-repair-to-ranking
+continuity and collecting multiple input gaps in one preflight.
