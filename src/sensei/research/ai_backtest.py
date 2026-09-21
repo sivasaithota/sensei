@@ -29,7 +29,7 @@ def run(output, *, replay_from=None, resume_from=None):
         'maximum_model_calls': 0 if replay_from is not None else 14, 'replay_from': str(replay_from) if replay_from is not None else None, 'source_plan_sha256': sha256(source.read_bytes()).hexdigest(),
         'ai_policy': asdict(replace(policy, trailing_exit=False)),
         'evidence_scope': 'Price/volume only, archive availability assumed; no historical news or fundamentals',
-        'out_of_sample_claim': False, 'model_cost_included': False}
+        'manager_contract': 'preserved_from_source_artifacts' if replay_from is not None else 'target_weights_with_derived_cash', 'out_of_sample_claim': False, 'model_cost_included': False}
     files = ['src/sensei/backtest/ai_portfolio.py', 'src/sensei/backtest/relative_strength.py',
              'src/sensei/investment/cycle.py', 'src/sensei/investment/models.py', 'src/sensei/llm.py', __file__]
     registration['implementations'] = {str(p): sha256(Path(p).read_bytes()).hexdigest() for p in files}
@@ -69,7 +69,7 @@ def run(output, *, replay_from=None, resume_from=None):
                 raise ValueError('choose replay or resume, not both')
             def resume_decision(packet, path):
                 previous = Path(resume_from)/'ai'/packet['cutoff'][:10]
-                return run_desk_cycle(packet, path, resume_from=previous if previous.exists() else None)
+                return run_desk_cycle(packet, path, target_only=True, resume_from=previous if previous.exists() else None)
             decision_source = {'decide': resume_decision}
         ai = run_ai_portfolio(replace(inputs, formations=formations), replace(policy, trailing_exit=False),
                               formation_start=start, end=end, universe=universe, output=root/'ai', **decision_source)

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from sensei import llm
 from sensei.backtest.costs import delivery_charge
-from .models import Analysis, Decision, Packet, validate_citations
+from .models import Analysis, Decision, TargetDecision, Packet, validate_citations
 
 VERSION = 'ai-investment-preview-v1'
 DESK_VERSION = 'ai-investment-desk-v1'
@@ -116,9 +116,9 @@ def run_cycle(raw_packet, output_dir, *, call=None):
     return _run(raw_packet, output_dir, call=call, full_desk=False)
 
 
-def run_desk_cycle(raw_packet, output_dir, *, call=None, resume_from=None):
+def run_desk_cycle(raw_packet, output_dir, *, call=None, resume_from=None, target_only=False):
     """Run the full research desk; execution remains explicitly unadmitted."""
-    return _run(raw_packet, output_dir, call=call, full_desk=True, resume_from=resume_from)
+    return _run(raw_packet, output_dir, call=call, full_desk=True, resume_from=resume_from, target_only=target_only)
 
 
 def desk_result(result, steps):
@@ -141,13 +141,13 @@ def desk_result(result, steps):
     return {**result, 'desk_roles': roles, 'execution_status': 'NOT_ADMITTED'}
 
 
-def _run(raw_packet, output_dir, *, call, full_desk, resume_from=None):
+def _run(raw_packet, output_dir, *, call, full_desk, resume_from=None, target_only=False):
     """Persist every completed step. Injected call is explicitly recorded as a test provider."""
     path = Path(output_dir)
     path.mkdir(parents=True, exist_ok=False)
     selected_backend = llm.backend() if call is None else 'injected'
     artifact = {'version': DESK_VERSION if full_desk else VERSION, 'created_at': datetime.now(timezone.utc).isoformat(),
-                'packet': raw_packet, 'parallel_benchmark': BENCHMARK,
+                'packet': raw_packet, 'parallel_benchmark': BENCHMARK, 'target_only': target_only,
                 'provider': {'backend': selected_backend,
                              'requested_model': (llm.requested_model() if call is None else None),
                              'actual_model': None, 'cost': None,
@@ -177,12 +177,14 @@ def _run(raw_packet, output_dir, *, call, full_desk, resume_from=None):
         if old['version'] != DESK_VERSION or canonical(old['packet']) != canonical(raw_packet):
             return finish({'status': 'INPUT_BLOCKED', 'error': 'resume packet/version mismatch'})
         for old_step in old['steps']:
+            if old_step['role'] == 'manager' and old.get('target_only', False) != target_only:
+                break
             if 'output' not in old_step:
                 break
             # A saved response rejected by an earlier validator may now pass a
             # corrected contract. Revalidate before reuse, without a new call.
             try:
-                contract = Decision if old_step['role'] == 'manager' else Analysis
+                contract = (TargetDecision if target_only else Decision) if old_step['role'] == 'manager' else Analysis
                 cached = contract.model_validate(old_step['output'])
                 validate_citations(packet, cached.allocations if old_step['role'] == 'manager' else cached.assessments)
             except ValueError:
@@ -197,8 +199,10 @@ def _run(raw_packet, output_dir, *, call, full_desk, resume_from=None):
     if full_desk:
         role_names += ['coach']
     for role in role_names:
-        model = Decision if role == 'manager' else Analysis
+        model = (TargetDecision if target_only else Decision) if role == 'manager' else Analysis
         system = BASE_PROMPT + ROLE_PROMPTS[role]
+        if role == 'manager' and target_only:
+            system += '\nReturn stock target weights only; do not output cash_bps. Code calculates cash as 10000 minus stock weights. Choose cash through the weights you allocate. Respect the minimum cash floor. Do not state a numeric cash percentage in prose.'
         user = canonical({'packet': packet.model_dump(mode='json'), 'previous_roles': [{'role': s['role'], 'output': s['output']} for s in artifact['steps'] if s.get('validated')]})
         step = {'role': role, 'system': system, 'user': user, 'schema': model.model_json_schema()}
         artifact['steps'].append(step)
@@ -220,6 +224,8 @@ def _run(raw_packet, output_dir, *, call, full_desk, resume_from=None):
             step['output'] = raw
             save(path, artifact)
             parsed = model.model_validate(raw)
+            if isinstance(parsed, TargetDecision):
+                parsed = parsed.complete()
             validate_citations(packet, parsed.allocations if role == 'manager' else parsed.assessments)
             step['validated'] = True
             if role in ('analyst', 'critic', 'manager'):
@@ -251,7 +257,10 @@ def replay(output_dir):
     if artifact['version'] not in (VERSION, DESK_VERSION):
         raise ValueError('unsupported artifact version')
     if artifact['result']['status'] in ('READY', 'AI_CHOSE_CASH', 'RISK_REJECTED'):
-        result = evaluate(Packet.model_validate(artifact['packet']), [s['output'] for s in artifact['steps'] if s['role'] in ('analyst', 'critic', 'manager')])
+        outputs = [s['output'] for s in artifact['steps'] if s['role'] in ('analyst', 'critic', 'manager')]
+        if artifact.get('target_only', False):
+            outputs[2] = TargetDecision.model_validate(outputs[2]).complete().model_dump(mode='json')
+        result = evaluate(Packet.model_validate(artifact['packet']), outputs)
         if artifact['version'] == DESK_VERSION:
             result = desk_result(result, artifact['steps'])
         if result != artifact['result']:

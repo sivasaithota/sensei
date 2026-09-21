@@ -6,6 +6,7 @@ unchanged. Contract tests guard this coupling. No broker or kernel authority.
 import json
 import math
 from pathlib import Path
+from functools import partial
 
 import pandas as pd
 
@@ -78,7 +79,7 @@ class AIPortfolio(_Portfolio):
             'orders': [o.to_dict() for o in self.orders.values()]})
 
 
-def run_ai_portfolio(inputs, policy, *, formation_start, end, universe, output, decide=run_desk_cycle):
+def run_ai_portfolio(inputs, policy, *, formation_start, end, universe, output, decide=partial(run_desk_cycle, target_only=True)):
     """Stop on any invalid model response; never score missing decisions as cash."""
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)

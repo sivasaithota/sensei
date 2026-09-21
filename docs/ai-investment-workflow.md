@@ -57,3 +57,5 @@ Command-line replay is also available:
 This reloads the verified local accounting inputs and uses no model calls. Saved per-date packets must match the regenerated account and evidence exactly.
 
 For an explicitly recorded operational recovery, `--resume-from FAILED_PILOT_DIRECTORY` reuses only exact validated role responses and calls the model for the unfinished remainder. It creates a new run and preserves the failure; it is not an automatic retry loop or a way to change evidence under an old decision. Isolated Claude CLI research calls now request medium reasoning effort to bound latency. Reused responses retain their original provider metadata.
+
+The historical runner uses a target-only manager schema: the AI chooses stock weights and software derives residual cash. It does not change the weights or silently repair contradictory legacy decisions. Resuming across this contract change reuses only upstream research and requests a new manager decision. The general full-desk API retains its legacy schema unless `target_only=True` is selected.

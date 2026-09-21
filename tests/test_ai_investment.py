@@ -342,3 +342,32 @@ def test_resume_revalidates_response_rejected_by_old_peer_rule(tmp_path):
     assert calls == ['manager', 'coach']
     saved = json.loads((tmp_path/'new'/'artifact.json').read_text())
     assert saved['steps'][4]['revalidated_after_failure'] is True
+
+
+def test_target_contract_derives_cash_without_altering_stock_choices(tmp_path):
+    from sensei.investment.cycle import run_desk_cycle
+    outputs = responses()
+    del outputs[-1]['cash_bps']
+    result = run_desk_cycle(packet(), tmp_path/'run', target_only=True,
+                            call=caller([outputs[0]]*3 + outputs + [outputs[0]]))
+    assert result['status'] == 'READY'
+    assert result['decision']['cash_bps'] == 8500
+    assert result['decision']['allocations'][0]['weight_bps'] == 1500
+    assert replay(tmp_path/'run') == result
+
+
+def test_new_manager_contract_reuses_research_but_requests_new_decision(tmp_path):
+    from sensei.investment.cycle import run_desk_cycle
+    outputs = responses()
+    outputs[-1]['cash_bps'] = 9000
+    old = run_desk_cycle(packet(), tmp_path/'old', call=caller([outputs[0]]*3+outputs))
+    assert old['status'] == 'RISK_REJECTED'
+    del outputs[-1]['cash_bps']
+    calls = []
+    remaining = iter([outputs[-1], outputs[0]])
+    def model(**kwargs):
+        calls.append(kwargs['name'])
+        return next(remaining)
+    result = run_desk_cycle(packet(), tmp_path/'new', target_only=True, resume_from=tmp_path/'old', call=model)
+    assert result['status'] == 'READY'
+    assert calls == ['manager', 'coach']

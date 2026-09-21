@@ -112,3 +112,13 @@ def validate_citations(packet: Packet, assessments: list[Assessment]):
             raise ValueError(f'invalid citation for {a.symbol}')
         if not any(evidence[ref].symbol == a.symbol for ref in a.evidence_ids):
             raise ValueError(f'no symbol-specific evidence for {a.symbol}')
+
+
+class TargetDecision(Contract):
+    """AI chooses investments; remaining cash follows arithmetically."""
+    allocations: list[Allocation]
+    cash_reason: Text
+    critic_response: Text
+
+    def complete(self):
+        return Decision(**self.model_dump(), cash_bps=10000-sum(a.weight_bps for a in self.allocations))
