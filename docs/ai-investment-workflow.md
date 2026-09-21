@@ -46,3 +46,12 @@ Run `.venv/bin/python -m sensei.research.ai_backtest NEW_OUTPUT_DIRECTORY` for t
 For no-model replay, use `sensei.backtest.ai_portfolio.saved_decisions(previous_ai_directory)` as the `decide` argument to `run_ai_portfolio` with the original inputs/policy/universe. It rejects a changed packet or simulated account rather than reusing an incompatible decision. This API does not reconstruct the raw dataset from the report alone.
 
 Historical archive availability is assumed. No contemporary news/fundamental evidence is supplied, and model-training hindsight remains possible. Returns include configured execution charges/slippage/data overhead but exclude unknown model usage costs. The limited-universe momentum control is not the earlier full-universe v8 headline. Monthly decision scheduling overrides advisory review horizons in this pilot. Resulting-security holdings not representable in the packet stop a later decision rather than silently disappearing.
+
+Command-line replay is also available:
+
+```sh
+.venv/bin/python -m sensei.research.ai_backtest NEW_REPLAY_DIRECTORY \
+  --replay-from ORIGINAL_PILOT_DIRECTORY
+```
+
+This reloads the verified local accounting inputs and uses no model calls. Saved per-date packets must match the regenerated account and evidence exactly.

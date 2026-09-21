@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from sensei.backtest.ai_portfolio import run_ai_portfolio
+from sensei.backtest.ai_portfolio import run_ai_portfolio, saved_decisions
 from sensei.backtest.relative_strength import MomentumPolicy, run_momentum_portfolio
 from sensei.research.relative_strength_run import prepare_inputs, compare_benchmark
 from sensei.research.split_reproduction import pinned
 
 
-def run(output):
+def run(output, *, replay_from=None):
     root = Path(output)
     root.mkdir(parents=True, exist_ok=False)
     source = Path('config/liquid-relative-strength-v8.json')
@@ -24,7 +24,7 @@ def run(output):
     registration = {'status': 'REGISTERED', 'start': str(start.date()), 'end': str(end.date()),
         'capital': policy.capital, 'universe_rule': 'Top 20 prior-60-session median turnover among dated tradable stocks at inception; freeze thereafter',
         'decision_schedule': 'source calendar month ends strictly before end',
-        'maximum_model_calls': 14, 'source_plan_sha256': sha256(source.read_bytes()).hexdigest(),
+        'maximum_model_calls': 0 if replay_from is not None else 14, 'replay_from': str(replay_from) if replay_from is not None else None, 'source_plan_sha256': sha256(source.read_bytes()).hexdigest(),
         'ai_policy': asdict(replace(policy, trailing_exit=False)),
         'evidence_scope': 'Price/volume only, archive availability assumed; no historical news or fundamentals',
         'out_of_sample_claim': False, 'model_cost_included': False}
@@ -33,9 +33,9 @@ def run(output):
     registration['implementations'] = {str(p): sha256(Path(p).read_bytes()).hexdigest() for p in files}
     (root/'registration.json').write_text(json.dumps(registration, indent=2))
     try:
-        for spec in [plan['contract'], *plan['implementations']]:
+        for spec in [plan['contract'], plan['accounting_contract'], *plan['implementations']]:
             pinned(spec)
-        (root/'v8-verification.json').write_text(json.dumps({'verified': [plan['contract'], *plan['implementations']]}, indent=2))
+        (root/'v8-verification.json').write_text(json.dumps({'verified': [plan['contract'], plan['accounting_contract'], *plan['implementations']]}, indent=2))
         inputs, tri, evidence = prepare_inputs(plan['source_plan'], first_formation=start,
                                               end=end, repairs=plan.get('repairs'))
         candidates = []
@@ -61,8 +61,9 @@ def run(output):
                                          formation_start=start, end=end)
         control['tri_comparison'] = compare_benchmark(control, tri, policy.maximum_drawdown_pct)
         (root/'momentum.json').write_text(json.dumps(control, indent=2))
+        decision_source = {'decide': saved_decisions(Path(replay_from)/'ai')} if replay_from is not None else {}
         ai = run_ai_portfolio(replace(inputs, formations=formations), replace(policy, trailing_exit=False),
-                              formation_start=start, end=end, universe=universe, output=root/'ai')
+                              formation_start=start, end=end, universe=universe, output=root/'ai', **decision_source)
         comparison = {'status': 'COMPLETE', 'authority': 'RESEARCH_ONLY', 'can_trade': False,
             'ai_return_pct': ai['return_pct'], 'ai_max_drawdown_pct': ai['max_drawdown_pct'],
             'ai_fills': len(ai['fills']), 'momentum_return_pct': control['return_pct'],
@@ -84,4 +85,6 @@ def run(output):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output')
-    print(json.dumps(run(parser.parse_args().output), indent=2))
+    parser.add_argument('--replay-from', help='Prior pilot directory; reuse exact saved decisions without model calls')
+    args = parser.parse_args()
+    print(json.dumps(run(args.output, replay_from=args.replay_from), indent=2))
