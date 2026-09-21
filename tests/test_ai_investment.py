@@ -164,3 +164,37 @@ def test_model_is_free_to_choose_different_stock(tmp_path):
     second = run_cycle(packet(), tmp_path/'second', call=caller(responses('BBB')))
     assert first['preview']['orders'][0]['symbol'] == 'AAA'
     assert second['preview']['orders'][0]['symbol'] == 'BBB'
+
+
+def test_nonfinite_input_has_durable_failure(tmp_path):
+    p = packet()
+    p['cash_paise'] = float('inf')
+    assert run_cycle(p, tmp_path/'run', call=caller([]))['status'] == 'INPUT_BLOCKED'
+    assert replay(tmp_path/'run')['status'] == 'INPUT_BLOCKED'
+
+
+def test_malformed_model_text_is_saved(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from sensei import llm
+    monkeypatch.setenv('SENSEI_LLM_BACKEND', 'claude-code')
+    monkeypatch.setattr(llm.shutil, 'which', lambda name: '/bin/claude')
+    raw = '{"result":"not JSON, but useful failure evidence"}'
+    monkeypatch.setattr(llm.subprocess, 'run', lambda *a, **kw: SimpleNamespace(returncode=0, stdout=raw))
+    assert run_cycle(packet(), tmp_path/'run')['status'] == 'MODEL_FAILED'
+    artifact = json.loads((tmp_path/'run'/'artifact.json').read_text())
+    assert artifact['steps'][0]['raw_provider_response'] == raw
+
+
+def test_isolated_api_disables_transport_retries(monkeypatch):
+    import anthropic
+    from types import SimpleNamespace
+    from sensei import llm
+    monkeypatch.setenv('SENSEI_LLM_BACKEND', 'api')
+    seen = {}
+    def create_client(**kwargs):
+        seen.update(kwargs)
+        return SimpleNamespace(messages=SimpleNamespace(create=lambda **kw:
+            SimpleNamespace(content=[SimpleNamespace(type='tool_use', input={'ok': True})])))
+    monkeypatch.setattr(anthropic, 'Anthropic', create_client)
+    assert llm.structured_call(system='test', user='test', schema={}, name='test', isolated=True) == {'ok': True}
+    assert seen['max_retries'] == 0

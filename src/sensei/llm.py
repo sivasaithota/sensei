@@ -33,12 +33,14 @@ def backend() -> str:
 
 
 def structured_call(*, system: str, user: str, schema: dict, name: str,
-                    client=None, isolated: bool = False) -> dict:
+                    client=None, isolated: bool = False, response_observer=None) -> dict:
     """Return a dict matching `schema` (a JSON Schema with required keys)."""
     if client is not None or backend() == "api":
         return _api_call(system=system, user=user, schema=schema, name=name,
-                         client=client, max_tokens=6000 if isolated else 1500)
-    return _cli_call(system=system, user=user, schema=schema, isolated=isolated)
+                         client=client, max_tokens=6000 if isolated else 1500,
+                         isolated=isolated, response_observer=response_observer)
+    return _cli_call(system=system, user=user, schema=schema, isolated=isolated,
+                     response_observer=response_observer)
 
 
 def requested_model() -> str:
@@ -49,9 +51,10 @@ def requested_model() -> str:
 # ---- backend: Anthropic SDK ----
 
 def _api_call(*, system: str, user: str, schema: dict, name: str, client=None,
-              max_tokens: int = 1500) -> dict:
+              max_tokens: int = 1500, isolated: bool = False, response_observer=None) -> dict:
     import anthropic
-    client = client or anthropic.Anthropic()
+    client = client or (anthropic.Anthropic(max_retries=0, timeout=300)
+                        if isolated else anthropic.Anthropic())
     resp = client.messages.create(
         model=MODEL, max_tokens=max_tokens, system=system,
         tools=[{"name": name, "description": f"Deliver your {name}.",
@@ -59,6 +62,8 @@ def _api_call(*, system: str, user: str, schema: dict, name: str, client=None,
         tool_choice={"type": "tool", "name": name},
         messages=[{"role": "user", "content": user}],
     )
+    if response_observer is not None:
+        response_observer(resp.model_dump(mode='json'))
     return next(b.input for b in resp.content if b.type == "tool_use")
 
 
@@ -67,7 +72,8 @@ def _api_call(*, system: str, user: str, schema: dict, name: str, client=None,
 _NO_TOOLS = "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,Task,NotebookEdit"
 
 
-def _cli_call(*, system: str, user: str, schema: dict, isolated: bool = False) -> dict:
+def _cli_call(*, system: str, user: str, schema: dict, isolated: bool = False,
+              response_observer=None) -> dict:
     if shutil.which("claude") is None:
         raise RuntimeError(
             "claude-code backend selected but the `claude` CLI is not on PATH; "
@@ -92,6 +98,8 @@ def _cli_call(*, system: str, user: str, schema: dict, isolated: bool = False) -
         command,
         input=prompt, capture_output=True, text=True, timeout=300, env=env,
     )
+    if response_observer is not None:
+        response_observer(proc.stdout)
     if proc.returncode != 0 and not proc.stdout.strip():
         raise RuntimeError(f"claude -p failed: {proc.stderr[:500]}")
     wrapper = json.loads(proc.stdout)
