@@ -50,6 +50,7 @@ class Packet(Contract):
     synthetic: Annotated[bool, Field(strict=True)]
     cutoff: AwareDatetime
     cash_paise: Integer
+    receivables_paise: Integer = 0
     high_water_paise: Positive
     instruments: Annotated[list[Instrument], Field(min_length=1, max_length=100)]
     evidence: Annotated[list[Evidence], Field(min_length=1, max_length=500)]
@@ -57,7 +58,7 @@ class Packet(Contract):
 
     @property
     def equity_paise(self):
-        return self.cash_paise + sum(i.price_paise * i.held_quantity for i in self.instruments)
+        return self.cash_paise + self.receivables_paise + sum(i.price_paise * i.held_quantity for i in self.instruments)
 
     @model_validator(mode='after')
     def coherent_packet(self):

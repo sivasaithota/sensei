@@ -1,0 +1,84 @@
+from dataclasses import replace
+import json
+import pytest
+
+from sensei.backtest.ai_portfolio import run_ai_portfolio
+from sensei.backtest.relative_strength import MomentumPolicy
+from sensei.investment.cycle import run_cycle
+from tests.test_relative_strength_portfolio import market
+
+
+def decision(symbol, weight):
+    note = {'symbol': symbol, 'reason': 'test', 'evidence_ids': [symbol]}
+    return [{'summary': 'test', 'assessments': [note]}]*2 + [
+        {'allocations': [{**note, 'weight_bps': weight, 'invalidation': 'test', 'review_after_sessions': 5}],
+         'cash_bps': 10000-weight, 'cash_reason': 'reserve', 'critic_response': 'test'}]
+
+
+def test_ai_buy_then_exit_has_next_session_fills_and_account_continuity(tmp_path):
+    inputs = market()
+    dates = inputs.calendar
+    inputs = replace(inputs, formations={dates[0]: None, dates[5]: None})
+    packets = []
+    def decide(packet, path):
+        packets.append(packet)
+        replies = iter(decision('A', 900 if len(packets) == 1 else 0))
+        return run_cycle(packet, path, call=lambda **kw: next(replies))
+    result = run_ai_portfolio(inputs, MomentumPolicy(trailing_exit=False),
+        formation_start=dates[0], end=dates[-1], universe=['A'], output=tmp_path/'run', decide=decide)
+    assert [f['side'] for f in result['fills']] == ['BUY', 'SELL']
+    assert result['fills'][0]['session'] == str(dates[1].date())
+    assert result['fills'][1]['session'] == str(dates[6].date())
+    assert packets[1]['instruments'][0]['held_quantity'] > 0
+    for packet in packets:
+        cutoff = packet['cutoff'][:10]
+        rows = json.loads(packet['evidence'][0]['text'])['raw_unadjusted_history']
+        assert all(row['date'] <= cutoff for row in rows)
+    assert result['attribution_residual_inr'] == pytest.approx(0, abs=0.001)
+    assert result['model_cost_included'] is False
+
+
+def test_failed_model_publishes_no_return(tmp_path):
+    inputs = market()
+    with pytest.raises(ValueError, match='AI decision failed'):
+        run_ai_portfolio(inputs, MomentumPolicy(trailing_exit=False),
+            formation_start=inputs.calendar[0], end=inputs.calendar[-1], universe=['A'],
+            output=tmp_path/'run', decide=lambda *args: {'status': 'MODEL_FAILED'})
+    assert not (tmp_path/'run'/'report.json').exists()
+    assert (tmp_path/'run'/'failure.json').exists()
+
+
+def test_saved_ai_decisions_reproduce_portfolio_without_models(tmp_path):
+    from sensei.backtest.ai_portfolio import saved_decisions
+    inputs = market()
+    def decide(packet, path):
+        replies = iter(decision('A', 900))
+        return run_cycle(packet, path, call=lambda **kw: next(replies))
+    args = dict(formation_start=inputs.calendar[0], end=inputs.calendar[-1], universe=['A'])
+    policy = MomentumPolicy(trailing_exit=False)
+    original = run_ai_portfolio(inputs, policy, **args, output=tmp_path/'original', decide=decide)
+    reproduced = run_ai_portfolio(inputs, policy, **args, output=tmp_path/'replay', decide=saved_decisions(tmp_path/'original'))
+    assert original['fills'] == reproduced['fills']
+    assert original['equity_curve'] == reproduced['equity_curve']
+    with pytest.raises(ValueError, match='packet differs'):
+        run_ai_portfolio(inputs, replace(policy, capital=400000), **args,
+                         output=tmp_path/'changed', decide=saved_decisions(tmp_path/'original'))
+
+
+def test_dividend_receivables_reach_next_ai_packet_without_becoming_cash(tmp_path):
+    from sensei.backtest.raw_accounting import RawAction
+    inputs = market()
+    dates = inputs.calendar
+    action = RawAction('A', dates[3], 'dividend', 1., 'dividend', 'Dividend')
+    inputs = replace(inputs, raw=replace(inputs.raw, actions=(action,)),
+                     formations={dates[0]: None, dates[5]: None})
+    packets = []
+    def decide(packet, path):
+        packets.append(packet)
+        replies = iter(decision('A', 900))
+        return run_cycle(packet, path, call=lambda **kw: next(replies))
+    result = run_ai_portfolio(inputs, MomentumPolicy(trailing_exit=False),
+        formation_start=dates[0], end=dates[-1], universe=['A'], output=tmp_path/'run', decide=decide)
+    assert packets[1]['receivables_paise'] > 0
+    assert result['equity_curve'][-1]['dividend_receivables'] > 0
+    assert result['attribution_residual_inr'] == pytest.approx(0, abs=0.001)
