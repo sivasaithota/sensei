@@ -8,12 +8,13 @@ from pathlib import Path
 import pandas as pd
 
 from sensei.backtest.ai_portfolio import run_ai_portfolio, saved_decisions
+from sensei.investment.cycle import run_desk_cycle
 from sensei.backtest.relative_strength import MomentumPolicy, run_momentum_portfolio
 from sensei.research.relative_strength_run import prepare_inputs, compare_benchmark
 from sensei.research.split_reproduction import pinned
 
 
-def run(output, *, replay_from=None):
+def run(output, *, replay_from=None, resume_from=None):
     root = Path(output)
     root.mkdir(parents=True, exist_ok=False)
     source = Path('config/liquid-relative-strength-v8.json')
@@ -22,6 +23,7 @@ def run(output, *, replay_from=None):
     policy = MomentumPolicy(**plan['policy'])
     # Register dates, selection rule and accounting before any model outputs exist.
     registration = {'status': 'REGISTERED', 'start': str(start.date()), 'end': str(end.date()),
+        'resume_from': str(resume_from) if resume_from is not None else None,
         'capital': policy.capital, 'universe_rule': 'Top 20 prior-60-session median turnover among dated tradable stocks at inception; freeze thereafter',
         'decision_schedule': 'source calendar month ends strictly before end',
         'maximum_model_calls': 0 if replay_from is not None else 14, 'replay_from': str(replay_from) if replay_from is not None else None, 'source_plan_sha256': sha256(source.read_bytes()).hexdigest(),
@@ -62,6 +64,13 @@ def run(output, *, replay_from=None):
         control['tri_comparison'] = compare_benchmark(control, tri, policy.maximum_drawdown_pct)
         (root/'momentum.json').write_text(json.dumps(control, indent=2))
         decision_source = {'decide': saved_decisions(Path(replay_from)/'ai')} if replay_from is not None else {}
+        if resume_from is not None:
+            if replay_from is not None:
+                raise ValueError('choose replay or resume, not both')
+            def resume_decision(packet, path):
+                previous = Path(resume_from)/'ai'/packet['cutoff'][:10]
+                return run_desk_cycle(packet, path, resume_from=previous if previous.exists() else None)
+            decision_source = {'decide': resume_decision}
         ai = run_ai_portfolio(replace(inputs, formations=formations), replace(policy, trailing_exit=False),
                               formation_start=start, end=end, universe=universe, output=root/'ai', **decision_source)
         comparison = {'status': 'COMPLETE', 'authority': 'RESEARCH_ONLY', 'can_trade': False,
@@ -86,5 +95,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output')
     parser.add_argument('--replay-from', help='Prior pilot directory; reuse exact saved decisions without model calls')
+    parser.add_argument('--resume-from', help='Reuse exact validated role responses from a failed pilot; preserve original attempt')
     args = parser.parse_args()
-    print(json.dumps(run(args.output, replay_from=args.replay_from), indent=2))
+    print(json.dumps(run(args.output, replay_from=args.replay_from, resume_from=args.resume_from), indent=2))

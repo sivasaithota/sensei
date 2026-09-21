@@ -290,3 +290,24 @@ def test_in_progress_desk_command_cannot_be_run_twice(tmp_path):
         return next(scripted)
     desk.run_investment_cycle(packet(), tmp_path/'research', command_id='ai-1', call=model)
     assert gateway.commands == ()
+
+
+def test_resume_reuses_only_exact_validated_role_responses(tmp_path):
+    from sensei.investment.cycle import run_desk_cycle
+    outputs = responses()
+    failed = run_desk_cycle(packet(), tmp_path/'failed', call=caller([outputs[0], outputs[0], {}]))
+    assert failed['role'] == 'crowd_reader'
+    calls = []
+    remaining = iter([outputs[0], *outputs, outputs[0]])
+    def model(**kwargs):
+        calls.append(kwargs['name'])
+        return next(remaining)
+    recovered = run_desk_cycle(packet(), tmp_path/'recovered', call=model, resume_from=tmp_path/'failed')
+    assert recovered['status'] == 'READY'
+    assert calls == ['crowd_reader', 'analyst', 'critic', 'manager', 'coach']
+    artifact = json.loads((tmp_path/'recovered'/'artifact.json').read_text())
+    assert 'source_digest' in artifact['steps'][0]
+    assert replay(tmp_path/'failed')['status'] == 'MODEL_FAILED'
+    changed = packet()
+    changed['label'] = 'changed'
+    assert run_desk_cycle(changed, tmp_path/'bad', call=caller([]), resume_from=tmp_path/'failed')['status'] == 'INPUT_BLOCKED'

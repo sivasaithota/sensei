@@ -116,9 +116,9 @@ def run_cycle(raw_packet, output_dir, *, call=None):
     return _run(raw_packet, output_dir, call=call, full_desk=False)
 
 
-def run_desk_cycle(raw_packet, output_dir, *, call=None):
+def run_desk_cycle(raw_packet, output_dir, *, call=None, resume_from=None):
     """Run the full research desk; execution remains explicitly unadmitted."""
-    return _run(raw_packet, output_dir, call=call, full_desk=True)
+    return _run(raw_packet, output_dir, call=call, full_desk=True, resume_from=resume_from)
 
 
 def desk_result(result, steps):
@@ -141,7 +141,7 @@ def desk_result(result, steps):
     return {**result, 'desk_roles': roles, 'execution_status': 'NOT_ADMITTED'}
 
 
-def _run(raw_packet, output_dir, *, call, full_desk):
+def _run(raw_packet, output_dir, *, call, full_desk, resume_from=None):
     """Persist every completed step. Injected call is explicitly recorded as a test provider."""
     path = Path(output_dir)
     path.mkdir(parents=True, exist_ok=False)
@@ -150,7 +150,8 @@ def _run(raw_packet, output_dir, *, call, full_desk):
                 'packet': raw_packet, 'parallel_benchmark': BENCHMARK,
                 'provider': {'backend': selected_backend,
                              'requested_model': (llm.requested_model() if call is None else None),
-                             'actual_model': None, 'cost': None},
+                             'actual_model': None, 'cost': None,
+                             'requested_effort': 'medium' if selected_backend == 'claude-code' else None},
                 'steps': [], 'result': {'status': 'STARTED'}}
     def finish(result):
         artifact['result'] = desk_result(result, artifact['steps']) if full_desk else result
@@ -169,6 +170,17 @@ def _run(raw_packet, output_dir, *, call, full_desk):
     except ValueError as exc:
         artifact['result'] = {'status': 'INPUT_BLOCKED', 'error': str(exc)}
         return finish(artifact['result'])
+    reusable = []
+    if resume_from is not None:
+        replay(resume_from)
+        old = json.loads((Path(resume_from)/'artifact.json').read_text())
+        if old['version'] != DESK_VERSION or canonical(old['packet']) != canonical(raw_packet):
+            return finish({'status': 'INPUT_BLOCKED', 'error': 'resume packet/version mismatch'})
+        for old_step in old['steps']:
+            if not old_step.get('validated'):
+                break
+            reusable.append({**old_step, 'reused_from': str(resume_from),
+                             'source_digest': old['digest'], 'source_provider': old['provider']})
     invoke = call or llm.structured_call
     outputs = []
     role_names = (['historian', 'reporter', 'crowd_reader'] if full_desk else [])
@@ -187,8 +199,15 @@ def _run(raw_packet, output_dir, *, call, full_desk):
                 step['raw_provider_response'] = response
                 save(path, artifact)
 
-            raw = invoke(system=system, user=user, schema=step['schema'], name=role,
-                         isolated=True, response_observer=observe)
+            if reusable:
+                saved = reusable.pop(0)
+                if any(saved[key] != step[key] for key in ('role', 'system', 'user', 'schema')):
+                    raise ValueError('resume prompt/schema mismatch')
+                step.update(saved)
+                raw = saved['output']
+            else:
+                raw = invoke(system=system, user=user, schema=step['schema'], name=role,
+                             isolated=True, response_observer=observe)
             step['output'] = raw
             save(path, artifact)
             parsed = model.model_validate(raw)

@@ -92,3 +92,22 @@ def test_invalid_universe_keeps_failure_record(tmp_path):
     failure = json.loads((tmp_path/'run'/'failure.json').read_text())
     assert failure['completed_decisions'] == 0
     assert failure['headline_return_published'] is False
+
+
+def test_ai_holding_receives_split_shares(tmp_path):
+    from sensei.backtest.raw_accounting import RawAction
+    inputs = market()
+    dates = inputs.calendar
+    inputs.raw.frames['A'].loc[dates[3]:, ['open', 'high', 'low', 'close']] = [50., 51., 49., 50.]
+    action = RawAction('A', dates[3], 'split', 0., 'split', 'Split', 2, 1,
+                       dates[2], dates[4], dates[2], 'b'*64, 'scenario')
+    inputs = replace(inputs, raw=replace(inputs.raw, actions=(action,)))
+    def decide(packet, path):
+        replies = iter(decision('A', 900))
+        return run_cycle(packet, path, call=lambda **kw: next(replies))
+    result = run_ai_portfolio(inputs, MomentumPolicy(trailing_exit=False),
+        formation_start=dates[0], end=dates[-1], universe=['A'], output=tmp_path/'run', decide=decide)
+    assert result['terminal_positions'][0]['quantity'] == 538
+    assert result['terminal_positions'][0]['pending_shares'] == 0
+    assert not [fill for fill in result['fills'] if fill['side'] == 'SELL']
+    assert result['attribution_residual_inr'] == pytest.approx(0, abs=0.001)

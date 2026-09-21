@@ -89,7 +89,7 @@ def _cli_call(*, system: str, user: str, schema: dict, isolated: bool = False,
            if not k.upper().startswith(("ANTHROPIC", "CLAUDE"))}
     command = ["claude", "-p", "--model", _CLI_MODEL, "--output-format", "json"]
     if isolated:
-        command += ["--safe-mode", "--tools", "", "--strict-mcp-config",
+        command += ["--effort", "medium", "--safe-mode", "--tools", "", "--strict-mcp-config",
                     "--mcp-config", '{"mcpServers":{}}', "--no-session-persistence",
                     "--disable-slash-commands", "--no-chrome", "--system-prompt", system]
     else:

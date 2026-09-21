@@ -11,3 +11,7 @@ Freeze the first empirical run before outputs: 2025-06-30 through 2025-08-29, Ju
 Report AI net-of-execution-cost return, drawdown, fills, exposure and attribution; compare same dates to Nifty 500 gross TRI and a same-universe momentum control using frozen mechanics and the same accounting costs. Clearly distinguish this limited control from the full-universe frozen v8 result. Register implementation/source hashes and retain source-evidence identity. A failure records its reason without a headline AI return.
 
 No-model replay verifies saved packet identity against regenerated evidence and account state. Tests must cover next-session fills, multiple decisions/holdings continuity, dividend receivables, failed models producing no result and deterministic replay including changed-account rejection.
+
+## Operational recovery
+
+The first empirical attempt timed out in Crowd Reader after 300 seconds, before any portfolio decision. Permit one separately recorded recovery attempt with medium CLI reasoning effort, the same dates/universe/accounting and no performance-based parameter changes. Reuse only a contiguous prefix of schema/citation-validated responses whose packet, role, system prompt, user prompt and schema match exactly. Preserve the original failed artifact and retain its digest/provider on every reused response. The per-attempt 14-call ceiling remains; reused roles make no new calls. A timed-out provider request may still consume usage, so total provider usage across attempts is not represented as 14 successful calls or zero cost.
