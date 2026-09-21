@@ -10,6 +10,7 @@ import pandas as pd
 from sensei.backtest.ai_portfolio import run_ai_portfolio
 from sensei.backtest.relative_strength import MomentumPolicy, run_momentum_portfolio
 from sensei.research.relative_strength_run import prepare_inputs, compare_benchmark
+from sensei.research.split_reproduction import pinned
 
 
 def run(output):
@@ -32,6 +33,9 @@ def run(output):
     registration['implementations'] = {str(p): sha256(Path(p).read_bytes()).hexdigest() for p in files}
     (root/'registration.json').write_text(json.dumps(registration, indent=2))
     try:
+        for spec in [plan['contract'], *plan['implementations']]:
+            pinned(spec)
+        (root/'v8-verification.json').write_text(json.dumps({'verified': [plan['contract'], *plan['implementations']]}, indent=2))
         inputs, tri, evidence = prepare_inputs(plan['source_plan'], first_formation=start,
                                               end=end, repairs=plan.get('repairs'))
         candidates = []

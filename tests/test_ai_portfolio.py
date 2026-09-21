@@ -82,3 +82,13 @@ def test_dividend_receivables_reach_next_ai_packet_without_becoming_cash(tmp_pat
     assert packets[1]['receivables_paise'] > 0
     assert result['equity_curve'][-1]['dividend_receivables'] > 0
     assert result['attribution_residual_inr'] == pytest.approx(0, abs=0.001)
+
+
+def test_invalid_universe_keeps_failure_record(tmp_path):
+    inputs = market()
+    with pytest.raises(ValueError, match='unknown universe'):
+        run_ai_portfolio(inputs, MomentumPolicy(trailing_exit=False),
+            formation_start=inputs.calendar[0], end=inputs.calendar[-1], universe=['UNKNOWN'], output=tmp_path/'run')
+    failure = json.loads((tmp_path/'run'/'failure.json').read_text())
+    assert failure['completed_decisions'] == 0
+    assert failure['headline_return_published'] is False

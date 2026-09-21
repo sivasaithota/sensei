@@ -3,7 +3,6 @@
 Private-engine reuse is intentional: keep the pinned momentum implementation
 unchanged. Contract tests guard this coupling. No broker or kernel authority.
 """
-from dataclasses import replace
 import json
 import math
 from pathlib import Path
@@ -83,9 +82,10 @@ def run_ai_portfolio(inputs, policy, *, formation_start, end, universe, output, 
     """Stop on any invalid model response; never score missing decisions as cash."""
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
-    account = AIPortfolio(inputs, policy, formation_start, end,
-                          universe=universe, output=output, decide=decide)
+    account = None
     try:
+        account = AIPortfolio(inputs, policy, formation_start, end,
+                              universe=universe, output=output, decide=decide)
         account.form(formation_start, account.start_index)
         for i in range(account.start_index+1, account.end_index+1):
             session = account.calendar[i]
@@ -109,7 +109,7 @@ def run_ai_portfolio(inputs, policy, *, formation_start, end, universe, output, 
         return result
     except Exception as exc:
         (output/'failure.json').write_text(json.dumps({'status': 'FAILED', 'error': str(exc),
-            'completed_decisions': len(account.decisions), 'headline_return_published': False}, indent=2))
+            'completed_decisions': len(account.decisions) if account is not None else 0, 'headline_return_published': False}, indent=2))
         raise
 
 
