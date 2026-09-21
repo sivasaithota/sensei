@@ -108,8 +108,7 @@ def validate_citations(packet: Packet, assessments: list[Assessment]):
     for a in assessments:
         if a.symbol not in symbols:
             raise ValueError(f'unknown symbol: {a.symbol}')
-        if any(ref not in evidence or evidence[ref].symbol not in (None, a.symbol)
-               for ref in a.evidence_ids):
+        if any(ref not in evidence for ref in a.evidence_ids):
             raise ValueError(f'invalid citation for {a.symbol}')
         if not any(evidence[ref].symbol == a.symbol for ref in a.evidence_ids):
             raise ValueError(f'no symbol-specific evidence for {a.symbol}')

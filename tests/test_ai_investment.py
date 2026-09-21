@@ -311,3 +311,34 @@ def test_resume_reuses_only_exact_validated_role_responses(tmp_path):
     changed = packet()
     changed['label'] = 'changed'
     assert run_desk_cycle(changed, tmp_path/'bad', call=caller([]), resume_from=tmp_path/'failed')['status'] == 'INPUT_BLOCKED'
+
+
+def test_peer_comparison_allowed_only_with_primary_stock_evidence(tmp_path):
+    outputs = responses()
+    outputs[1]['assessments'][0]['evidence_ids'] = ['BBB', 'AAA']
+    assert run_cycle(packet(), tmp_path/'valid', call=caller(outputs))['status'] == 'READY'
+    outputs = responses()
+    outputs[1]['assessments'][0]['evidence_ids'] = ['AAA']
+    assert run_cycle(packet(), tmp_path/'invalid', call=caller(outputs))['status'] == 'MODEL_FAILED'
+
+
+def test_resume_revalidates_response_rejected_by_old_peer_rule(tmp_path):
+    from sensei.investment.cycle import run_desk_cycle, save
+    outputs = responses()
+    outputs[1]['assessments'][0]['evidence_ids'] = ['BBB', 'AAA']
+    run_desk_cycle(packet(), tmp_path/'old', call=caller([outputs[0]]*3 + outputs + [outputs[0]]))
+    artifact = json.loads((tmp_path/'old'/'artifact.json').read_text())
+    artifact['steps'] = artifact['steps'][:5]
+    artifact['steps'][-1]['validated'] = False
+    artifact['result'] = {'status': 'MODEL_FAILED', 'role': 'critic', 'error': 'old peer-citation restriction'}
+    save(tmp_path/'old', artifact)
+    calls = []
+    remaining = iter([outputs[2], outputs[0]])
+    def model(**kwargs):
+        calls.append(kwargs['name'])
+        return next(remaining)
+    result = run_desk_cycle(packet(), tmp_path/'new', call=model, resume_from=tmp_path/'old')
+    assert result['status'] == 'READY'
+    assert calls == ['manager', 'coach']
+    saved = json.loads((tmp_path/'new'/'artifact.json').read_text())
+    assert saved['steps'][4]['revalidated_after_failure'] is True

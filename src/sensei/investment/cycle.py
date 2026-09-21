@@ -177,9 +177,18 @@ def _run(raw_packet, output_dir, *, call, full_desk, resume_from=None):
         if old['version'] != DESK_VERSION or canonical(old['packet']) != canonical(raw_packet):
             return finish({'status': 'INPUT_BLOCKED', 'error': 'resume packet/version mismatch'})
         for old_step in old['steps']:
-            if not old_step.get('validated'):
+            if 'output' not in old_step:
+                break
+            # A saved response rejected by an earlier validator may now pass a
+            # corrected contract. Revalidate before reuse, without a new call.
+            try:
+                contract = Decision if old_step['role'] == 'manager' else Analysis
+                cached = contract.model_validate(old_step['output'])
+                validate_citations(packet, cached.allocations if old_step['role'] == 'manager' else cached.assessments)
+            except ValueError:
                 break
             reusable.append({**old_step, 'reused_from': str(resume_from),
+                             'revalidated_after_failure': not old_step.get('validated', False),
                              'source_digest': old['digest'], 'source_provider': old['provider']})
     invoke = call or llm.structured_call
     outputs = []
