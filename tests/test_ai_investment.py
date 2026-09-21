@@ -246,3 +246,47 @@ def test_existing_desk_journals_ai_research_without_using_order_path(tmp_path):
         desk.run_investment_cycle(changed, tmp_path/'research', command_id='ai-1', call=forbidden)
     assert coach.calls == 0  # Process critique does not fabricate reconciled outcomes.
     assert journal.verify().ok
+
+
+def test_coach_failure_does_not_relabel_valid_committee_risk_result(tmp_path):
+    from sensei.investment.cycle import run_desk_cycle
+    outputs = responses()
+    result = run_desk_cycle(packet(), tmp_path/'run', call=caller([outputs[0]]*3 + outputs + [{}]))
+    assert result['status'] == 'MODEL_FAILED'
+    assert result['role'] == 'coach'
+    assert result['desk_roles']['committee']['risk_preview'] == 'READY'
+
+
+def test_risk_rejection_skips_coach(tmp_path):
+    from sensei.investment.cycle import run_desk_cycle
+    outputs = responses(weight=3000)
+    result = run_desk_cycle(packet(), tmp_path/'run', call=caller([outputs[0]]*3 + outputs))
+    assert result['status'] == 'RISK_REJECTED'
+    assert result['desk_roles']['coach']['status'] == 'SKIPPED'
+
+
+def test_journal_binding_rejects_rehashed_artifact(tmp_path):
+    from tests.test_desk_runtime import _runtime_fixture
+    from sensei.investment.cycle import save
+    desk, _, _, _, _, _, _ = _runtime_fixture(tmp_path)
+    outputs = responses()
+    directory = tmp_path/'research'
+    desk.run_investment_cycle(packet(), directory, command_id='ai-1', call=caller([outputs[0]]*3 + outputs + [outputs[0]]))
+    artifact = json.loads((directory/'artifact.json').read_text())
+    artifact['packet']['label'] = 'silently edited'
+    save(directory, artifact)
+    with pytest.raises(ValueError, match='differs from journal'):
+        desk.run_investment_cycle(packet(), directory, command_id='ai-1', call=caller([]))
+
+
+def test_in_progress_desk_command_cannot_be_run_twice(tmp_path):
+    from tests.test_desk_runtime import _runtime_fixture
+    desk, _, _, _, gateway, _, _ = _runtime_fixture(tmp_path)
+    outputs = responses()
+    scripted = iter([outputs[0]]*3 + outputs + [outputs[0]])
+    def model(**kwargs):
+        with pytest.raises(RuntimeError, match='incomplete'):
+            desk.run_investment_cycle(packet(), tmp_path/'research', command_id='ai-1', call=caller([]))
+        return next(scripted)
+    desk.run_investment_cycle(packet(), tmp_path/'research', command_id='ai-1', call=model)
+    assert gateway.commands == ()

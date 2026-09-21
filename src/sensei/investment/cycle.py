@@ -133,7 +133,8 @@ def desk_result(result, steps):
         'status': ('FAILED' if failed in ('critic', 'manager') or result['status'] == 'RISK_REJECTED'
                    else 'COMPLETED' if {'critic', 'manager'} <= completed else 'SKIPPED'),
         'critic_completed': 'critic' in completed, 'manager_completed': 'manager' in completed,
-        'risk_preview': result['status'], 'signed_admission': False,
+        'risk_preview': next((step['risk_status'] for step in steps if 'risk_status' in step), 'NOT_RUN'),
+        'signed_admission': False,
     }
     roles['trader'] = {'status': 'SKIPPED', 'reason': 'AI-specific governed admission is not implemented; no orders or fills'}
     roles['secretary'] = {'status': 'COMPLETED'}
@@ -197,6 +198,7 @@ def _run(raw_packet, output_dir, *, call, full_desk):
                 outputs.append(parsed.model_dump(mode='json'))
             if role == 'manager':
                 decision_result = evaluate(packet, outputs)
+                step['risk_status'] = decision_result['status']
                 if decision_result['status'] == 'RISK_REJECTED':
                     return finish(decision_result)
         except Exception as exc:

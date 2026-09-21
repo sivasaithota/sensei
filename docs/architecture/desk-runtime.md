@@ -167,3 +167,9 @@ Exit 1 is an alert signal and should not automatically kill a coherent running
 task. A run that holds the lease for ten minutes is degraded before the entry
 cutoff; exit 2 is reserved for offline or untrustworthy state and may be used by
 the deployment manager's bounded restart policy.
+
+## AI investment research entry point
+
+`DeskRuntime.run_investment_cycle(...)` now runs evidence-bound AI research adapters for Historian, Reporter, Crowd Reader, Analyst, Critic, Portfolio Manager and Coach. Secretary projects nine desk-role statuses into the artifact and the existing operational journal binds the command and result. These research adapters are distinct from the mechanical execution-role instances above; they receive a caller-supplied packet and do not fetch or authenticate current market facts.
+
+The AI path always reports execution `NOT_ADMITTED` and Trader `SKIPPED`. It does not manufacture a StrategyPlan trace, committee signatures or outcome observations to reach the existing kernel. Governed AI paper execution is still open work. See `docs/ai-investment-workflow.md` for the full-desk command and replay behavior.
