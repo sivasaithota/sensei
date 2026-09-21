@@ -510,6 +510,18 @@ class DeskRuntime:
             )
         )
 
+    def run_investment_cycle(self, packet, output_dir, *, command_id, call=None):
+        """Run and journal the AI research roles; grants no paper-order authority.
+
+        The mechanical run_cycle remains the governed execution path. These
+        research adapters do not impersonate its signed trace or L1-L4 verdicts.
+        """
+        from .investment import run_investment_research
+
+        return run_investment_research(
+            self._journal, packet, output_dir, command_id=command_id, call=call,
+        )
+
     def run_cycle(
         self,
         request: DeskCycleRequest,

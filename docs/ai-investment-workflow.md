@@ -25,3 +25,16 @@ Replay without model calls:
 Input prices/cash are integer paise, weights integer basis points. Each current holding must be represented, including explicit zero targets for exits. Configure `limits.max_drawdown_bps` in the packet (1500 = 15%): at that drawdown, increases are blocked and reductions remain possible. Available shares constrain sales. Existing cash must fund buys without assuming sale proceeds are immediately reusable. An unaffordable allocation fails as a whole rather than being silently resized. Risk constraints can therefore reject an otherwise plausible AI decision.
 
 The frozen liquid-relative-strength v8 strategy remains a parallel benchmark. This slice merely records its identity; it does not rerun it or claim matched prospective returns. Next: supply authenticated current evidence and account state, then admit decisions through the governed paper runtime with next-session fills. Compare that forward record against the same-date momentum and Nifty 500 TRI paths. Synthetic runs demonstrate plumbing only; historical AI prompts can contain model-training leakage and cannot alone prove alpha.
+
+## Full desk
+
+Use `--full-desk` to run Historian → Reporter → Crowd Reader → Analyst → Critic → Portfolio Manager → Coach (at most seven model calls). Historian analyzes supplied history, Reporter supplied company information, and Crowd Reader supplied regime/sentiment evidence. None fetches data or has tools. The Coach reviews reasoning and evidence gaps; it does not learn from nonexistent fills. Secretary generates a nine-role report with committee detail and explicitly skipped execution.
+
+```sh
+.venv/bin/python -m sensei.investment --full-desk \
+  config/examples/ai-investment-synthetic.json data/reports/ai-investment/full-desk-example
+```
+
+Application integration is `DeskRuntime.run_investment_cycle(packet, output_dir, command_id=...)`. It shares the operational journal with the existing desk, binds the saved artifact to that journal and replays completed commands without model calls. Reusing a command with changed packet/path fails. An interrupted attempt requires inspecting its evidence before issuing a new command. The CLI creates an independent research artifact; use the DeskRuntime method for journal binding.
+
+These are AI research adapters for the desk responsibilities, not new authority for the existing operational role instances. The signed Historian trace, event/surveillance checks, committee and Trader in mechanical `run_cycle` remain unchanged. The AI mode reports `NOT_ADMITTED` even for a valid preview. Current evidence collection and AI-specific governed paper admission remain open; no full paper-integration claim is made.

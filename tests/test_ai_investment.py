@@ -198,3 +198,51 @@ def test_isolated_api_disables_transport_retries(monkeypatch):
     monkeypatch.setattr(anthropic, 'Anthropic', create_client)
     assert llm.structured_call(system='test', user='test', schema={}, name='test', isolated=True) == {'ok': True}
     assert seen['max_retries'] == 0
+
+
+def test_full_desk_uses_research_roles_and_coach_cannot_change_decision(tmp_path):
+    from sensei.investment.cycle import run_desk_cycle
+    outputs = responses()
+    research = outputs[0]
+    calls = []
+    scripted = iter([research, research, research, *outputs, research])
+    def model(**kwargs):
+        calls.append(kwargs['name'])
+        if kwargs['name'] == 'analyst':
+            prior = json.loads(kwargs['user'])['previous_roles']
+            assert [item['role'] for item in prior] == ['historian', 'reporter', 'crowd_reader']
+        return next(scripted)
+    result = run_desk_cycle(packet(), tmp_path/'run', call=model)
+    assert calls == ['historian', 'reporter', 'crowd_reader', 'analyst', 'critic', 'manager', 'coach']
+    assert result['decision']['allocations'][0]['symbol'] == 'BBB'
+    assert len(result['desk_roles']) == 9
+    assert result['execution_status'] == 'NOT_ADMITTED'
+    assert result['desk_roles']['trader']['status'] == 'SKIPPED'
+    assert replay(tmp_path/'run') == result
+
+
+def test_full_desk_research_failure_skips_downstream_roles(tmp_path):
+    from sensei.investment.cycle import run_desk_cycle
+    result = run_desk_cycle(packet(), tmp_path/'run', call=caller([{}]))
+    assert result['status'] == 'MODEL_FAILED'
+    assert result['role'] == 'historian'
+    assert result['desk_roles']['analyst']['status'] == 'SKIPPED'
+    assert result['desk_roles']['trader']['status'] == 'SKIPPED'
+
+
+def test_existing_desk_journals_ai_research_without_using_order_path(tmp_path):
+    from tests.test_desk_runtime import _runtime_fixture
+    desk, _, coach, secretary, gateway, journal, _ = _runtime_fixture(tmp_path)
+    outputs = responses()
+    scripted = [outputs[0]] * 3 + outputs + [outputs[0]]
+    result = desk.run_investment_cycle(packet(), tmp_path/'research', command_id='ai-1', call=caller(scripted))
+    assert result['execution_status'] == 'NOT_ADMITTED'
+    def forbidden(**kwargs):
+        pytest.fail('completed command replay must not call the model')
+    assert desk.run_investment_cycle(packet(), tmp_path/'research', command_id='ai-1', call=forbidden) == result
+    changed = packet()
+    changed['label'] = 'different request'
+    with pytest.raises(ValueError, match='reused'):
+        desk.run_investment_cycle(changed, tmp_path/'research', command_id='ai-1', call=forbidden)
+    assert coach.calls == 0  # Process critique does not fabricate reconciled outcomes.
+    assert journal.verify().ok

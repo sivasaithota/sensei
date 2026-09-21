@@ -21,3 +21,13 @@ Tests exercise genuine selection freedom through injected role outputs, intentio
 ## Remaining integration
 
 An authenticated current evidence collector, incremental account state and next-session fills, exchange calendars/corporate actions, and admission through the governed paper runtime are future work. This slice does not activate a paper trial or live trading. Compare prospective AI results with the frozen benchmark and Nifty 500 TRI only after the same-date forward account paths exist. Modern models may know historical outcomes; historical prompt replays alone cannot establish out-of-sample AI alpha.
+
+## Full research desk integration (2026-09-22)
+
+Add an explicit full-desk mode: Historian, Reporter and Crowd Reader assess supplied evidence before Analyst, Critic and Manager; Coach critiques the decision process afterward without changing allocation or inventing realized returns. At most seven model calls; missing data is identified, not fetched or fabricated. Every intermediate output is citation-validated. The original three-call mode remains usable.
+
+Secretary projects all nine desk roles, including committee subroles and explicit Trader SKIPPED / execution NOT_ADMITTED. No research-role status represents a signed L1-L4 verdict. This extends the research half of integration, not order admission: the existing Trader requires a signed StrategyPlan trace that AI target weights cannot provide. The existing mechanical execution path must remain unchanged until a separate governed AI admission design is implemented.
+
+Expose this through DeskRuntime.run_investment_cycle, using the existing journal to bind command, packet, artifact and result. Completed command replay verifies artifacts and spends no model calls; changing inputs under an existing command is rejected. Incomplete attempts require inspection and a new command, not blind automatic retries. Concurrent callers cannot both own the same command. The legacy operational role instances are not called with fabricated history, regime or reconciled outcomes: this mode supplies new evidence-bound AI research adapters for those role responsibilities.
+
+Tests cover the seven-call sequence, upstream context, nine-role report, stopped downstream work, no execution, journaled replay and command identity. No current-data quality or prospective-return claim follows from passing these tests.
