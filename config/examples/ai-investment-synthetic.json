@@ -1,0 +1,48 @@
+{
+  "label": "Synthetic workflow demonstration; invented AAA and BBB, not real securities",
+  "synthetic": true,
+  "cutoff": "2026-09-21T16:00:00+05:30",
+  "cash_paise": 30000000,
+  "high_water_paise": 30000000,
+  "instruments": [
+    {
+      "symbol": "AAA",
+      "price_paise": 10000,
+      "marked_at": "2026-09-21T15:30:00+05:30",
+      "held_quantity": 0,
+      "available_quantity": 0
+    },
+    {
+      "symbol": "BBB",
+      "price_paise": 10000,
+      "marked_at": "2026-09-21T15:30:00+05:30",
+      "held_quantity": 0,
+      "available_quantity": 0
+    }
+  ],
+  "evidence": [
+    {
+      "id": "AAA",
+      "symbol": "AAA",
+      "source": "synthetic://fixture",
+      "published_at": "2026-09-21T14:00:00+05:30",
+      "available_at": "2026-09-21T14:01:00+05:30",
+      "text": "SYNTHETIC: AAA manufactures imaginary goods. Revenue grew 8%, operating margin 12%, net debt/equity 0.8. Recent price gain 20%. Its largest buyer represents 45% of sales. These are invented scenario facts."
+    },
+    {
+      "id": "BBB",
+      "symbol": "BBB",
+      "source": "synthetic://fixture",
+      "published_at": "2026-09-21T14:00:00+05:30",
+      "available_at": "2026-09-21T14:01:00+05:30",
+      "text": "SYNTHETIC: BBB provides imaginary services. Revenue grew 15%, operating margin 20%, net cash. Recent price gain 5%. A contract renewal representing 20% of revenue is unresolved. These are invented scenario facts."
+    }
+  ],
+  "limits": {
+    "max_position_bps": 2000,
+    "min_cash_bps": 500,
+    "max_positions": 10,
+    "max_mark_age_hours": 96,
+    "max_drawdown_bps": 1500
+  }
+}

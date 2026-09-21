@@ -1,0 +1,166 @@
+import json
+from copy import deepcopy
+
+import pytest
+
+from sensei.investment.cycle import run_cycle, replay
+
+
+def packet():
+    return {
+        'label': 'synthetic-test', 'synthetic': True,
+        'cutoff': '2026-09-21T16:00:00+05:30',
+        'cash_paise': 30_000_000, 'high_water_paise': 30_000_000,
+        'instruments': [
+            {'symbol': s, 'price_paise': 10_000, 'marked_at': '2026-09-21T15:30:00+05:30',
+             'held_quantity': 0, 'available_quantity': 0}
+            for s in ('AAA', 'BBB')],
+        'evidence': [
+            {'id': s, 'symbol': s, 'source': 'synthetic://fixture',
+             'published_at': '2026-09-21T14:00:00+05:30',
+             'available_at': '2026-09-21T14:01:00+05:30',
+             'text': 'Invented test company, no real investment evidence.'}
+            for s in ('AAA', 'BBB')],
+        'limits': {'max_position_bps': 2000, 'min_cash_bps': 500,
+                   'max_positions': 10, 'max_mark_age_hours': 96,
+                   'max_drawdown_bps': 1500},
+    }
+
+
+def responses(symbol='BBB', weight=1500):
+    note = {'symbol': symbol, 'reason': 'Fixture argument', 'evidence_ids': [symbol]}
+    return [
+        {'summary': 'Propose investment', 'assessments': [note]},
+        {'summary': 'Challenge assumptions', 'assessments': [note]},
+        {'allocations': [{**note, 'weight_bps': weight, 'invalidation': 'Fixture fails',
+                          'review_after_sessions': 5}],
+         'cash_bps': 10000-weight, 'cash_reason': 'Retain liquidity',
+         'critic_response': 'Size conservatively given uncertainty'},
+    ]
+
+
+def caller(outputs):
+    items = iter(outputs)
+    return lambda **kwargs: next(items)
+
+
+def test_ai_selects_stock_and_replay_does_not_call_model(tmp_path):
+    report = run_cycle(packet(), tmp_path/'run', call=caller(responses()))
+    assert report['status'] == 'READY'
+    assert report['preview']['orders'][0]['symbol'] == 'BBB'
+    assert report['preview']['orders'][0]['quantity'] == 450
+    assert report['preview']['cash_after_buys_paise'] < 25_500_000
+    assert replay(tmp_path/'run') == report
+    with pytest.raises(FileExistsError):
+        run_cycle(packet(), tmp_path/'run', call=caller(responses()))
+
+
+def test_intentional_cash_is_not_failure(tmp_path):
+    outputs = responses()
+    outputs[-1]['allocations'] = []
+    outputs[-1]['cash_bps'] = 10000
+    result = run_cycle(packet(), tmp_path/'run', call=caller(outputs))
+    assert result['status'] == 'AI_CHOSE_CASH'
+    assert result['preview']['orders'] == []
+
+
+@pytest.mark.parametrize('change', ['future', 'stale', 'duplicate', 'boolean_cash'])
+def test_invalid_packet_calls_no_model(tmp_path, change):
+    p = packet()
+    if change == 'future':
+        p['evidence'][0]['available_at'] = '2026-09-22T00:00:00+05:30'
+    if change == 'stale':
+        p['instruments'][0]['marked_at'] = '2026-09-01T00:00:00+05:30'
+    if change == 'duplicate':
+        p['evidence'].append(deepcopy(p['evidence'][0]))
+    if change == 'boolean_cash':
+        p['cash_paise'] = True
+    def forbidden(**kwargs):
+        pytest.fail('invalid packet must not reach model')
+    assert run_cycle(p, tmp_path/'run', call=forbidden)['status'] == 'INPUT_BLOCKED'
+
+
+@pytest.mark.parametrize('change', ['citation', 'overweight', 'missing_holding', 'boolean_weight'])
+def test_bad_decision_is_failure_not_cash(tmp_path, change):
+    p, outputs = packet(), responses()
+    if change == 'citation':
+        outputs[-1]['allocations'][0]['evidence_ids'] = ['AAA']
+    if change == 'overweight':
+        outputs[-1]['allocations'][0]['weight_bps'] = 3000
+        outputs[-1]['cash_bps'] = 7000
+    if change == 'missing_holding':
+        p['instruments'][0].update(held_quantity=10, available_quantity=10)
+        p['cash_paise'] -= 100_000
+    if change == 'boolean_weight':
+        outputs[-1]['allocations'][0]['weight_bps'] = True
+    result = run_cycle(p, tmp_path/'run', call=caller(outputs))
+    assert result['status'] in ('MODEL_FAILED', 'RISK_REJECTED')
+    assert 'preview' not in result
+
+
+def test_provider_failure_saved(tmp_path):
+    def fail(**kwargs):
+        raise RuntimeError('provider down')
+    result = run_cycle(packet(), tmp_path/'run', call=fail)
+    assert result['status'] == 'MODEL_FAILED'
+    assert json.loads((tmp_path/'run'/'artifact.json').read_text())['result'] == result
+
+
+def test_sales_cannot_fund_buys(tmp_path):
+    p = packet()
+    p['cash_paise'] = 0
+    p['instruments'][0].update(held_quantity=3000, available_quantity=3000)
+    outputs = responses()
+    outputs[-1]['allocations'].append({**outputs[-1]['allocations'][0],
+                                      'symbol': 'AAA', 'weight_bps': 0, 'evidence_ids': ['AAA']})
+    assert run_cycle(p, tmp_path/'run', call=caller(outputs))['status'] == 'RISK_REJECTED'
+
+
+def test_drawdown_blocks_increase_but_allows_exit(tmp_path):
+    p = packet()
+    p['high_water_paise'] = 40_000_000
+    assert run_cycle(p, tmp_path/'buy', call=caller(responses()))['status'] == 'RISK_REJECTED'
+    p['instruments'][1].update(held_quantity=10, available_quantity=10)
+    assert run_cycle(p, tmp_path/'sell', call=caller(responses(weight=0)))['status'] == 'AI_CHOSE_CASH'
+
+
+def test_unavailable_holding_cannot_be_sold(tmp_path):
+    p = packet()
+    p['instruments'][1]['held_quantity'] = 10
+    p['cash_paise'] -= 100_000
+    assert run_cycle(p, tmp_path/'run', call=caller(responses(weight=0)))['status'] == 'RISK_REJECTED'
+
+
+def test_replay_detects_edit(tmp_path):
+    run_cycle(packet(), tmp_path/'run', call=caller(responses()))
+    path = tmp_path/'run'/'artifact.json'
+    artifact = json.loads(path.read_text())
+    artifact['packet']['cash_paise'] += 1
+    path.write_text(json.dumps(artifact))
+    with pytest.raises(ValueError, match='digest'):
+        replay(tmp_path/'run')
+
+
+def test_isolated_provider_has_no_tools(monkeypatch):
+    from types import SimpleNamespace
+    from sensei import llm
+    monkeypatch.setenv('SENSEI_LLM_BACKEND', 'claude-code')
+    monkeypatch.setattr(llm.shutil, 'which', lambda name: '/bin/claude')
+    captured = []
+    def execute(command, **kwargs):
+        captured.append(command)
+        return SimpleNamespace(returncode=0, stdout='{"result":"{\\"ok\\":true}"}')
+    monkeypatch.setattr(llm.subprocess, 'run', execute)
+    assert llm.structured_call(system='test', user='test', schema={}, name='test', isolated=True) == {'ok': True}
+    command = captured[0]
+    assert command[command.index('--tools')+1] == ''
+    assert '--safe-mode' in command
+    assert '--strict-mcp-config' in command
+    assert command[command.index('--mcp-config')+1] == '{"mcpServers":{}}'
+
+
+def test_model_is_free_to_choose_different_stock(tmp_path):
+    first = run_cycle(packet(), tmp_path/'first', call=caller(responses('AAA')))
+    second = run_cycle(packet(), tmp_path/'second', call=caller(responses('BBB')))
+    assert first['preview']['orders'][0]['symbol'] == 'AAA'
+    assert second['preview']['orders'][0]['symbol'] == 'BBB'

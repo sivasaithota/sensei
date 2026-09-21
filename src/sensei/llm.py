@@ -33,21 +33,27 @@ def backend() -> str:
 
 
 def structured_call(*, system: str, user: str, schema: dict, name: str,
-                    client=None) -> dict:
+                    client=None, isolated: bool = False) -> dict:
     """Return a dict matching `schema` (a JSON Schema with required keys)."""
     if client is not None or backend() == "api":
         return _api_call(system=system, user=user, schema=schema, name=name,
-                         client=client)
-    return _cli_call(system=system, user=user, schema=schema)
+                         client=client, max_tokens=6000 if isolated else 1500)
+    return _cli_call(system=system, user=user, schema=schema, isolated=isolated)
+
+
+def requested_model() -> str:
+    """Configured model request, not proof of the provider's resolved model."""
+    return MODEL if backend() == 'api' else _CLI_MODEL
 
 
 # ---- backend: Anthropic SDK ----
 
-def _api_call(*, system: str, user: str, schema: dict, name: str, client=None) -> dict:
+def _api_call(*, system: str, user: str, schema: dict, name: str, client=None,
+              max_tokens: int = 1500) -> dict:
     import anthropic
     client = client or anthropic.Anthropic()
     resp = client.messages.create(
-        model=MODEL, max_tokens=1500, system=system,
+        model=MODEL, max_tokens=max_tokens, system=system,
         tools=[{"name": name, "description": f"Deliver your {name}.",
                 "input_schema": schema}],
         tool_choice={"type": "tool", "name": name},
@@ -61,7 +67,7 @@ def _api_call(*, system: str, user: str, schema: dict, name: str, client=None) -
 _NO_TOOLS = "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,Task,NotebookEdit"
 
 
-def _cli_call(*, system: str, user: str, schema: dict) -> dict:
+def _cli_call(*, system: str, user: str, schema: dict, isolated: bool = False) -> dict:
     if shutil.which("claude") is None:
         raise RuntimeError(
             "claude-code backend selected but the `claude` CLI is not on PATH; "
@@ -75,10 +81,15 @@ def _cli_call(*, system: str, user: str, schema: dict) -> dict:
     # (proxy URLs, session tokens) that break the CLI's own login.
     env = {k: v for k, v in os.environ.items()
            if not k.upper().startswith(("ANTHROPIC", "CLAUDE"))}
+    command = ["claude", "-p", "--model", _CLI_MODEL, "--output-format", "json"]
+    if isolated:
+        command += ["--safe-mode", "--tools", "", "--strict-mcp-config",
+                    "--mcp-config", '{"mcpServers":{}}', "--no-session-persistence",
+                    "--disable-slash-commands", "--no-chrome", "--system-prompt", system]
+    else:
+        command += ["--disallowedTools", _NO_TOOLS, "--append-system-prompt", system]
     proc = subprocess.run(
-        ["claude", "-p", "--model", _CLI_MODEL, "--output-format", "json",
-         "--disallowedTools", _NO_TOOLS,
-         "--append-system-prompt", system],
+        command,
         input=prompt, capture_output=True, text=True, timeout=300, env=env,
     )
     if proc.returncode != 0 and not proc.stdout.strip():
