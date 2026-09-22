@@ -371,3 +371,39 @@ def test_new_manager_contract_reuses_research_but_requests_new_decision(tmp_path
     result = run_desk_cycle(packet(), tmp_path/'new', target_only=True, resume_from=tmp_path/'old', call=model)
     assert result['status'] == 'READY'
     assert calls == ['manager', 'coach']
+
+
+def test_coach_process_notes_do_not_need_fictitious_stock(tmp_path):
+    from sensei.investment.cycle import run_desk_cycle
+    outputs = responses()
+    coach = {'summary': 'Research gaps', 'assessments': [],
+             'process_notes': ['Obtain dated filings before drawing earnings conclusions.']}
+    result = run_desk_cycle(packet(), tmp_path/'run',
+                            call=caller([outputs[0]]*3 + outputs + [coach]))
+    assert result['status'] == 'READY'
+    assert result['decision'] == outputs[-1]
+    assert replay(tmp_path/'run') == result
+    coach['assessments'] = [{'symbol': 'PORTFOLIO_PROCESS', 'reason': 'Review', 'evidence_ids': ['BBB']}]
+    rejected = run_desk_cycle(packet(), tmp_path/'bad',
+                              call=caller([outputs[0]]*3 + outputs + [coach]))
+    assert rejected['status'] == 'MODEL_FAILED'
+    assert 'unknown symbol' in rejected['error']
+
+
+def test_new_coach_contract_preserves_saved_manager(tmp_path):
+    from sensei.investment.cycle import run_desk_cycle, save
+    from sensei.investment.models import Analysis
+    outputs = responses()
+    run_desk_cycle(packet(), tmp_path/'old', call=caller([outputs[0]]*3 + outputs + [{}]))
+    artifact = json.loads((tmp_path/'old'/'artifact.json').read_text())
+    artifact['steps'][-1]['schema'] = Analysis.model_json_schema()
+    artifact['steps'][-1]['output'] = outputs[0]
+    save(tmp_path/'old', artifact)
+    calls = []
+    def model(**kwargs):
+        calls.append(kwargs['name'])
+        return {'summary': 'Review', 'assessments': [], 'process_notes': ['Missing news.']}
+    result = run_desk_cycle(packet(), tmp_path/'new', resume_from=tmp_path/'old', call=model)
+    assert result['status'] == 'READY'
+    assert result['decision'] == outputs[-1]
+    assert calls == ['coach']

@@ -89,6 +89,13 @@ class Analysis(Contract):
     assessments: Annotated[list[Assessment], Field(min_length=1)]
 
 
+class CoachReview(Contract):
+    """Advisory process notes have no tradable symbol or allocation authority."""
+    summary: Text
+    assessments: list[Assessment]
+    process_notes: list[Text] = Field(default_factory=list)
+
+
 class Allocation(Assessment):
     weight_bps: Bps
     invalidation: Text

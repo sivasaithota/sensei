@@ -6,7 +6,7 @@ from pathlib import Path
 
 from sensei import llm
 from sensei.backtest.costs import delivery_charge
-from .models import Analysis, Decision, TargetDecision, Packet, validate_citations
+from .models import Analysis, CoachReview, Decision, TargetDecision, Packet, validate_citations
 
 VERSION = 'ai-investment-preview-v1'
 DESK_VERSION = 'ai-investment-desk-v1'
@@ -24,7 +24,7 @@ ROLE_PROMPTS = {
     'historian': 'Assess the supplied price/history evidence and its limitations. Do not import remembered returns or infer a backtest from a few facts. Mark missing history explicitly.',
     'reporter': 'Assess supplied company filings, earnings and news evidence. Separate reported facts from inference; identify missing or stale information. Do not imply you fetched news.',
     'crowd_reader': 'Assess supplied market regime, breadth, positioning and sentiment evidence. If social or market-wide data is absent, say unavailable. Do not infer social consensus from prices.',
-    'coach': 'Review THIS decision process and evidence gaps. Propose research follow-ups only. No realized outcomes have been supplied: do not invent P&L, claim learning from returns, revise weights or authorize trading.',
+    'coach': 'Review THIS decision process and evidence gaps. Propose research follow-ups only. Put portfolio-wide observations and research follow-ups in process_notes; assessments must use actual packet symbols and citations. Never invent placeholder symbols. No realized outcomes have been supplied: do not invent P&L, claim learning from returns, revise weights or authorize trading.',
     'analyst': 'Propose attractive investments and assess existing holdings, including reasons to avoid or exit. Identify uncertainty using supplied evidence.',
     'critic': 'Challenge the analyst: identify weak evidence, downside and reasons not to invest. Assess every stock the analyst proposes and every existing holding.',
     'manager': 'Choose final target allocations and cash. You may disagree with either role, but explain your response to the critic. Explicitly include every held symbol, using weight zero for exits. Weights plus cash must total 10000. Obey packet limits. Give invalidation conditions and review horizons. Prefer cash to unsupported investments.',
@@ -116,6 +116,12 @@ def run_cycle(raw_packet, output_dir, *, call=None):
     return _run(raw_packet, output_dir, call=call, full_desk=False)
 
 
+def role_contract(role, target_only):
+    if role == 'manager':
+        return TargetDecision if target_only else Decision
+    return CoachReview if role == 'coach' else Analysis
+
+
 def run_desk_cycle(raw_packet, output_dir, *, call=None, resume_from=None, target_only=False):
     """Run the full research desk; execution remains explicitly unadmitted."""
     return _run(raw_packet, output_dir, call=call, full_desk=True, resume_from=resume_from, target_only=target_only)
@@ -181,10 +187,12 @@ def _run(raw_packet, output_dir, *, call, full_desk, resume_from=None, target_on
                 break
             if 'output' not in old_step:
                 break
+            contract = role_contract(old_step['role'], target_only)
+            if old_step.get('schema') != contract.model_json_schema():
+                break
             # A saved response rejected by an earlier validator may now pass a
             # corrected contract. Revalidate before reuse, without a new call.
             try:
-                contract = (TargetDecision if target_only else Decision) if old_step['role'] == 'manager' else Analysis
                 cached = contract.model_validate(old_step['output'])
                 validate_citations(packet, cached.allocations if old_step['role'] == 'manager' else cached.assessments)
             except ValueError:
@@ -199,7 +207,7 @@ def _run(raw_packet, output_dir, *, call, full_desk, resume_from=None, target_on
     if full_desk:
         role_names += ['coach']
     for role in role_names:
-        model = (TargetDecision if target_only else Decision) if role == 'manager' else Analysis
+        model = role_contract(role, target_only)
         system = BASE_PROMPT + ROLE_PROMPTS[role]
         if role == 'manager' and target_only:
             system += '\nReturn stock target weights only; do not output cash_bps. Code calculates cash as 10000 minus stock weights. Choose cash through the weights you allocate. Respect the minimum cash floor. Do not state a numeric cash percentage in prose.'
