@@ -111,3 +111,44 @@ def test_ai_holding_receives_split_shares(tmp_path):
     assert result['terminal_positions'][0]['pending_shares'] == 0
     assert not [fill for fill in result['fills'] if fill['side'] == 'SELL']
     assert result['attribution_residual_inr'] == pytest.approx(0, abs=0.001)
+
+
+def test_accounting_overlay_preserves_prices_and_first_decision_but_changes_receivables(tmp_path):
+    from hashlib import sha256
+    from sensei.backtest.ai_portfolio import AIPortfolio
+    from sensei.backtest.raw_accounting import RawAction
+    from sensei.research.ai_backtest import accounting_overlay
+    inputs = market()
+    dates = inputs.calendar
+    inputs.raw.frames['A']['prev_close'] = 100.
+    inputs = replace(inputs, raw=replace(inputs.raw, actions=(
+        RawAction('A', dates[3], 'unsupported', 0., 'old-action', 'Stale ISIN'),)))
+    notice = tmp_path/'notice.txt'
+    notice.write_text('Synthetic fixture primary notice')
+    manifest = {'share_actions': [], 'cash_actions': [{
+        'symbol': 'A', 'isin': 'A', 'ex_date': str(dates[3].date()),
+        'known_from': str(dates[1].date()), 'amount': 1., 'subject': 'Dividend',
+        'replaces_source_id': 'old-action',
+        'sources': [{'path': str(notice), 'sha256': sha256(notice.read_bytes()).hexdigest()}]}]}
+    repaired, identity = accounting_overlay(inputs, manifest)
+    assert repaired.raw.frames is inputs.raw.frames
+    assert repaired.formations is inputs.formations
+    assert repaired.raw.evidence_sha256 != inputs.raw.evidence_sha256
+    assert inputs.raw.actions[0].kind == 'unsupported'
+    policy = MomentumPolicy(trailing_exit=False)
+    args = dict(universe=['A'], output=tmp_path/'unused', decide=None)
+    before = AIPortfolio(inputs, policy, dates[0], dates[-1], **args).packet(dates[0])
+    after = AIPortfolio(repaired, policy, dates[0], dates[-1],
+                        price_evidence_sha256=inputs.raw.evidence_sha256, **args).packet(dates[0])
+    assert before == after  # Raw prices and supplied facts did not change.
+    def decide(packet, path):
+        replies = iter(decision('A', 900))
+        return run_cycle(packet, path, call=lambda **kw: next(replies))
+    result = run_ai_portfolio(repaired, policy, formation_start=dates[0], end=dates[-1],
+        universe=['A'], output=tmp_path/'run', decide=decide, price_evidence_sha256=inputs.raw.evidence_sha256)
+    assert result['equity_curve'][-1]['dividend_receivables'] > 0
+    assert result['price_evidence_sha256'] != result['accounting_evidence_sha256']
+    assert result['attribution_residual_inr'] == pytest.approx(0, abs=.001)
+    notice.write_text('Changed notice')
+    with pytest.raises(ValueError):
+        accounting_overlay(inputs, manifest)

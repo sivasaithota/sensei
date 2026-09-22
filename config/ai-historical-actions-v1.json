@@ -1,0 +1,229 @@
+{
+  "cash_actions": [
+    {
+      "symbol": "HDFCBANK",
+      "isin": "INE040A01034",
+      "ex_date": "2025-07-25",
+      "known_from": "2025-07-19",
+      "amount": 5.0,
+      "subject": "Special interim dividend Rs5 per Re1 equity share",
+      "replaces_source_id": "94a1dfe672ec2b4ef2c9d2e74d7fa2eb35217cba31af6493a38513d29e179e25",
+      "sources": [
+        {
+          "path": "data/research/ai-backtest-actions/20260922/hdfc-20250719-declaration.pdf",
+          "sha256": "d11b0ad22371d90f2f13ea056e7b5e800e4ab31974ed295358d4c14481a36b3e"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/hdfc-CML69791-bonus-admission.pdf",
+          "sha256": "2c96429bb0241f8145781207c96366494abfcf4a5d32934bbe2640590816582c"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/hdfc-20250719-declaration.pdf.json",
+          "sha256": "cb23af20535578bed33c7b5baa048b0cea87deb90ae24ef73ad09de4d8608289"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/hdfc-CML69791-bonus-admission.pdf.json",
+          "sha256": "3a3c5b0f4d1f7cd153160b893952c40db8703528d6f8b6cd166ca05597a9e995"
+        },
+        {
+          "path": "data/reports/portfolio-action-evidence/2025-partition-2.json",
+          "sha256": "ce7349c44d41ef5396f2c6f056a119673780d8afaf12de517a7394697e388ee4"
+        }
+      ]
+    },
+    {
+      "symbol": "AXISBANK",
+      "isin": "INE238A01034",
+      "ex_date": "2025-07-04",
+      "known_from": "2025-04-25",
+      "amount": 1.0,
+      "subject": "Final Dividend FY 2024-25",
+      "sources": [
+        {
+          "path": "data/research/ai-backtest-actions/20260922/axis-agm-notice.pdf",
+          "sha256": "06750a497ef821bbedb7276781501c7e10895d7b44a1b816d3b4bb167c4efa6e"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/axis-agm-notice.pdf.receipt.json",
+          "sha256": "6cef685e1bb485567faee65f3f3c566ce06cac00cdb75d8b3ea03f6ec989f10c"
+        },
+        {
+          "path": "data/reports/portfolio-action-evidence/2025-partition-2.json",
+          "sha256": "ce7349c44d41ef5396f2c6f056a119673780d8afaf12de517a7394697e388ee4"
+        }
+      ],
+      "replaces_source_id": "734f65ec9033f013603915c6f25a8ecab7002ea29e4de4250631137286b4cf5d"
+    },
+    {
+      "symbol": "BEL",
+      "isin": "INE263A01024",
+      "ex_date": "2025-08-14",
+      "known_from": "2025-08-05",
+      "amount": 0.9,
+      "subject": "Final Dividend FY 2024-25",
+      "sources": [
+        {
+          "path": "data/research/ai-backtest-actions/20260922/bel-dividend.pdf",
+          "sha256": "dc8cbfdeab89c95566b446f23ed2c8a25a3407ae198a4461099e4d77fee32cc8"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/bel-book-closure.pdf",
+          "sha256": "3519eab8ad6a63c91f86c81b21937ef8e3a569417419859bbdda73119e566892"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/bel-dividend.pdf.receipt.json",
+          "sha256": "34ef1da7a1de96919f0c26656d5cc3fe3137b016e2dedb88b606cf48d97fb5f0"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/bel-book-closure.pdf.receipt.json",
+          "sha256": "77123b89e18b915bb0c0ca639a302d285be803a9fa8f8e8d14be183082bb7f23"
+        },
+        {
+          "path": "data/reports/portfolio-action-evidence/2025-partition-2.json",
+          "sha256": "ce7349c44d41ef5396f2c6f056a119673780d8afaf12de517a7394697e388ee4"
+        }
+      ],
+      "replaces_source_id": "8f24f8065acc9b933ae5f5a8f08ee533cf573f3054053263d0a4159e4b1bee58"
+    },
+    {
+      "symbol": "HAL",
+      "isin": "INE066F01020",
+      "ex_date": "2025-08-21",
+      "known_from": "2025-06-27",
+      "amount": 15.0,
+      "subject": "Final Dividend FY 2024-25",
+      "sources": [
+        {
+          "path": "data/research/ai-backtest-actions/20260922/hal-dividend.pdf",
+          "sha256": "71825861313650e9e1687a67bf9a2de0b63e64a267de47d0f6198cee5e98450a"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/hal-dividend.pdf.receipt.json",
+          "sha256": "9d42d8561b7d921aee7471364d9872ee746e410543435058eb7ea2114f8a1d1c"
+        },
+        {
+          "path": "data/reports/portfolio-action-evidence/2025-partition-2.json",
+          "sha256": "ce7349c44d41ef5396f2c6f056a119673780d8afaf12de517a7394697e388ee4"
+        }
+      ],
+      "replaces_source_id": "203fb45a20509c828003f2699648daa0c5d1045ff0ca1a30688172c58805e3e9"
+    },
+    {
+      "symbol": "ICICIBANK",
+      "isin": "INE090A01021",
+      "ex_date": "2025-08-12",
+      "known_from": "2025-06-27",
+      "amount": 11.0,
+      "subject": "Final Dividend FY 2024-25",
+      "sources": [
+        {
+          "path": "data/research/ai-backtest-actions/20260922/icici-dividend-results.pdf",
+          "sha256": "185da6e4ef6d4b4f4d46651fca44fa5d03aaa9896f23dacb8c4632cf231cf62c"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/icici-agm-record-date.pdf",
+          "sha256": "6baf90972bfbdf1f2bf72c38e2a01a5ffb585890d67bfb256a04c033793bbfe9"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/icici-dividend-results.pdf.receipt.json",
+          "sha256": "a7697f595d3903b30569e83af42cb1edbfc3a2830a04bdaf86c73e96290d4b7b"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/icici-agm-record-date.pdf.receipt.json",
+          "sha256": "4f582437f56b3a5263d7a581188c0df3d7f9ab1dc8abc025069cb9be891a8261"
+        },
+        {
+          "path": "data/reports/portfolio-action-evidence/2025-partition-2.json",
+          "sha256": "ce7349c44d41ef5396f2c6f056a119673780d8afaf12de517a7394697e388ee4"
+        }
+      ],
+      "replaces_source_id": "5b0a3d5cf0c8deb89b1c0d6ad79376bce77d0a6c912c27888b1509b441b10f13"
+    },
+    {
+      "symbol": "KOTAKBANK",
+      "isin": "INE237A01028",
+      "ex_date": "2025-07-18",
+      "known_from": "2025-07-09",
+      "amount": 2.5,
+      "subject": "Final Dividend FY 2024-25",
+      "sources": [
+        {
+          "path": "data/research/ai-backtest-actions/20260922/kotak-agm-notice.pdf",
+          "sha256": "1571f37262ddd54090e20fbe43b4eda92c5da34aa4c281c7beb37e69af48df8d"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/kotak-notice-publication.pdf",
+          "sha256": "f880579bd2416b4b82df7057fcbbad3934b35e0b6d649b8da99997522995f1f4"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/kotak-agm-notice.pdf.receipt.json",
+          "sha256": "af3d9ce49e2693b7a0b7c38c9af90dbc28b842010f74e41f4376971229c5220a"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/kotak-notice-publication.pdf.receipt.json",
+          "sha256": "265974674bc68e09d6768a9c12af35228ffc067d6c7dd9dc2fb146bec2b791b2"
+        },
+        {
+          "path": "data/reports/portfolio-action-evidence/2025-partition-2.json",
+          "sha256": "ce7349c44d41ef5396f2c6f056a119673780d8afaf12de517a7394697e388ee4"
+        }
+      ],
+      "replaces_source_id": "e3b23b33f8339fde04018dadcbd40543282d267768d286ac683d3f7610ea208f"
+    }
+  ],
+  "share_actions": [
+    {
+      "symbol": "HDFCBANK",
+      "ex_date": "2025-08-26",
+      "known_from": "2025-08-25",
+      "kind": "bonus",
+      "new_shares": 2,
+      "old_shares": 1,
+      "subject": "Bonus 1:1; NSE CML69791 admission 2025-08-29",
+      "replaces_source_id": "1164b3f3da5cb0e78b8b40e1c0cc8e42ec48a508b384f6bd79f9e70cd8c93ae7",
+      "before_isin": "INE040A01034",
+      "after_isin": "INE040A01034",
+      "available_from": "2025-08-29",
+      "availability_known_from": "2025-08-22",
+      "availability_basis": "documented_market_admission",
+      "sources": [
+        {
+          "path": "data/research/ai-backtest-actions/20260922/hdfc-20250719-declaration.pdf",
+          "sha256": "d11b0ad22371d90f2f13ea056e7b5e800e4ab31974ed295358d4c14481a36b3e"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/hdfc-CML69791-bonus-admission.pdf",
+          "sha256": "2c96429bb0241f8145781207c96366494abfcf4a5d32934bbe2640590816582c"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/hdfc-FAOP69840-bonus-exdate.pdf",
+          "sha256": "d402d5c057df55f982846735e29a50656a3a497f3da4177d70f3ab79e544c186"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/hdfc-20250828-allotment.pdf",
+          "sha256": "62674bb7d8f4b9f09eba645df14c6793f66114743fd8f48f73d1fca348b1fe94"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/hdfc-20250719-declaration.pdf.json",
+          "sha256": "cb23af20535578bed33c7b5baa048b0cea87deb90ae24ef73ad09de4d8608289"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/hdfc-CML69791-bonus-admission.pdf.json",
+          "sha256": "3a3c5b0f4d1f7cd153160b893952c40db8703528d6f8b6cd166ca05597a9e995"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/hdfc-FAOP69840-bonus-exdate.pdf.json",
+          "sha256": "e9ab90c778fc6d9cae1c3a6e3dc311cf4810ec46556e3464ae523f5404d7cb54"
+        },
+        {
+          "path": "data/research/ai-backtest-actions/20260922/hdfc-20250828-allotment.pdf.json",
+          "sha256": "bbcd510988ab60e1b09d86e872660e5775f765828538efc50c483d3bedfa38a7"
+        },
+        {
+          "path": "data/reports/portfolio-action-evidence/2025-partition-2.json",
+          "sha256": "ce7349c44d41ef5396f2c6f056a119673780d8afaf12de517a7394697e388ee4"
+        }
+      ]
+    }
+  ]
+}

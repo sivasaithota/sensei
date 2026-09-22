@@ -12,9 +12,23 @@ from sensei.investment.cycle import run_desk_cycle
 from sensei.backtest.relative_strength import MomentumPolicy, run_momentum_portfolio
 from sensei.research.relative_strength_run import prepare_inputs, compare_benchmark
 from sensei.research.split_reproduction import pinned
+from sensei.research.relative_strength_evidence import repair_cash_actions, repair_share_actions
 
 
-def run(output, *, replay_from=None, resume_from=None):
+def accounting_overlay(inputs, manifest):
+    """Repair accounting only; preserve registered prices and momentum signals."""
+    if set(manifest) != {'cash_actions', 'share_actions'}:
+        raise ValueError('accounting overlay must contain only cash_actions and share_actions')
+    raw = inputs.raw
+    actions = repair_share_actions(raw.frames, inputs.calendar, raw.actions, manifest['share_actions'])
+    actions, _ = repair_cash_actions(raw.frames, inputs.calendar, actions, {}, manifest['cash_actions'])
+    identity = {'base_evidence_sha256': raw.evidence_sha256, 'overlay': manifest,
+                'effective_actions': [asdict(a) for a in actions]}
+    digest = sha256(json.dumps(identity, sort_keys=True, default=str).encode()).hexdigest()
+    return replace(inputs, raw=replace(raw, actions=actions, evidence_sha256=digest)), identity
+
+
+def run(output, *, replay_from=None, resume_from=None, action_repairs=None):
     root = Path(output)
     root.mkdir(parents=True, exist_ok=False)
     source = Path('config/liquid-relative-strength-v8.json')
@@ -23,6 +37,7 @@ def run(output, *, replay_from=None, resume_from=None):
     policy = MomentumPolicy(**plan['policy'])
     # Register dates, selection rule and accounting before any model outputs exist.
     registration = {'status': 'REGISTERED', 'start': str(start.date()), 'end': str(end.date()),
+        'action_repairs': ({'path': str(action_repairs), 'sha256': sha256(Path(action_repairs).read_bytes()).hexdigest()} if action_repairs else None),
         'resume_from': str(resume_from) if resume_from is not None else None,
         'capital': policy.capital, 'universe_rule': 'Top 20 prior-60-session median turnover among dated tradable stocks at inception; freeze thereafter',
         'decision_schedule': 'source calendar month ends strictly before end',
@@ -40,6 +55,11 @@ def run(output, *, replay_from=None, resume_from=None):
         (root/'v8-verification.json').write_text(json.dumps({'verified': [plan['contract'], plan['accounting_contract'], *plan['implementations']]}, indent=2))
         inputs, tri, evidence = prepare_inputs(plan['source_plan'], first_formation=start,
                                               end=end, repairs=plan.get('repairs'))
+        price_evidence_sha256 = inputs.raw.evidence_sha256
+        if action_repairs:
+            manifest = json.loads(pinned(registration['action_repairs']))
+            inputs, overlay = accounting_overlay(inputs, manifest)
+            evidence['accounting_overlay'] = overlay
         candidates = []
         for symbol in sorted(inputs.tradable[start]):
             value = inputs.turnover60[symbol].get(start)
@@ -49,6 +69,10 @@ def run(output, *, replay_from=None, resume_from=None):
         universe = [symbol for _, symbol in sorted(candidates, key=lambda item: (-item[0], item[1]))[:20]]
         if len(universe) != 20:
             raise ValueError('insufficient inception liquidity coverage')
+        blocked = [f'{a.symbol}:{a.ex_date.date()}' for a in inputs.raw.actions
+                   if a.symbol in universe and start < a.ex_date <= end and a.kind == 'unsupported']
+        if blocked:
+            raise ValueError('unresolved universe actions before model calls: ' + ', '.join(blocked))
         formations = {d: f for d, f in inputs.formations.items() if start <= d < end}
         if len(formations) != 2:
             raise ValueError('unexpected decision schedule; refusing unregistered call count')
@@ -72,7 +96,8 @@ def run(output, *, replay_from=None, resume_from=None):
                 return run_desk_cycle(packet, path, target_only=True, resume_from=previous if previous.exists() else None)
             decision_source = {'decide': resume_decision}
         ai = run_ai_portfolio(replace(inputs, formations=formations), replace(policy, trailing_exit=False),
-                              formation_start=start, end=end, universe=universe, output=root/'ai', **decision_source)
+                              formation_start=start, end=end, universe=universe, output=root/'ai',
+                              price_evidence_sha256=price_evidence_sha256, **decision_source)
         comparison = {'status': 'COMPLETE', 'authority': 'RESEARCH_ONLY', 'can_trade': False,
             'ai_return_pct': ai['return_pct'], 'ai_max_drawdown_pct': ai['max_drawdown_pct'],
             'ai_fills': len(ai['fills']), 'momentum_return_pct': control['return_pct'],
@@ -84,6 +109,8 @@ def run(output, *, replay_from=None, resume_from=None):
                 'Same-universe momentum control uses frozen mechanics; not a rerun of the full-universe headline',
                 'AI ATR sizing/trailing exits disabled; price gaps and execution risk caps may reduce fills',
                 'Review horizons recorded but this pilot acts only on registered monthly dates']}
+        if action_repairs:
+            comparison['limitations'].append('Documented action overlay changes accounting for both portfolios; momentum signal rankings remain frozen from the original inputs')
         (root/'comparison.json').write_text(json.dumps(comparison, indent=2))
         return comparison
     except Exception as exc:
@@ -96,5 +123,6 @@ if __name__ == '__main__':
     parser.add_argument('output')
     parser.add_argument('--replay-from', help='Prior pilot directory; reuse exact saved decisions without model calls')
     parser.add_argument('--resume-from', help='Reuse exact validated role responses from a failed pilot; preserve original attempt')
+    parser.add_argument('--action-repairs', help='Pinned primary-source accounting overlay; leaves prices and momentum signals unchanged')
     args = parser.parse_args()
-    print(json.dumps(run(args.output, replay_from=args.replay_from, resume_from=args.resume_from), indent=2))
+    print(json.dumps(run(args.output, replay_from=args.replay_from, resume_from=args.resume_from, action_repairs=args.action_repairs), indent=2))

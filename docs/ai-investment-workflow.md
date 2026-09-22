@@ -41,7 +41,7 @@ These are AI research adapters for the desk responsibilities, not new authority 
 
 ## Historical portfolio pilot
 
-Run `.venv/bin/python -m sensei.research.ai_backtest NEW_OUTPUT_DIRECTORY` for the registered 30 June–29 August 2025 price-only pilot. It uses local audited data, freezes 20 inception-liquid stocks, makes two full-desk decisions (at most 14 model calls), and simulates next-session fills through the existing raw-price accounting engine. It writes registration, evidence identity, per-role artifacts, AI account history, same-universe momentum control and Nifty 500 TRI comparison. Any model failure stops the AI headline report.
+Run `.venv/bin/python -m sensei.research.ai_backtest NEW_OUTPUT_DIRECTORY --action-repairs config/ai-historical-actions-v1.json` for the registered 30 June–29 August 2025 price-only pilot. It uses local audited data, freezes 20 inception-liquid stocks, makes two full-desk decisions (at most 14 model calls), and simulates next-session fills through the existing raw-price accounting engine. It writes registration, evidence identity, per-role artifacts, AI account history, same-universe momentum control and Nifty 500 TRI comparison. Any model failure stops the AI headline report.
 
 For no-model replay, use `sensei.backtest.ai_portfolio.saved_decisions(previous_ai_directory)` as the `decide` argument to `run_ai_portfolio` with the original inputs/policy/universe. It rejects a changed packet or simulated account rather than reusing an incompatible decision. This API does not reconstruct the raw dataset from the report alone.
 
@@ -51,7 +51,8 @@ Command-line replay is also available:
 
 ```sh
 .venv/bin/python -m sensei.research.ai_backtest NEW_REPLAY_DIRECTORY \
-  --replay-from ORIGINAL_PILOT_DIRECTORY
+  --replay-from ORIGINAL_PILOT_DIRECTORY \
+  --action-repairs config/ai-historical-actions-v1.json
 ```
 
 This reloads the verified local accounting inputs and uses no model calls. Saved per-date packets must match the regenerated account and evidence exactly.
@@ -61,3 +62,5 @@ For an explicitly recorded operational recovery, `--resume-from FAILED_PILOT_DIR
 The historical runner uses a target-only manager schema: the AI chooses stock weights and software derives residual cash. It does not change the weights or silently repair contradictory legacy decisions. Resuming across this contract change reuses only upstream research and requests a new manager decision. The general full-desk API retains its legacy schema unless `target_only=True` is selected.
 
 On macOS, wrap a long run with `caffeinate -i` to prevent idle sleep while that command runs. This is temporary and ends with the process; it does not change system sleep settings or prevent lid-triggered sleep. Interrupted provider responses remain failures, with completed role outputs eligible for exact-input resume.
+
+The action manifest pins six cash-dividend repairs and one HDFC Bank bonus repair to archived exchange/issuer documents. Both portfolios use the same repaired accounting; the frozen momentum rankings are unchanged. The original price-evidence identity remains separate from accounting identity, allowing an unchanged decision packet to reuse its saved responses. Unsupported actions anywhere in the fixed pilot universe stop the run before model calls. Source PDFs and receipts live in the local data cache, with URLs documented in the September 22 action research notes.

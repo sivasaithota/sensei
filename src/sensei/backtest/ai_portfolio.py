@@ -15,7 +15,7 @@ from sensei.investment.cycle import run_desk_cycle
 
 
 class AIPortfolio(_Portfolio):
-    def __init__(self, inputs, policy, start, end, *, universe, output, decide):
+    def __init__(self, inputs, policy, start, end, *, universe, output, decide, price_evidence_sha256=None):
         if policy.trailing_exit:
             raise ValueError('AI run must disable mechanical trailing exits')
         super().__init__(inputs, policy, start, end)
@@ -25,6 +25,7 @@ class AIPortfolio(_Portfolio):
         if not set(self.universe) <= set(inputs.raw.frames):
             raise ValueError('unknown universe symbol')
         self.output, self.decide = Path(output), decide
+        self.price_evidence_sha256 = price_evidence_sha256 or inputs.raw.evidence_sha256
 
     def total_target(self, equity, price, atr):
         # Target order quantities come from AI weights, not ATR position sizing.
@@ -46,7 +47,7 @@ class AIPortfolio(_Portfolio):
             rows = [{'date': str(d.date()), 'close': float(row.close), 'volume': float(row.volume)}
                     for d, row in history.iterrows()]
             evidence.append({'id': symbol, 'symbol': symbol,
-                'source': 'local-raw-panel:' + self.inputs.raw.evidence_sha256,
+                'source': 'local-raw-panel:' + self.price_evidence_sha256,
                 'published_at': stamp.isoformat(), 'available_at': stamp.isoformat(),
                 'text': json.dumps({'raw_unadjusted_history': rows,
                     'limitations': 'Price/volume only. Corporate-action price jumps may occur. No news, fundamentals or sentiment supplied. Archive availability is assumed, not contemporaneously captured.'})})
@@ -79,14 +80,14 @@ class AIPortfolio(_Portfolio):
             'orders': [o.to_dict() for o in self.orders.values()]})
 
 
-def run_ai_portfolio(inputs, policy, *, formation_start, end, universe, output, decide=partial(run_desk_cycle, target_only=True)):
+def run_ai_portfolio(inputs, policy, *, formation_start, end, universe, output, decide=partial(run_desk_cycle, target_only=True), price_evidence_sha256=None):
     """Stop on any invalid model response; never score missing decisions as cash."""
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
     account = None
     try:
         account = AIPortfolio(inputs, policy, formation_start, end,
-                              universe=universe, output=output, decide=decide)
+                              universe=universe, output=output, decide=decide, price_evidence_sha256=price_evidence_sha256)
         account.form(formation_start, account.start_index)
         for i in range(account.start_index+1, account.end_index+1):
             session = account.calendar[i]
@@ -103,6 +104,8 @@ def run_ai_portfolio(inputs, policy, *, formation_start, end, universe, output, 
                 account.form(session, i)
         result = account.report(end)
         result.update({'selection': 'AI_TARGET_ALLOCATIONS', 'universe': list(universe),
+                       'price_evidence_sha256': account.price_evidence_sha256,
+                       'accounting_evidence_sha256': inputs.raw.evidence_sha256,
                        'model_cost_inr': None, 'model_cost_included': False,
                        'historical_model_hindsight_possible': True,
                        'evidence_scope': 'raw price and volume only; retrospective availability assumption'})
