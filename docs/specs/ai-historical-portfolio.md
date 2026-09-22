@@ -21,3 +21,5 @@ The recovery exposed a validator defect: a CDSL assessment correctly cited both 
 ## Target-only manager contract
 
 The first manager response assigned 60% stock weights and independently declared 43% cash. Preserve that rejection; do not normalize it or score it. For a new explicitly registered decision contract, request stock weights only and derive cash as `10000 - sum(stock weights)`. The AI still chooses holdings and exposure, including all-cash via zero stock weights. Reject excessive totals or violated cash/risk floors. A changed manager contract reuses only the unchanged upstream research, never the old manager response. Backtest runs use this target-only contract; legacy three-call/full-desk interfaces remain compatible unless it is explicitly selected. Record the contract in both run registration and decision artifacts.
+
+After a valid target-only manager decision, the provider reported computer sleep during Coach's response. Preserve that interruption and resume the exact saved manager allocation with a process-scoped macOS idle-sleep guard. No new manager decision or performance-dependent change is permitted for this recovery.
